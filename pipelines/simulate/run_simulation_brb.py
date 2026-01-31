@@ -492,11 +492,21 @@ def _plot_overlay_audit(
     rrs: np.ndarray,
     curves: List[np.ndarray],
     labels: dict,
+    traces: np.ndarray | None,
 ) -> None:
     try:
         import matplotlib.pyplot as plt
     except Exception:
         return
+
+    def quantile_band(data: np.ndarray, q_low: float = 0.1, q_high: float = 0.9):
+        if data is None or data.size == 0:
+            return None
+        return (
+            np.median(data, axis=0),
+            np.quantile(data, q_low, axis=0),
+            np.quantile(data, q_high, axis=0),
+        )
 
     class_groups = {"normal": [], "amp_error": [], "freq_error": [], "ref_error": []}
     for idx in range(len(curves)):
@@ -504,21 +514,35 @@ def _plot_overlay_audit(
         cls = labels.get(sample_id, {}).get("system_fault_class", "normal")
         if cls in class_groups:
             class_groups[cls].append(idx)
-    plt.figure(figsize=(12, 6))
-    plt.plot(frequency / 1e9, rrs, color="black", linewidth=1.5, label="RRS")
-    for cls, indices in class_groups.items():
-        for idx in indices[:3]:
-            plt.plot(frequency / 1e9, curves[idx], linewidth=0.8, alpha=0.7, label=cls)
-    handles, labels_text = plt.gca().get_legend_handles_labels()
-    unique = dict(zip(labels_text, handles))
-    plt.legend(unique.values(), unique.keys(), fontsize=8)
-    plt.xlabel("Frequency (GHz)")
-    plt.ylabel("Amplitude (dBm)")
-    plt.title("Simulation Overlay Audit (RRS vs Samples)")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(out_dir / "audit_overlay.png", dpi=150)
-    plt.close()
+    x_ghz = frequency / 1e9
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    axes = axes.flatten()
+    real_band = quantile_band(traces, 0.1, 0.9) if traces is not None else None
+    for ax, cls in zip(axes, ["normal", "amp_error", "freq_error", "ref_error"]):
+        indices = class_groups.get(cls, [])
+        cls_curves = np.array([curves[i] for i in indices]) if indices else np.empty((0, len(rrs)))
+        sim_band = quantile_band(cls_curves, 0.1, 0.9)
+        ax.plot(x_ghz, rrs, color="black", linewidth=1.5, label="RRS")
+        if sim_band:
+            med, low, high = sim_band
+            ax.fill_between(x_ghz, low, high, color="tab:orange", alpha=0.3, label="Sim P10-P90")
+            ax.plot(x_ghz, med, color="tab:orange", linewidth=1.1, label="Sim median")
+        if cls == "normal" and real_band:
+            med_r, low_r, high_r = real_band
+            ax.fill_between(x_ghz, low_r, high_r, color="tab:blue", alpha=0.25, label="Real P10-P90")
+            ax.plot(x_ghz, med_r, color="tab:blue", linewidth=1.1, label="Real median")
+        ax.set_title(f"{cls} quantile band")
+        ax.grid(True, alpha=0.3)
+    axes[-2].set_xlabel("Frequency (GHz)")
+    axes[-1].set_xlabel("Frequency (GHz)")
+    axes[0].set_ylabel("Amplitude (dBm)")
+    axes[2].set_ylabel("Amplitude (dBm)")
+    handles, labels_text = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels_text, loc="lower center", ncol=4, fontsize=8)
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    fig.savefig(out_dir / "audit_overlay.png", dpi=150)
+    plt.close(fig)
 
 
 def _plot_normal_vs_real(
@@ -1135,14 +1159,18 @@ def run_simulation(args: argparse.Namespace):
                 "type": "normal" if fault_class == "normal" else "fault",
                 "system_fault_class": fault_class,
                 "system_label": label_sys,
+                "module_cause": None if fault_class == "normal" else label_mod,
                 "module_id": None if fault_class == "normal" else label_mod,
                 "module": None if fault_class == "normal" else label_mod,
                 "module_v2": None if fault_class == "normal" else module_v2,
                 "fault_template_id": None if fault_class == "normal" else template_id,
+                "template_id": None if fault_class == "normal" else template_id,
                 "module_signature": None if fault_class == "normal" else module_signature,
                 "fault_params": fault_params,
                 "tier": tier,
                 "severity": fault_params.get("severity", "light"),
+                "seed": int(args.seed),
+                "sample_seed": int(args.seed) + idx,
                 "abs_range_ok": abs_range_ok,
                 "global_offset_rrs_db": float(np.median(dev_rrs)),
                 "hf_std_rrs_db": hf_std_rrs,
@@ -1244,14 +1272,18 @@ def run_simulation(args: argparse.Namespace):
                     "type": "normal" if fault_class == "normal" else "fault",
                     "system_fault_class": fault_class,  # Always include, "normal" for normal samples
                     "system_label": label_sys,
+                    "module_cause": None if fault_class == "normal" else label_mod,
                     "module_id": None if fault_class == "normal" else label_mod,
                     "module": None if fault_class == "normal" else label_mod,
                     "module_v2": None if fault_class == "normal" else module_v2,
                     "fault_template_id": None if fault_class == "normal" else template_id,
+                    "template_id": None if fault_class == "normal" else template_id,
                     "module_signature": None if fault_class == "normal" else module_signature,
                     "fault_params": fault_params,  # Include injection parameters
                     "tier": tier,
                     "severity": fault_params.get("severity", "light"),
+                    "seed": int(args.seed),
+                    "sample_seed": int(args.seed) + idx,
                     "abs_range_ok": abs_range_ok,
                     "global_offset_rrs_db": float(np.median(dev_rrs)),
                     "hf_std_rrs_db": hf_std_rrs,
@@ -1342,14 +1374,18 @@ def run_simulation(args: argparse.Namespace):
                 "type": "normal" if fault_class == "normal" else "fault",
                 "system_fault_class": fault_class,  # Always include, "normal" for normal samples
                 "system_label": label_sys,
+                "module_cause": None if fault_class == "normal" else label_mod,
                 "module_id": None if fault_class == "normal" else label_mod,
                 "module": None if fault_class == "normal" else label_mod,
                 "module_v2": None if fault_class == "normal" else module_v2,
                 "fault_template_id": None if fault_class == "normal" else template_id,
+                "template_id": None if fault_class == "normal" else template_id,
                 "module_signature": None if fault_class == "normal" else module_signature,
                 "fault_params": fault_params,
                 "tier": tier,
                 "severity": fault_params.get("severity", "light"),
+                "seed": int(args.seed),
+                "sample_seed": int(args.seed) + idx,
                 "abs_range_ok": abs_range_ok,
                 "global_offset_rrs_db": float(np.median(dev_rrs)),
                 "hf_std_rrs_db": hf_std_rrs,
@@ -1391,7 +1427,7 @@ def run_simulation(args: argparse.Namespace):
     np.savez(out_dir / "simulated_curves.npz", frequency=freq, curves=np.array(curves))
     np.save(out_dir / "simulated_curves_float.npy", np.array(curves))
     _write_reject_stats(out_dir, constraints)
-    _plot_overlay_audit(out_dir, freq, rrs, curves, labels)
+    _plot_overlay_audit(out_dir, freq, rrs, curves, labels, traces)
     _plot_peak_track_audit(out_dir, freq, peak_freqs, labels)
     _plot_normal_vs_real(out_dir, freq, rrs, traces, curves, labels)
     _plot_overlay_by_module(out_dir, freq, curves, labels)
