@@ -584,8 +584,23 @@ def _plot_overlay_by_module(
 ) -> None:
     try:
         import matplotlib.pyplot as plt
+        from matplotlib import font_manager as fm
+        import matplotlib
     except Exception:
         return
+    font_candidates = [
+        "Microsoft YaHei",
+        "SimHei",
+        "Noto Sans CJK SC",
+        "PingFang SC",
+        "WenQuanYi Zen Hei",
+        "Arial Unicode MS",
+    ]
+    for font in font_candidates:
+        if any(font in entry.name for entry in fm.fontManager.ttflist):
+            matplotlib.rcParams["font.sans-serif"] = [font, "DejaVu Sans"]
+            matplotlib.rcParams["axes.unicode_minus"] = False
+            break
     module_samples: Dict[str, List[int]] = {}
     for idx in range(len(curves)):
         sample_id = f"sim_{idx:05d}"

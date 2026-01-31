@@ -52,13 +52,13 @@ def _read_csv_two_columns(path: Path) -> Dict[str, np.ndarray]:
     amp_raw: List[float] = []
     with path.open("r", encoding="utf-8") as f:
         reader = csv.reader(f)
-        header = next(reader, None)
+        _ = next(reader, None)
         for row in reader:
-            if not row:
+            if not row or len(row) < 2:
                 continue
             try:
-                freq_raw.append(float(row[0]))
-                amp_raw.append(float(row[1]))
+                freq_raw.append(float(row[-2]))
+                amp_raw.append(float(row[-1]))
             except (ValueError, IndexError):
                 continue
     return {"frequency": np.array(freq_raw, dtype=float), "amplitude": np.array(amp_raw, dtype=float)}
@@ -107,7 +107,14 @@ def main():
 
     files = glob.glob(to_detect_glob)
     if not files:
-        raise FileNotFoundError(f"未找到待检 CSV：{to_detect_glob}")
+        sim_raw_dir = resolve(repo_root, Path(OUTPUT_DIR) / "sim_spectrum" / "raw_curves")
+        sim_glob = str(sim_raw_dir / "*.csv")
+        sim_files = glob.glob(sim_glob)
+        if sim_files:
+            files = sim_files
+            print(f"[INFO] to_detect 为空，使用仿真数据: {sim_glob}")
+        else:
+            raise FileNotFoundError(f"未找到待检 CSV：{to_detect_glob}")
 
     rows: List[Dict[str, object]] = []
     for fpath in files:

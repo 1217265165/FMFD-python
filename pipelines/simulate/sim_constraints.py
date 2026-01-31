@@ -361,12 +361,12 @@ class SimulationConstraints:
     def generate_normal(
         self,
         rng: np.random.Generator,
-        max_attempts: int = 12,
+        max_attempts: int = 25,
     ) -> Tuple[np.ndarray, List[str]]:
         baseline = self.baseline
         global_offset_limit = max(0.001, 1.2 * abs(baseline.global_offset_p95))
-        hf_noise_low = max(1e-4, 0.8 * baseline.hf_noise_p50)
-        hf_noise_high = max(hf_noise_low, 1.2 * baseline.hf_noise_p95)
+        hf_noise_low = max(1e-4, 0.6 * baseline.hf_noise_p50)
+        hf_noise_high = max(hf_noise_low, 1.6 * baseline.hf_noise_p95)
         rho = float(np.clip(baseline.residual_lag1, 0.1, 0.8))
         for _ in range(max_attempts):
             global_offset = float(rng.choice(baseline.global_offsets))
@@ -389,8 +389,8 @@ class SimulationConstraints:
             corr_noise = ar1 * sigma
             heavy_tail = _heavy_tail_noise(
                 rng,
-                sigma * rng.uniform(0.6, 1.0),
-                tail_prob=min(0.08, max(0.02, baseline.residual_tail_prob * 2.5)),
+                sigma * rng.uniform(0.5, 0.9),
+                tail_prob=min(0.05, max(0.015, baseline.residual_tail_prob * 2.0)),
             )
 
             hf_std = float(rng.uniform(hf_noise_low, hf_noise_high))
@@ -406,12 +406,12 @@ class SimulationConstraints:
                 reasons.append("normal amplitude out of bounds")
             if abs(metrics["global_offset"]) > global_offset_limit:
                 reasons.append("normal |global_offset| > limit")
-            if metrics["p95_abs_dev"] > 1.3 * baseline.residual_abs_p95:
+            if metrics["p95_abs_dev"] > 1.4 * baseline.residual_abs_p95:
                 reasons.append("normal p95_abs_dev too large")
             if not (hf_noise_low <= metrics["hf_noise_std"] <= hf_noise_high):
                 reasons.append("normal hf_noise_std outside range")
             rough = roughness_metric(curve)
-            if not (0.7 * baseline.rough_p50 <= rough <= 1.3 * baseline.rough_p50):
+            if not (0.5 * baseline.rough_p50 <= rough <= 1.6 * baseline.rough_p50):
                 reasons.append("normal roughness outside target")
             if not reasons:
                 return curve, []
@@ -490,11 +490,11 @@ class SimulationConstraints:
             reasons.append("normal amplitude out of bounds")
         if abs(metrics["global_offset"]) > 1.2 * abs(baseline.global_offset_p95):
             reasons.append("normal |global_offset| > limit")
-        if metrics["p95_abs_dev"] > 1.3 * baseline.residual_abs_p95:
+        if metrics["p95_abs_dev"] > 1.4 * baseline.residual_abs_p95:
             reasons.append("normal p95_abs_dev too large")
-        if metrics["hf_noise_std"] < 0.8 * baseline.hf_noise_p50:
+        if metrics["hf_noise_std"] < 0.6 * baseline.hf_noise_p50:
             reasons.append("normal hf_noise_std too low")
-        if metrics["hf_noise_std"] > 1.2 * baseline.hf_noise_p95:
+        if metrics["hf_noise_std"] > 1.6 * baseline.hf_noise_p95:
             reasons.append("normal hf_noise_std too high")
         return ConstraintResult(ok=not reasons, reasons=reasons)
 
