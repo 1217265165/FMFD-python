@@ -437,39 +437,74 @@ def _evaluate_tier(dev_rrs: np.ndarray) -> Tuple[str, Dict[str, float]]:
     return tier, {"max_abs": max_abs, "edge_frac": edge_frac, "oos_frac": oos_frac, "cap_db": cap_db}
 
 
+def _smoothstep(x: np.ndarray) -> np.ndarray:
+    return x * x * (3.0 - 2.0 * x)
+
+
+def _build_peak_track_profile(
+    frequency: np.ndarray,
+    rng: np.random.Generator,
+    track_type: str,
+    severity: str,
+) -> Dict[str, object]:
+    base = frequency.astype(float).copy()
+    step_hz = float(base[1] - base[0]) if len(base) > 1 else 1e7
+    offsets = rng.normal(0.0, PEAK_TRACK_NOISE_HZ, size=len(base))
+    mask = np.zeros(len(base), dtype=float)
+    bands = []
+
+    if track_type == "none":
+        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+
+    if track_type == "spike":
+        spike_count = {"light": 4, "mid": 8, "severe": 12}[severity]
+        idx = rng.choice(len(base), size=spike_count, replace=False)
+        spike_offsets = rng.uniform(5e6, 25e6, size=spike_count) * rng.choice([-1, 1], size=spike_count)
+        offsets[idx] += spike_offsets
+        mask[idx] = 1.0
+        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+
+    if track_type in ("dense", "hole"):
+        band_count = {"light": 1, "mid": 2, "severe": 3}[severity]
+        amp_ranges = {"dense": (8e6, 40e6), "hole": (20e6, 60e6)}[track_type]
+        width_ranges = {"light": (0.2e9, 0.5e9), "mid": (0.3e9, 0.8e9), "severe": (0.4e9, 1.0e9)}[severity]
+        ramp_hz = rng.uniform(0.05e9, 0.10e9)
+        jitter_hz = rng.uniform(0.5e6, 2.0e6)
+        for _ in range(band_count):
+            center_hz = float(rng.uniform(base[0] + 0.5e9, base[-1] - 0.5e9))
+            center_hz += rng.uniform(-0.2e9, 0.2e9)
+            width_hz = float(rng.uniform(*width_ranges))
+            start_hz = max(base[0], center_hz - width_hz / 2)
+            end_hz = min(base[-1], center_hz + width_hz / 2)
+            start_idx = int(np.searchsorted(base, start_hz, side="left"))
+            end_idx = int(np.searchsorted(base, end_hz, side="right"))
+            if end_idx <= start_idx + 4:
+                continue
+            ramp_pts = max(3, int(ramp_hz / max(step_hz, 1.0)))
+            length = end_idx - start_idx
+            left = np.linspace(0, 1, ramp_pts, endpoint=False)
+            right = np.linspace(1, 0, ramp_pts, endpoint=False)
+            middle_len = max(0, length - 2 * ramp_pts)
+            middle = np.ones(middle_len)
+            envelope = np.concatenate([left, middle, right])
+            envelope = _smoothstep(envelope)
+            amplitude = float(rng.uniform(*amp_ranges)) * (1 if track_type == "dense" else rng.choice([-1, 1]))
+            offsets[start_idx:end_idx] += amplitude * envelope
+            offsets[start_idx:end_idx] += rng.normal(0.0, jitter_hz, size=len(envelope)) * envelope
+            mask[start_idx:end_idx] = np.maximum(mask[start_idx:end_idx], envelope)
+            bands.append({"start_hz": start_hz, "end_hz": end_hz, "amplitude_hz": amplitude, "ramp_hz": ramp_hz})
+    return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+
+
 def _generate_peak_freq_meas(
     frequency: np.ndarray,
     rng: np.random.Generator,
     track_type: str,
     severity: str,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, Dict[str, object]]:
+    profile = _build_peak_track_profile(frequency, rng, track_type, severity)
     base = frequency.astype(float).copy()
-    if track_type == "none":
-        jitter = rng.normal(0.0, PEAK_TRACK_NOISE_HZ, size=len(base))
-        return base + jitter
-    if track_type == "spike":
-        offsets = rng.normal(0.0, 5e3, size=len(base))
-        spike_count = {"light": 4, "mid": 8, "severe": 12}[severity]
-        idx = rng.choice(len(base), size=spike_count, replace=False)
-        offsets[idx] += rng.uniform(5e6, 25e6, size=spike_count) * rng.choice([-1, 1], size=spike_count)
-        return base + offsets
-    if track_type == "dense":
-        offsets = rng.normal(0.0, 1e6, size=len(base))
-        band_count = {"light": 1, "mid": 2, "severe": 3}[severity]
-        for _ in range(band_count):
-            start = int(rng.integers(0, len(base) - 30))
-            width = int(rng.integers(15, 60))
-            offsets[start:start + width] += rng.uniform(8e6, 40e6)
-        return base + offsets
-    if track_type == "hole":
-        offsets = rng.normal(0.0, 5e3, size=len(base))
-        hole_count = {"light": 1, "mid": 2, "severe": 3}[severity]
-        for _ in range(hole_count):
-            start = int(rng.integers(0, len(base) - 40))
-            width = int(rng.integers(20, 80))
-            offsets[start:start + width] += rng.uniform(20e6, 60e6) * rng.choice([-1, 1])
-        return base + offsets
-    return base
+    return base + profile["offsets"], profile
 
 
 def _peak_freq_metrics(frequency: np.ndarray, peak_freq_meas: np.ndarray) -> Tuple[float, float]:
@@ -872,6 +907,7 @@ def simulate_curve(
         label_mod = "none"
         fault_params = {}  # Track injection parameters
         peak_track_type = "none"
+        peak_track_profile: Dict[str, object] = {"mask": np.zeros(len(frequency)), "offsets": np.zeros(len(frequency))}
         template_id = None
         fault_params["severity"] = severity
         if fault_kind != "normal":
@@ -879,14 +915,15 @@ def simulate_curve(
         fault_params["tier_target"] = target_tier
 
         if fault_kind == "normal":
-            curve, reasons = constraints.generate_normal(rng)
+            curve, reasons, normal_state = constraints.generate_normal(rng)
             if reasons:
                 last_reasons = reasons
                 constraints._record_reject("normal", fault_kind, reasons)
                 continue
             fault_params["type"] = "normal"
+            fault_params["normal_state"] = normal_state
             fault_params["tier_target"] = target_tier
-            peak_freq_meas = _generate_peak_freq_meas(frequency, rng, "none", severity)
+            peak_freq_meas, _ = _generate_peak_freq_meas(frequency, rng, "none", severity)
             return curve, label_sys, label_mod, fault_params, peak_freq_meas, {"peak_track_type": "none"}
 
         curve, reasons = constraints.generate_fault_base(rng)
@@ -904,7 +941,17 @@ def simulate_curve(
         if fault_kind == "amp":
             label_sys = "幅度失准"
             label_mod = forced_module_label or _choose_module_for_system("amp_error", rng)
-            template_id = _select_template(label_mod, rng)
+            subtype = rng.choice(
+                ["amp_error_offset", "amp_error_band", "amp_error_ripple"],
+                p=[0.4, 0.3, 0.3],
+            )
+            fault_params["subtype"] = subtype
+            if subtype == "amp_error_offset":
+                template_id = "T1"
+            elif subtype == "amp_error_band":
+                template_id = "T9"
+            else:
+                template_id = "T3"
         elif fault_kind == "freq":
             curve, freq_params = inject_freq_miscal(
                 frequency, curve, rng=rng, return_params=True, severity=severity
@@ -931,12 +978,14 @@ def simulate_curve(
             label_sys = "幅度失准"
             label_mod = forced_module_label or "低频段前置低通滤波器"
             fault_params["type"] = "lpf_shift"
+            fault_params["subtype"] = "amp_error_band"
             template_id = _select_template(label_mod, rng)
             curve = inject_lpf_shift(frequency, rrs, rng=rng, severity=severity)
         elif fault_kind == "mixer":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "低频段第一混频器"
             fault_params["type"] = "mixer_ripple"
+            fault_params["subtype"] = "amp_error_ripple"
             template_id = _select_template(label_mod, rng)
             curve = inject_mixer1_slope(frequency, rrs, rng=rng, severity=severity)
         elif fault_kind == "ytf":
@@ -963,17 +1012,20 @@ def simulate_curve(
             label_sys = "幅度失准"
             label_mod = forced_module_label or "ADC"
             fault_params["type"] = "adc_bias"
+            fault_params["subtype"] = "amp_error_offset"
             template_id = _select_template(label_mod, rng)
             curve = inject_adc_sawtooth(frequency, rrs, rng=rng, severity=severity)
         elif fault_kind == "vbw":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "数字检波器"
             fault_params["type"] = "vbw_smoothing"
+            fault_params["subtype"] = "amp_error_offset"
             template_id = _select_template(label_mod, rng)
         elif fault_kind == "power":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "电源模块"
             fault_params["type"] = "power_noise"
+            fault_params["subtype"] = "amp_error_ripple"
             template_id = _select_template(label_mod, rng)
             sigma = normal_stats.get("sigma_smooth")
             if sigma is None or len(sigma) != len(rrs):
@@ -988,6 +1040,31 @@ def simulate_curve(
             peak_track_type = template_result.peak_track_type
             fault_params.update(template_result.params)
             fault_params["template_id"] = template_id
+            if peak_track_type != "none":
+                peak_track_profile = _build_peak_track_profile(frequency, rng, peak_track_type, severity)
+                fault_params["peak_track_profile"] = {
+                    "bands": peak_track_profile.get("bands", []),
+                    "track_type": peak_track_type,
+                }
+            if fault_params.get("subtype") == "amp_error_ripple":
+                amp_boost = {"light": 0.08, "mid": 0.09, "severe": 0.10}[severity]
+                f_norm = (frequency - frequency.min()) / max(frequency.max() - frequency.min(), 1.0)
+                curve = curve + amp_boost * np.sin(2 * np.pi * (f_norm / 0.12 + rng.uniform(0, 1)))
+
+        if peak_track_type != "none" and fault_kind in ("freq", "clock", "lo"):
+            offsets = np.asarray(peak_track_profile.get("offsets", np.zeros(len(curve))))
+            mask = np.asarray(peak_track_profile.get("mask", np.zeros(len(curve))))
+            scale = np.clip(np.abs(offsets) / 4.0e7, 0.0, 1.0)
+            bias = -rng.uniform(0.02, 0.10) * scale
+            noise = rng.normal(0.0, rng.uniform(0.004, 0.02), size=len(curve))
+            if peak_track_type == "spike":
+                curve = curve + bias * (mask > 0)
+            else:
+                curve = curve + bias * mask + noise * mask
+            fault_params["freq_amp_coupling"] = {
+                "bias_db_min": -0.10,
+                "bias_db_max": -0.02,
+            }
 
         curve = constraints.adjust_fault_curve(curve, fault_kind, severity, rng=rng)
         if fault_kind in ("amp", "rl", "att"):
@@ -996,7 +1073,11 @@ def simulate_curve(
             curve = _constrain_by_feature_stats(curve, rrs, bounds, normal_stats)
         result = constraints.validate_fault(curve, fault_kind)
         if result.ok:
-            peak_freq_meas = _generate_peak_freq_meas(frequency, rng, peak_track_type, severity)
+            if peak_track_type != "none" and fault_kind in ("freq", "clock", "lo"):
+                offsets = np.asarray(peak_track_profile.get("offsets", np.zeros(len(curve))))
+                peak_freq_meas = frequency + offsets
+            else:
+                peak_freq_meas, _ = _generate_peak_freq_meas(frequency, rng, peak_track_type, severity)
             if fault_kind in ("freq", "clock", "lo") and peak_track_type != "none":
                 peak_mae, peak_outlier_frac = _peak_freq_metrics(frequency, peak_freq_meas)
                 if peak_outlier_frac < 0.02 and peak_mae < 2e6:
@@ -1186,6 +1267,7 @@ def run_simulation(args: argparse.Namespace):
                 "severity": fault_params.get("severity", "light"),
                 "seed": int(args.seed),
                 "sample_seed": int(args.seed) + idx,
+                "amp_error_subtype": fault_params.get("subtype"),
                 "abs_range_ok": abs_range_ok,
                 "global_offset_rrs_db": float(np.median(dev_rrs)),
                 "hf_std_rrs_db": hf_std_rrs,
@@ -1299,6 +1381,7 @@ def run_simulation(args: argparse.Namespace):
                     "severity": fault_params.get("severity", "light"),
                     "seed": int(args.seed),
                     "sample_seed": int(args.seed) + idx,
+                    "amp_error_subtype": fault_params.get("subtype"),
                     "abs_range_ok": abs_range_ok,
                     "global_offset_rrs_db": float(np.median(dev_rrs)),
                     "hf_std_rrs_db": hf_std_rrs,
@@ -1401,6 +1484,7 @@ def run_simulation(args: argparse.Namespace):
                 "severity": fault_params.get("severity", "light"),
                 "seed": int(args.seed),
                 "sample_seed": int(args.seed) + idx,
+                "amp_error_subtype": fault_params.get("subtype"),
                 "abs_range_ok": abs_range_ok,
                 "global_offset_rrs_db": float(np.median(dev_rrs)),
                 "hf_std_rrs_db": hf_std_rrs,
@@ -1724,21 +1808,15 @@ def build_argparser():
     return parser
 
 
-if __name__ == "__main__":
-    import sys
+def main() -> int:
     import os
-    
-    # Change to repository root for relative paths to work
-    # This enables Windows double-click execution
+    import sys
+
     script_dir = Path(__file__).resolve().parent
     repo_root = PROJECT_ROOT
     os.chdir(repo_root)
-    
-    # Build parser and run
     parser = build_argparser()
     args = parser.parse_args()
-    
-    # Show banner for interactive use (Windows double-click)
     print("=" * 60)
     print("FMFD Simulation Pipeline (系统级均衡仿真)")
     print("=" * 60)
@@ -1746,14 +1824,9 @@ if __name__ == "__main__":
     print(f"  Output:  {args.out_dir}")
     print("=" * 60)
     print()
-    
-    # Run simulation
     run_simulation(args)
-    
-    # Windows: pause if double-clicked (no parent console)
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         try:
-            # Check if we're in an interactive session
             if sys.stdin.isatty():
                 print()
                 print("=" * 60)
@@ -1761,3 +1834,8 @@ if __name__ == "__main__":
                 input()
         except Exception:
             pass
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

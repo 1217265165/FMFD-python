@@ -175,6 +175,32 @@ def _template_peak_track(
     )
 
 
+def _template_band_offset(
+    base: np.ndarray,
+    frequency: np.ndarray,
+    rrs: np.ndarray,
+    rng: np.random.Generator,
+    severity: str,
+) -> TemplateResult:
+    offset_range = _severity_range(severity, (0.06, 0.12), (0.10, 0.18), (0.14, 0.24))
+    width_range = _severity_range(severity, (0.2, 0.5), (0.3, 0.7), (0.4, 0.9))
+    f_norm = _norm_freq(frequency)
+    center = float(rng.uniform(0.2, 0.8))
+    width = float(rng.uniform(*width_range))
+    start = max(0.0, center - width / 2)
+    end = min(1.0, center + width / 2)
+    mask = (f_norm >= start) & (f_norm <= end)
+    offset = float(rng.uniform(*offset_range)) * (-1 if rng.random() < 0.5 else 1)
+    curve = base.copy()
+    curve[mask] = curve[mask] + offset
+    return TemplateResult(
+        curve=curve,
+        template_id="T9",
+        params={"band_offset_db": offset, "band_start_norm": start, "band_end_norm": end},
+        peak_track_type="none",
+    )
+
+
 TEMPLATE_TABLE = {
     "T1": _template_smooth_shift,
     "T2": _template_tilt_rolloff,
@@ -184,6 +210,7 @@ TEMPLATE_TABLE = {
     "T6": _template_scatter_thick,
     "T7": _template_quant_grain,
     "T8": _template_peak_track,
+    "T9": _template_band_offset,
 }
 
 

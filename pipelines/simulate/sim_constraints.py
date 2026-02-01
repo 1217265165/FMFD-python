@@ -362,7 +362,7 @@ class SimulationConstraints:
         self,
         rng: np.random.Generator,
         max_attempts: int = 25,
-    ) -> Tuple[np.ndarray, List[str]]:
+    ) -> Tuple[np.ndarray, List[str], str]:
         baseline = self.baseline
         global_offset_limit = max(0.001, 1.2 * abs(baseline.global_offset_p95))
         hf_noise_low = max(1e-4, 0.6 * baseline.hf_noise_p50)
@@ -370,6 +370,9 @@ class SimulationConstraints:
         rho = float(np.clip(baseline.residual_lag1, 0.1, 0.8))
         for _ in range(max_attempts):
             global_offset = float(rng.choice(baseline.global_offsets))
+            normal_state = "normal_state_A" if rng.random() > 0.2 else "normal_state_B"
+            if normal_state == "normal_state_B":
+                global_offset += float(rng.uniform(-0.20, -0.10))
             base_residual = self.sample_residual_curve(rng)
             base_scale = rng.uniform(0.45, 0.95)
             base_residual = base_residual * base_scale
@@ -414,8 +417,8 @@ class SimulationConstraints:
             if not (0.5 * baseline.rough_p50 <= rough <= 1.6 * baseline.rough_p50):
                 reasons.append("normal roughness outside target")
             if not reasons:
-                return curve, []
-        return curve, reasons
+                return curve, [], normal_state
+        return curve, reasons, normal_state
 
     def generate_fault_base(
         self,
@@ -454,13 +457,13 @@ class SimulationConstraints:
         global_offset = float(np.median(delta))
 
         if fault_kind in ("rl", "att"):
-            base = max(0.04, abs(baseline.global_offset_p95))
+            base = max(0.06, abs(baseline.global_offset_p95))
             if severity == "severe":
-                target = rng.uniform(3.2 * base, 4.2 * base)
+                target = rng.uniform(2.8 * base, 3.6 * base)
             elif severity == "mid":
-                target = rng.uniform(2.4 * base, 3.4 * base)
+                target = rng.uniform(2.2 * base, 3.2 * base)
             else:
-                target = rng.uniform(2.0 * base, 2.8 * base)
+                target = rng.uniform(1.8 * base, 2.4 * base)
             target = target * (-1 if rng.random() < 0.5 else 1)
             curve = curve + (target - mean_offset)
             return curve
@@ -909,6 +912,30 @@ def _write_quality_plots(
         fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=8)
     fig.tight_layout(rect=[0, 0.05, 1, 1])
     fig.savefig(sim_dir / "audit_overlay.png", dpi=150)
+    plt.close(fig)
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
+    axes = axes.flatten()
+    for ax, cls in zip(axes, ["normal", "amp_error", "freq_error", "ref_error"]):
+        indices = class_groups.get(cls, [])
+        cls_curves = curves[indices] if indices else np.empty((0, len(baseline.rrs)))
+        sim_band = quantile_band(cls_curves, 0.1, 0.9)
+        ax.plot(x_ghz, baseline.rrs, color="black", linewidth=1.5, label="RRS")
+        if sim_band:
+            med, low, high = sim_band
+            ax.fill_between(x_ghz, low, high, color="tab:orange", alpha=0.3, label="Sim P10-P90")
+            ax.plot(x_ghz, med, color="tab:orange", linewidth=1.2, label="Sim median")
+        ax.set_title(f"{cls} band overview")
+        ax.grid(True, alpha=0.3)
+    axes[-2].set_xlabel("Frequency (GHz)")
+    axes[-1].set_xlabel("Frequency (GHz)")
+    axes[0].set_ylabel("Amplitude (dBm)")
+    axes[2].set_ylabel("Amplitude (dBm)")
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, loc="lower center", ncol=3, fontsize=8)
+    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    fig.savefig(sim_dir / "class_band_overview.png", dpi=150)
     plt.close(fig)
 
     real_residual = baseline.residuals
