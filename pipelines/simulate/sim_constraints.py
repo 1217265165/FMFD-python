@@ -381,7 +381,7 @@ class SimulationConstraints:
         """
         baseline = self.baseline
         # Tighter global offset limit based on real statistics
-        global_offset_limit = max(0.001, 1.0 * abs(baseline.global_offset_p95))
+        global_offset_limit = max(0.001, abs(baseline.global_offset_p95))
         # Tighter hf noise range to match real normal
         hf_noise_low = max(1e-4, 0.8 * baseline.hf_noise_p50)
         hf_noise_high = max(hf_noise_low, 1.2 * baseline.hf_noise_p95)
@@ -433,9 +433,9 @@ class SimulationConstraints:
             hf_noise = rng.normal(0.0, hf_std, size=len(baseline.rrs))
             hf_noise = _smooth_noise(hf_noise, window=9)  # More smoothing
 
-            # W1: Reduced HF boost
-            hf_boost_scale = rng.uniform(0.05, 0.15)  # Reduced from 0.6-1.2
-            hf_boost = rng.normal(0.0, resid_std * 0.10 * hf_boost_scale, size=len(freq))  # 0.10 from 0.35
+            # W1: Reduced HF boost (original had scale 0.35 * resid_std with hf_weight)
+            hf_boost_scale = rng.uniform(0.05, 0.15)
+            hf_boost = rng.normal(0.0, resid_std * 0.10 * hf_boost_scale, size=len(freq))
             hf_boost = hf_boost * hf_weight
 
             # W1: Disable burst for normal samples (avoid tail artifacts)

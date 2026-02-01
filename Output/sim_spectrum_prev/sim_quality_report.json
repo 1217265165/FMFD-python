@@ -8097,256 +8097,7 @@
       "amp_max": -9.809400528295551
     }
   ],
-  "violations": [
-    {
-      "sample_id": "sim_00200",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00201",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00205",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00206",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00207",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00208",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00209",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00213",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00215",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00218",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00221",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00223",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00224",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00225",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00227",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00228",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00233",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00234",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00235",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00237",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00238",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00239",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00241",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00242",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00243",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00244",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00245",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00246",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00247",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00248",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00250",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00252",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00253",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00254",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00255",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00256",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00260",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00261",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00262",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00263",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00267",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00268",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00270",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00271",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00272",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00273",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00274",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00275",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00276",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00277",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00278",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00282",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00283",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00284",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00285",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00290",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00291",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00292",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00293",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00294",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00296",
-      "reason": "ref global_offset too small"
-    },
-    {
-      "sample_id": "sim_00299",
-      "reason": "ref global_offset too small"
-    }
-  ],
+  "violations": [],
   "residual_comparison": {
     "baseline": {
       "mean": -0.01373570884146339,
@@ -23568,10 +23319,176 @@
       ]
     }
   ],
-  "before_after_samples": [],
+  "before_after_samples": [
+    {
+      "sample_id": "sim_00002",
+      "before": {
+        "mean_offset": 1.0181557494123387e-16,
+        "global_offset": 0.015445368808385318,
+        "max_abs_dev": 0.1139492284145458,
+        "p95_abs_dev": 0.1030219019845087,
+        "p99_abs_dev": 0.11224487912300611,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 1.0,
+        "outside_env_frac": 0.0,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.2731707317073171,
+        "hf_noise_std": 0.007041552071914357,
+        "amp_min": -10.111372632914017,
+        "amp_max": -9.816574478191006
+      },
+      "after": {
+        "mean_offset": 1.0181557494123387e-16,
+        "global_offset": 0.015445368808385318,
+        "max_abs_dev": 0.1139492284145458,
+        "p95_abs_dev": 0.1030219019845087,
+        "p99_abs_dev": 0.11224487912300611,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 1.0,
+        "outside_env_frac": 0.0,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.2731707317073171,
+        "hf_noise_std": 0.007041552071914357,
+        "amp_min": -10.111372632914017,
+        "amp_max": -9.816574478191006
+      }
+    },
+    {
+      "sample_id": "sim_00004",
+      "before": {
+        "mean_offset": 0.0016367304978902612,
+        "global_offset": 0.0,
+        "max_abs_dev": 0.1496710466947846,
+        "p95_abs_dev": 0.1397208860997737,
+        "p99_abs_dev": 0.14065604727070857,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.8695121951219512,
+        "outside_env_frac": 0.13048780487804879,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.0975609756097561,
+        "hf_noise_std": 0.025263417859143298,
+        "amp_min": -10.199671046694784,
+        "amp_max": -9.756026723888658
+      },
+      "after": {
+        "mean_offset": 0.0016367304978902612,
+        "global_offset": 0.0,
+        "max_abs_dev": 0.1496710466947846,
+        "p95_abs_dev": 0.1397208860997737,
+        "p99_abs_dev": 0.14065604727070857,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.8695121951219512,
+        "outside_env_frac": 0.13048780487804879,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.0975609756097561,
+        "hf_noise_std": 0.025263417859143298,
+        "amp_min": -10.199671046694784,
+        "amp_max": -9.756026723888658
+      }
+    },
+    {
+      "sample_id": "sim_00001",
+      "before": {
+        "mean_offset": -0.017270601995603013,
+        "global_offset": 0.0,
+        "max_abs_dev": 0.22807171566758555,
+        "p95_abs_dev": 0.1599437535682169,
+        "p99_abs_dev": 0.22165977406637244,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.8219512195121951,
+        "outside_env_frac": 0.17804878048780493,
+        "inside_expanded_env_frac": 0.9524390243902439,
+        "inside_quantile_frac": 0.16585365853658537,
+        "hf_noise_std": 0.04632964601036655,
+        "amp_min": -10.160571715667587,
+        "amp_max": -9.738820608879587
+      },
+      "after": {
+        "mean_offset": -0.017270601995603013,
+        "global_offset": 0.0,
+        "max_abs_dev": 0.22807171566758555,
+        "p95_abs_dev": 0.1599437535682169,
+        "p99_abs_dev": 0.22165977406637244,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.8219512195121951,
+        "outside_env_frac": 0.17804878048780493,
+        "inside_expanded_env_frac": 0.9524390243902439,
+        "inside_quantile_frac": 0.16585365853658537,
+        "hf_noise_std": 0.04632964601036655,
+        "amp_min": -10.160571715667587,
+        "amp_max": -9.738820608879587
+      }
+    },
+    {
+      "sample_id": "sim_00003",
+      "before": {
+        "mean_offset": 5.415722071342227e-17,
+        "global_offset": -0.0007863668759231501,
+        "max_abs_dev": 0.10908221577244959,
+        "p95_abs_dev": 0.07420386574508972,
+        "p99_abs_dev": 0.08754456243540257,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 1.0,
+        "outside_env_frac": 0.0,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.27682926829268295,
+        "hf_noise_std": 0.011596177354475063,
+        "amp_min": -10.101180564490827,
+        "amp_max": -9.786469603355592
+      },
+      "after": {
+        "mean_offset": 5.415722071342227e-17,
+        "global_offset": -0.0007863668759231501,
+        "max_abs_dev": 0.10908221577244959,
+        "p95_abs_dev": 0.07420386574508972,
+        "p99_abs_dev": 0.08754456243540257,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 1.0,
+        "outside_env_frac": 0.0,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.27682926829268295,
+        "hf_noise_std": 0.011596177354475063,
+        "amp_min": -10.101180564490827,
+        "amp_max": -9.786469603355592
+      }
+    },
+    {
+      "sample_id": "sim_00000",
+      "before": {
+        "mean_offset": -4.1159487742200925e-17,
+        "global_offset": -0.0021848959771828547,
+        "max_abs_dev": 0.14034208562359218,
+        "p95_abs_dev": 0.0981348848444737,
+        "p99_abs_dev": 0.1330574516329254,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.9573170731707317,
+        "outside_env_frac": 0.04268292682926833,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.1951219512195122,
+        "hf_noise_std": 0.055114552469243655,
+        "amp_min": -10.12457514297219,
+        "amp_max": -9.77714751648893
+      },
+      "after": {
+        "mean_offset": -4.1159487742200925e-17,
+        "global_offset": -0.0021848959771828547,
+        "max_abs_dev": 0.14034208562359218,
+        "p95_abs_dev": 0.0981348848444737,
+        "p99_abs_dev": 0.1330574516329254,
+        "within_0p4_ratio": 1.0,
+        "inside_env_frac": 0.9573170731707317,
+        "outside_env_frac": 0.04268292682926833,
+        "inside_expanded_env_frac": 1.0,
+        "inside_quantile_frac": 0.1951219512195122,
+        "hf_noise_std": 0.055114552469243655,
+        "amp_min": -10.12457514297219,
+        "amp_max": -9.77714751648893
+      }
+    }
+  ],
   "thresholds": {
     "normal_global_offset_max": 0.035999999999999234,
-    "ref_global_offset_min": 0.05999999999999872,
+    "ref_global_offset_min": 0.03,
     "amp_global_offset_max": 0.04499999999999904,
     "freq_proxy_threshold": 0.0,
     "hf_noise_std_low": 0.0053989234532664035,
@@ -23582,5 +23499,168 @@
     "baseline_p95": 0.018268487080001717,
     "sim_normal_p50": 0.01890259034335295,
     "sim_normal_p95": 0.019493957567973723
+  },
+  "feature_checks": {
+    "freq_error": {
+      "feature_zscores": {
+        "X16": 1.7285935030606796,
+        "X17": -64.99999999999284,
+        "X18": 0.0
+      },
+      "pass": false
+    },
+    "ref_error": {
+      "feature_zscores": {
+        "X14": -0.3475745778725725,
+        "X1": -2.5699641494532903
+      },
+      "pass": false
+    },
+    "amp_error": {
+      "feature_zscores": {
+        "X6": 7.143833180083092,
+        "X3": -0.6511468602241469,
+        "X10": 2.9290369487237378
+      },
+      "pass": true
+    },
+    "stats": {
+      "normal": {
+        "X1": {
+          "mean": -9.930420235199769,
+          "std": 0.013667279392281469
+        },
+        "X3": {
+          "mean": 0.00025437877415830033,
+          "std": 0.00021252208630931805
+        },
+        "X6": {
+          "mean": 0.0013613011999070606,
+          "std": 0.0002810691240580832
+        },
+        "X10": {
+          "mean": 0.015044715452451245,
+          "std": 0.004646480054299204
+        },
+        "X14": {
+          "mean": 0.015382220757008349,
+          "std": 0.00464171369005208
+        },
+        "X16": {
+          "mean": 0.0015528804874174141,
+          "std": 0.013083764998686374
+        },
+        "X17": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "X18": {
+          "mean": 0.0,
+          "std": 0.0
+        }
+      },
+      "amp_error": {
+        "X1": {
+          "mean": -9.933684944526014,
+          "std": 0.008105887197476827
+        },
+        "X3": {
+          "mean": 0.00011599568492970272,
+          "std": 0.0002761198191733974
+        },
+        "X6": {
+          "mean": 0.003369212134250086,
+          "std": 0.002106921514936878
+        },
+        "X10": {
+          "mean": 0.02865442721300149,
+          "std": 0.0169420288090979
+        },
+        "X14": {
+          "mean": 0.03534081079612516,
+          "std": 0.019335910376439832
+        },
+        "X16": {
+          "mean": -4.311004880768833,
+          "std": 40.12155577831638
+        },
+        "X17": {
+          "mean": -5.0000000000005595e-06,
+          "std": 0.00011169153951844098
+        },
+        "X18": {
+          "mean": 0.0,
+          "std": 7.071067811865475e-05
+        }
+      },
+      "freq_error": {
+        "X1": {
+          "mean": -9.933073170731706,
+          "std": 1.1783018260144472e-15
+        },
+        "X3": {
+          "mean": 0.00022938479085945002,
+          "std": 0.00012272497955929034
+        },
+        "X6": {
+          "mean": 0.0011515194841155909,
+          "std": 0.00023554503478444896
+        },
+        "X10": {
+          "mean": 0.015451461466156877,
+          "std": 0.003272730790023292
+        },
+        "X14": {
+          "mean": 0.010053253546128411,
+          "std": 0.0049515696589459614
+        },
+        "X16": {
+          "mean": 0.024169391659719403,
+          "std": 0.16719204574399965
+        },
+        "X17": {
+          "mean": -6.499999999999284e-05,
+          "std": 0.00026129485260904963
+        },
+        "X18": {
+          "mean": 0.0,
+          "std": 0.00015811388300841897
+        }
+      },
+      "ref_error": {
+        "X1": {
+          "mean": -9.965544653258494,
+          "std": 0.049411596470904144
+        },
+        "X3": {
+          "mean": 0.0002687318540784458,
+          "std": 0.00019457604656791328
+        },
+        "X6": {
+          "mean": 0.0013514735387679896,
+          "std": 0.00030906964305770185
+        },
+        "X10": {
+          "mean": 0.01641382822719167,
+          "std": 0.004859564672727101
+        },
+        "X14": {
+          "mean": 0.013768879080583156,
+          "std": 0.006509553686414891
+        },
+        "X16": {
+          "mean": -0.00040368522765999544,
+          "std": 0.010454313368229948
+        },
+        "X17": {
+          "mean": 0.0,
+          "std": 0.0
+        },
+        "X18": {
+          "mean": 0.0,
+          "std": 0.0
+        }
+      }
+    }
   }
 }

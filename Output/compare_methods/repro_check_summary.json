@@ -23,7 +23,7 @@
   "best_params": {
     "path": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/best_params.json",
     "exists": true,
-    "sha256": "b29a41f69d8d540ad63880369352a9bbfa76bad70f09ed9f15294e262291ba0b"
+    "sha256": "c0928a2ead2e2f1547b0f28e9b4e0825c3692562e102029b86c44aaf8e04fbb9"
   },
   "single_band": true,
   "disable_preamp": true,

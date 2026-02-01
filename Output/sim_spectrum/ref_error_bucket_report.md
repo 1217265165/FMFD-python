@@ -4,6 +4,6 @@ Bucketed by (template_id, tier, severity).
 
 | template_id | tier | severity | count | X1 mean | X1 std | X3 mean | X3 std |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T1 | in_spec_weak | light | 48 | -9.9728 | 0.0276 | 0.0003 | 0.0002 |
-| T1 | in_spec_weak | mid | 38 | -9.9613 | 0.0578 | 0.0003 | 0.0002 |
-| T1 | in_spec_weak | severe | 14 | -9.9519 | 0.0732 | 0.0003 | 0.0001 |
+| T1 | in_spec_weak | light | 55 | -9.9739 | 0.0245 | 0.0003 | 0.0002 |
+| T1 | in_spec_weak | mid | 32 | -9.9553 | 0.0590 | 0.0003 | 0.0002 |
+| T1 | in_spec_weak | severe | 13 | -9.9561 | 0.0702 | 0.0002 | 0.0002 |

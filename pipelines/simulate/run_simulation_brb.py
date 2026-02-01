@@ -492,8 +492,9 @@ def _build_peak_track_profile(
 
     if track_type == "spike":
         # W4: Random spike count with some variability
+        # Minimum spike count matches light severity (4) to ensure detectability
         base_count = {"light": 4, "mid": 8, "severe": 12}[severity]
-        spike_count = max(2, base_count + rng.integers(-2, 3))
+        spike_count = max(base_count - 1, base_count + rng.integers(-2, 3))
         
         # W4: Spread spikes more uniformly across frequency range
         # Divide frequency range into regions and sample from each
@@ -571,17 +572,23 @@ def _build_peak_track_profile(
                 continue
             ramp_pts = max(3, int(ramp_hz / max(step_hz, 1.0)))
             length = end_idx - start_idx
-            left = np.linspace(0, 1, ramp_pts, endpoint=False)
-            right = np.linspace(1, 0, ramp_pts, endpoint=False)
-            middle_len = max(0, length - 2 * ramp_pts)
-            middle = np.ones(middle_len)
-            envelope = np.concatenate([left, middle, right])
-            envelope = _smoothstep(envelope)
+            # Ensure envelope length matches exactly
+            if length <= 2 * ramp_pts:
+                # Not enough room for ramps, use simple trapezoid
+                envelope = np.linspace(0, 1, length // 2, endpoint=False)
+                envelope = np.concatenate([envelope, np.linspace(1, 0, length - len(envelope))])
+            else:
+                left = np.linspace(0, 1, ramp_pts, endpoint=False)
+                right = np.linspace(1, 0, ramp_pts, endpoint=False)
+                middle_len = length - len(left) - len(right)
+                middle = np.ones(middle_len)
+                envelope = np.concatenate([left, middle, right])
+            envelope = _smoothstep(envelope[:length])  # Ensure exact length
             
             # W4: Random amplitude with sign
             amplitude = float(rng.uniform(*amp_ranges)) * (1 if track_type == "dense" else rng.choice([-1, 1]))
             offsets[start_idx:end_idx] += amplitude * envelope
-            offsets[start_idx:end_idx] += rng.normal(0.0, jitter_hz, size=len(envelope)) * envelope
+            offsets[start_idx:end_idx] += rng.normal(0.0, jitter_hz, size=length) * envelope
             mask[start_idx:end_idx] = np.maximum(mask[start_idx:end_idx], envelope)
             bands.append({
                 "start_hz": start_hz, 
