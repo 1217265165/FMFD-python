@@ -229,6 +229,9 @@ PEAK_TRACK_OUTLIER_HZ = 5e6
 
 MODULE_TEMPLATE_MAP = {}
 
+# 中文消息常量 (用于国际化)
+MSG_NO_SAMPLE_FOR_TYPE = "无 {track_type} 样本"
+
 
 def _module_v2_from_fault(module_v1: str, fault_type: str) -> str:
     mapping = {
@@ -503,9 +506,15 @@ def _build_peak_track_profile(
         base_count = {"light": 4, "mid": 8, "severe": 12}[severity]
         spike_count = max(base_count - 1, base_count + rng.integers(-2, 3))
         
-        # 任务3: spike 类型增加峰值数量效应
-        peak_effects["count_multiplier"] = rng.uniform(0.7, 1.3)  # 峰值数量变化
-        peak_effects["position_jitter_hz"] = rng.uniform(1e6, 5e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
+        # 任务3: spike 类型峰值效应
+        count_multiplier = rng.uniform(0.7, 1.3)  # 峰值数量变化
+        position_jitter = rng.uniform(1e6, 5e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
+        
+        # 应用数量倍增器
+        spike_count = max(2, int(spike_count * count_multiplier))
+        
+        peak_effects["count_multiplier"] = count_multiplier
+        peak_effects["position_jitter_hz"] = position_jitter
         
         # W4: Spread spikes more uniformly across frequency range
         # Divide frequency range into regions and sample from each
@@ -526,8 +535,9 @@ def _build_peak_track_profile(
                 spike_indices.extend(rng.choice(list(available), size=min(remaining, len(available)), replace=False))
         
         idx = np.array(spike_indices[:spike_count])
-        # W4: Wider amplitude range for spikes
+        # W4: Wider amplitude range for spikes, with position jitter applied
         spike_offsets = rng.uniform(3e6, 30e6, size=len(idx)) * rng.choice([-1, 1], size=len(idx))
+        spike_offsets += rng.normal(0, position_jitter, size=len(idx))  # Apply position jitter
         offsets[idx] += spike_offsets
         mask[idx] = 1.0
         return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type, "peak_effects": peak_effects}
@@ -537,15 +547,20 @@ def _build_peak_track_profile(
         base_count = {"light": 1, "mid": 2, "severe": 3}[severity]
         band_count = max(1, base_count + rng.integers(-1, 2))
         
-        # 任务3: dense/hole 类型影响峰值宽度
-        peak_effects["width_factor"] = rng.uniform(0.8, 1.5) if track_type == "dense" else rng.uniform(0.6, 1.2)
-        peak_effects["position_jitter_hz"] = rng.uniform(0.5e6, 3e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
+        # 任务3: dense/hole 类型峰值效应
+        width_factor = rng.uniform(0.8, 1.5) if track_type == "dense" else rng.uniform(0.6, 1.2)
+        position_jitter = rng.uniform(0.5e6, 3e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
         
-        # W4: Wider ranges for amplitude and width
+        peak_effects["width_factor"] = width_factor
+        peak_effects["position_jitter_hz"] = position_jitter
+        
+        # W4: Wider ranges for amplitude and width (apply width_factor)
         amp_ranges = {"dense": (5e6, 50e6), "hole": (15e6, 70e6)}[track_type]
-        width_ranges = {"light": (0.15e9, 0.6e9), "mid": (0.25e9, 0.9e9), "severe": (0.35e9, 1.2e9)}[severity]
+        base_width_ranges = {"light": (0.15e9, 0.6e9), "mid": (0.25e9, 0.9e9), "severe": (0.35e9, 1.2e9)}[severity]
+        # Apply width_factor to width ranges
+        width_ranges = (base_width_ranges[0] * width_factor, base_width_ranges[1] * width_factor)
         ramp_hz = rng.uniform(0.03e9, 0.12e9)
-        jitter_hz = rng.uniform(0.3e6, 2.5e6)
+        jitter_hz = rng.uniform(0.3e6, 2.5e6) + position_jitter * 0.1  # Include position jitter
         
         # W4: Track used frequency regions to avoid overlap
         used_regions = []
@@ -877,7 +892,7 @@ def _plot_peak_track_audit(
                 chosen = i
                 break
         if chosen is None:
-            ax.text(0.5, 0.5, f"无 {track_type} 样本", ha="center", va="center")
+            ax.text(0.5, 0.5, MSG_NO_SAMPLE_FOR_TYPE.format(track_type=track_type), ha="center", va="center")
             ax.set_axis_off()
             continue
         diff = peak_freqs[chosen] - frequency
@@ -916,7 +931,7 @@ def _plot_peakfreq_behavior(
                 chosen = i
                 break
         if chosen is None:
-            ax.text(0.5, 0.5, f"无 {track_type} 样本", ha="center", va="center")
+            ax.text(0.5, 0.5, MSG_NO_SAMPLE_FOR_TYPE.format(track_type=track_type), ha="center", va="center")
             ax.set_axis_off()
             continue
         diff = (peak_freqs[chosen] - frequency) / 1e6

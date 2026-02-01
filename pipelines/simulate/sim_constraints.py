@@ -353,7 +353,7 @@ MODULE_NOISE_PROFILES = {
         "drift": False,
     },
     "adc": {
-        "name": "ADC模数转换",
+        "name": "ADC模数转换器",
         "lf_stable": False,
         "hf_increase": False,
         "pulse_prob": 0.0,
@@ -364,7 +364,7 @@ MODULE_NOISE_PROFILES = {
         "drift": False,
     },
     "detector": {
-        "name": "检波器/VBW",
+        "name": "数字检波器",
         "lf_stable": False,
         "hf_increase": False,
         "pulse_prob": 0.0,
@@ -384,7 +384,7 @@ MODULE_NOISE_PROFILES = {
         "drift_period": (0.05, 0.2),  # 漂移周期范围(归一化)
     },
     "clock": {
-        "name": "时钟/振荡器",
+        "name": "时钟振荡器",
         "lf_stable": True,
         "hf_increase": True,
         "pulse_prob": 0.05,     # 轻微相位噪声脉冲
@@ -471,15 +471,27 @@ def generate_noise_by_module(
     if profile.get("pulse_prob", 0) > 0:
         pulse_prob = profile["pulse_prob"] * severity_scale
         pulse_width = profile.get("pulse_width", (3, 8))
-        n_pulses = int(rng.poisson(pulse_prob * n / 50))  # 每50个点平均pulse_prob个脉冲
+        min_width = pulse_width[0]
+        max_width = pulse_width[1]
+        
+        # 脉冲数量: 每50个采样点平均 pulse_prob 个脉冲
+        expected_pulses = pulse_prob * n / 50.0
+        n_pulses = int(rng.poisson(max(0.1, expected_pulses)))
+        
         for _ in range(n_pulses):
-            pos = rng.integers(0, max(1, n - pulse_width[1]))
-            width = rng.integers(pulse_width[0], pulse_width[1] + 1)
-            amplitude = rng.uniform(1.5, 3.0) * severity_scale * sigma_base[pos]
+            # 确保有足够空间生成脉冲
+            if n < min_width + 2:
+                continue
+            pos = rng.integers(0, max(1, n - max_width))
+            width = rng.integers(min_width, min(max_width + 1, n - pos))
+            if width < 2:
+                continue
+            amplitude = rng.uniform(1.5, 3.0) * severity_scale * sigma_base[min(pos, len(sigma_base) - 1)]
             sign = rng.choice([-1, 1])
             end_pos = min(pos + width, n)
+            actual_width = end_pos - pos
             # 使用平滑的脉冲形状
-            pulse_shape = np.hanning(width)[:end_pos - pos]
+            pulse_shape = np.hanning(actual_width)
             base_noise[pos:end_pos] += sign * amplitude * pulse_shape
     
     # 3. 量化阶梯 (ADC特征)
@@ -490,7 +502,7 @@ def generate_noise_by_module(
         bias = profile.get("bias_drift", 0.02) * severity_scale
         base_noise += rng.uniform(-bias, bias)
     
-    # 4. 高频抑制 (检波器特征)
+    # 4. 高频抑制 (数字检波器特征)
     if profile.get("hf_suppress"):
         cutoff = profile.get("hf_cutoff", 0.7)
         suppress_weight = np.clip((f_norm - cutoff) / (1 - cutoff + 1e-6), 0, 1)
