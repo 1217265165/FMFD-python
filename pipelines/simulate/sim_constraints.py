@@ -322,6 +322,228 @@ def _heavy_tail_noise(
     return combined * sigma
 
 
+# =============================================================================
+# 模块特定噪声模型 (Module-Specific Noise Models)
+# =============================================================================
+# 每个模块有独特的噪声谱特征，这是区分不同模块故障的关键
+# LPF/IF: 低频平稳，高频逐渐增大
+# Mixer: 局部随机脉冲型
+# ADC: 量化阶梯噪声 + 偏置
+# 检波器: 高频被抑制
+# 电源: 宽带随机漂移
+
+MODULE_NOISE_PROFILES = {
+    "lpf": {
+        "name": "LPF/IF低通滤波器",
+        "lf_stable": True,      # 低频平稳
+        "hf_increase": True,    # 高频逐渐增大
+        "pulse_prob": 0.0,      # 无脉冲
+        "quantize": False,      # 无量化
+        "hf_suppress": False,   # 无高频抑制
+        "drift": False,         # 无漂移
+    },
+    "mixer": {
+        "name": "Mixer混频器",
+        "lf_stable": False,
+        "hf_increase": False,
+        "pulse_prob": 0.15,     # 局部随机脉冲
+        "pulse_width": (3, 10), # 脉冲宽度范围
+        "quantize": False,
+        "hf_suppress": False,
+        "drift": False,
+    },
+    "adc": {
+        "name": "ADC模数转换",
+        "lf_stable": False,
+        "hf_increase": False,
+        "pulse_prob": 0.0,
+        "quantize": True,       # 量化阶梯噪声
+        "quantize_step": 0.01,  # 量化步长 dB
+        "bias_drift": 0.02,     # 偏置漂移
+        "hf_suppress": False,
+        "drift": False,
+    },
+    "detector": {
+        "name": "检波器/VBW",
+        "lf_stable": False,
+        "hf_increase": False,
+        "pulse_prob": 0.0,
+        "quantize": False,
+        "hf_suppress": True,    # 高频被抑制
+        "hf_cutoff": 0.7,       # 高频抑制起始点(归一化频率)
+        "drift": False,
+    },
+    "power": {
+        "name": "电源模块",
+        "lf_stable": False,
+        "hf_increase": False,
+        "pulse_prob": 0.0,
+        "quantize": False,
+        "hf_suppress": False,
+        "drift": True,          # 宽带随机漂移
+        "drift_period": (0.05, 0.2),  # 漂移周期范围(归一化)
+    },
+    "clock": {
+        "name": "时钟/振荡器",
+        "lf_stable": True,
+        "hf_increase": True,
+        "pulse_prob": 0.05,     # 轻微相位噪声脉冲
+        "quantize": False,
+        "hf_suppress": False,
+        "drift": True,          # 轻微漂移
+        "drift_period": (0.1, 0.3),
+    },
+    "normal": {
+        "name": "正常状态",
+        "lf_stable": True,
+        "hf_increase": False,   # 正常状态高频不增加
+        "pulse_prob": 0.0,
+        "quantize": False,
+        "hf_suppress": False,
+        "drift": False,
+    },
+}
+
+# 模块类型到噪声配置的映射
+MODULE_TO_NOISE_TYPE = {
+    "低频段前置低通滤波器": "lpf",
+    "低频段第一混频器": "mixer",
+    "高频段YTF滤波器": "lpf",
+    "ADC": "adc",
+    "数字检波器": "detector",
+    "电源模块": "power",
+    "时钟振荡器": "clock",
+    "时钟合成与同步网络": "clock",
+    "本振混频组件": "mixer",
+    "校准源": "lpf",
+    "衰减器": "lpf",
+    "存储器": "lpf",
+    "校准信号开关": "lpf",
+}
+
+
+def generate_noise_by_module(
+    frequency: np.ndarray,
+    sigma_base: np.ndarray,
+    rng: np.random.Generator,
+    module_type: str = "normal",
+    severity: str = "light",
+) -> np.ndarray:
+    """根据模块类型生成特定噪声谱。
+    
+    不同模块有不同的噪声特征:
+    - LPF: 低频平稳，高频增大
+    - Mixer: 局部脉冲
+    - ADC: 量化阶梯
+    - 检波器: 高频抑制
+    - 电源: 宽带漂移
+    
+    Args:
+        frequency: 频率轴 (Hz)
+        sigma_base: 基础噪声标准差
+        rng: 随机数生成器
+        module_type: 模块类型名称
+        severity: 严重程度 (light/mid/severe)
+    
+    Returns:
+        模块特定的噪声数组
+    """
+    n = len(frequency)
+    noise_type = MODULE_TO_NOISE_TYPE.get(module_type, "normal")
+    profile = MODULE_NOISE_PROFILES.get(noise_type, MODULE_NOISE_PROFILES["normal"])
+    
+    # 基础噪声
+    base_noise = rng.normal(0.0, 1.0, size=n) * sigma_base
+    
+    # 严重程度缩放
+    severity_scale = {"light": 0.8, "mid": 1.0, "severe": 1.3}.get(severity, 1.0)
+    
+    # 归一化频率轴
+    f_norm = (frequency - frequency.min()) / (frequency.max() - frequency.min() + 1e-12)
+    
+    # 1. 低频平稳，高频增大 (LPF/IF特征)
+    if profile.get("hf_increase"):
+        hf_weight = np.power(f_norm, 1.5) * 0.5  # 高频权重
+        hf_noise = rng.normal(0.0, 1.0, size=n) * sigma_base * hf_weight * severity_scale
+        base_noise = base_noise * (1 - 0.3 * f_norm) + hf_noise  # 低频减弱，高频增强
+    
+    # 2. 局部脉冲 (Mixer特征)
+    if profile.get("pulse_prob", 0) > 0:
+        pulse_prob = profile["pulse_prob"] * severity_scale
+        pulse_width = profile.get("pulse_width", (3, 8))
+        n_pulses = int(rng.poisson(pulse_prob * n / 50))  # 每50个点平均pulse_prob个脉冲
+        for _ in range(n_pulses):
+            pos = rng.integers(0, max(1, n - pulse_width[1]))
+            width = rng.integers(pulse_width[0], pulse_width[1] + 1)
+            amplitude = rng.uniform(1.5, 3.0) * severity_scale * sigma_base[pos]
+            sign = rng.choice([-1, 1])
+            end_pos = min(pos + width, n)
+            # 使用平滑的脉冲形状
+            pulse_shape = np.hanning(width)[:end_pos - pos]
+            base_noise[pos:end_pos] += sign * amplitude * pulse_shape
+    
+    # 3. 量化阶梯 (ADC特征)
+    if profile.get("quantize"):
+        step = profile.get("quantize_step", 0.01) * severity_scale
+        base_noise = np.round(base_noise / step) * step
+        # 添加偏置漂移
+        bias = profile.get("bias_drift", 0.02) * severity_scale
+        base_noise += rng.uniform(-bias, bias)
+    
+    # 4. 高频抑制 (检波器特征)
+    if profile.get("hf_suppress"):
+        cutoff = profile.get("hf_cutoff", 0.7)
+        suppress_weight = np.clip((f_norm - cutoff) / (1 - cutoff + 1e-6), 0, 1)
+        base_noise = base_noise * (1 - 0.7 * suppress_weight * severity_scale)
+    
+    # 5. 宽带漂移 (电源特征)
+    if profile.get("drift"):
+        period_range = profile.get("drift_period", (0.1, 0.2))
+        period = rng.uniform(*period_range)
+        phase = rng.uniform(0, 2 * np.pi)
+        drift_amplitude = np.mean(sigma_base) * 0.8 * severity_scale
+        drift = drift_amplitude * np.sin(2 * np.pi * f_norm / period + phase)
+        # 添加随机漂移调制
+        drift *= (1 + 0.3 * rng.normal(0, 1, size=n))
+        base_noise += _smooth_noise(drift, window=15)
+    
+    return base_noise
+
+
+def generate_normal_noise(
+    frequency: np.ndarray,
+    sigma_base: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """为正常样本生成独立的噪声模型。
+    
+    正常样本的噪声特征:
+    - 低频到高频较为平稳
+    - 无明显脉冲
+    - 无量化阶梯
+    - 无系统性漂移
+    
+    这与故障样本的噪声骨架完全不同，确保正常/故障可以通过
+    噪声形态区分，而不仅仅是故障形态。
+    """
+    n = len(frequency)
+    
+    # 正常状态：平稳的高斯噪声，带轻微自相关
+    noise = rng.normal(0.0, 1.0, size=n) * sigma_base * 0.6
+    
+    # 添加轻微的平滑自相关（真实仪器的特征）
+    noise = _smooth_noise(noise, window=5)
+    
+    # 正常状态不应有频率依赖的系统性变化
+    # 只添加非常轻微的随机调制
+    f_norm = (frequency - frequency.min()) / (frequency.max() - frequency.min() + 1e-12)
+    modulation = 1 + 0.05 * rng.normal(0, 1, size=n)
+    modulation = _smooth_noise(modulation, window=21)  # 平滑调制
+    noise = noise * modulation
+    
+    return noise
+
+
 class SimulationConstraints:
     def __init__(self, baseline: BaselineStats):
         self.baseline = baseline
@@ -363,21 +585,18 @@ class SimulationConstraints:
         rng: np.random.Generator,
         max_attempts: int = 25,
     ) -> Tuple[np.ndarray, List[str], str]:
-        """Generate normal sample with tightened noise budget to match real normal statistics.
+        """Generate normal sample using INDEPENDENT noise model.
         
-        W1 Improvement: Noise budget table
-        - base_residual: 0.25-0.50 scale (was 0.45-0.95)
-        - segment_offsets: 0.3 * std (was 0.8 * std)
-        - corr_noise: 0.4-0.7 sigma scale (was 0.85-1.15)
-        - heavy_tail: disabled for normal (was enabled)
-        - hf_noise: narrower range with better smoothing
-        - hf_boost: reduced scale 0.10 (was 0.35)
-        - hf_burst: disabled for normal (was enabled)
+        关键改进 (Critical Improvement):
+        正常样本使用独立的噪声模型，不再继承故障样本的统计骨架。
         
-        Target metrics (based on real normal):
-        - p95_abs_dev: 0.02-0.06 dB (not 0.10)
-        - hf_std: 0.004-0.012 dB
-        - global_offset: within real normal range
+        正常样本噪声特征:
+        - 低频到高频较为平稳 (无系统性增长)
+        - 无脉冲型噪声
+        - 无量化阶梯
+        - 无系统性漂移
+        
+        这确保了正常/故障可以通过噪声形态本身区分，而不仅仅依赖故障形态。
         """
         baseline = self.baseline
         # Tighter global offset limit based on real statistics
@@ -385,78 +604,52 @@ class SimulationConstraints:
         # Tighter hf noise range to match real normal
         hf_noise_low = max(1e-4, 0.8 * baseline.hf_noise_p50)
         hf_noise_high = max(hf_noise_low, 1.2 * baseline.hf_noise_p95)
-        rho = float(np.clip(baseline.residual_lag1, 0.1, 0.8))
         freq = baseline.frequency
-        f_ghz = freq / 1e9
-        hf_start = 6.0
-        hf_end = max(6.5, float(np.max(f_ghz)))
-        hf_weight = np.clip((f_ghz - hf_start) / max(hf_end - hf_start, 0.5), 0.0, 1.0)
-        resid_std = np.std(baseline.residuals, axis=0) if baseline.residuals.size else np.zeros_like(freq)
         
-        # Tighter p95 constraint (key for W1)
+        # Tighter p95 constraint
         target_p95_abs_max = min(baseline.residual_abs_p95 * 1.15, 0.06)
         
         for _ in range(max_attempts):
             global_offset = float(rng.choice(baseline.global_offsets))
             normal_state = "normal_state_A" if rng.random() > 0.2 else "normal_state_B"
             if normal_state == "normal_state_B":
-                # Reduced offset for state B
                 global_offset += float(rng.uniform(-0.05, -0.02))
             
-            # W1: Tightened base residual scale
-            base_residual = self.sample_residual_curve(rng)
-            base_scale = rng.uniform(0.25, 0.50)  # Reduced from 0.45-0.95
-            base_residual = base_residual * base_scale
-
-            # W1: Reduced segment offsets
-            segment_offsets = np.zeros_like(base_residual)
+            # ===== 关键改进：使用独立的正常噪声模型 =====
+            # 不再使用 sample_residual_curve() 从故障样本继承统计骨架
+            normal_noise = generate_normal_noise(
+                frequency=freq,
+                sigma_base=baseline.sigma_smooth,
+                rng=rng,
+            )
+            
+            # 添加轻微的段偏移（真实仪器在不同频段有轻微偏移）
+            segment_offsets = np.zeros_like(normal_noise)
             seg_edges = baseline.segment_edges
             for seg_idx, (start, end) in enumerate(zip(seg_edges[:-1], seg_edges[1:])):
                 if end <= start:
                     continue
                 mean = float(baseline.segment_bias_mean[min(seg_idx, len(baseline.segment_bias_mean) - 1)])
                 std = float(baseline.segment_bias_std[min(seg_idx, len(baseline.segment_bias_std) - 1)])
-                seg_offset = rng.normal(mean, 0.3 * std)  # Reduced from 0.8 * std
+                seg_offset = rng.normal(mean, 0.2 * std)  # 比故障更小的偏移
                 segment_offsets[start:end] = seg_offset
-
-            # W1: Tightened correlated noise
-            sigma = baseline.sigma_smooth * rng.uniform(0.4, 0.7)  # Reduced from 0.85-1.15
-            ar1 = _ar1_process(rng, len(baseline.rrs), rho)
-            corr_noise = ar1 * sigma
             
-            # W1: Disable heavy tail for normal samples (keep distribution tight)
-            # heavy_tail is set to zero
-            heavy_tail = np.zeros_like(corr_noise)
-
-            # W1: Tightened HF noise
-            hf_std = float(rng.uniform(hf_noise_low, hf_noise_high))
-            hf_noise = rng.normal(0.0, hf_std, size=len(baseline.rrs))
-            hf_noise = _smooth_noise(hf_noise, window=9)  # More smoothing
-
-            # W1: Reduced HF boost (original had scale 0.35 * resid_std with hf_weight)
-            hf_boost_scale = rng.uniform(0.05, 0.15)
-            hf_boost = rng.normal(0.0, resid_std * 0.10 * hf_boost_scale, size=len(freq))
-            hf_boost = hf_boost * hf_weight
-
-            # W1: Disable burst for normal samples (avoid tail artifacts)
-            hf_burst = np.zeros_like(hf_boost)
-
-            residual = base_residual + segment_offsets + corr_noise + heavy_tail + hf_noise + hf_boost + hf_burst
+            residual = normal_noise + segment_offsets
             residual = residual - float(np.median(residual))
             curve = baseline.rrs + global_offset + residual
+            
             metrics = compute_curve_metrics(curve, baseline)
             reasons = []
             if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
                 reasons.append("normal amplitude out of bounds")
             if abs(metrics["global_offset"]) > global_offset_limit:
                 reasons.append("normal |global_offset| > limit")
-            # W1: Tighter p95 constraint
             if metrics["p95_abs_dev"] > target_p95_abs_max:
                 reasons.append("normal p95_abs_dev too large")
             if not (hf_noise_low <= metrics["hf_noise_std"] <= hf_noise_high):
                 reasons.append("normal hf_noise_std outside range")
             rough = roughness_metric(curve)
-            if not (0.6 * baseline.rough_p50 <= rough <= 1.3 * baseline.rough_p50):  # Tighter range
+            if not (0.6 * baseline.rough_p50 <= rough <= 1.3 * baseline.rough_p50):
                 reasons.append("normal roughness outside target")
             if not reasons:
                 return curve, [], normal_state
@@ -466,17 +659,39 @@ class SimulationConstraints:
         self,
         rng: np.random.Generator,
         max_attempts: int = 12,
+        module_type: str = "normal",
+        severity: str = "light",
     ) -> Tuple[np.ndarray, List[str]]:
+        """生成故障基础曲线，使用模块特定的噪声模型。
+        
+        关键改进: 不同模块有不同的噪声谱特征
+        - LPF: 低频平稳，高频增大
+        - Mixer: 局部脉冲
+        - ADC: 量化阶梯
+        - 检波器: 高频抑制
+        - 电源: 宽带漂移
+        """
         baseline = self.baseline
         for _ in range(max_attempts):
-            base_residual = self.sample_residual_curve(rng)
-            scale = rng.uniform(0.85, 1.15)
-            residual = self.winsorize_residual(base_residual * scale)
-            curve = baseline.rrs + residual
-            jitter = generate_correlated_noise(
-                baseline.sigma_smooth, rng, alpha_range=(0.04, 0.12)
+            # 使用模块特定的噪声模型替代统一的correlated noise
+            module_noise = generate_noise_by_module(
+                frequency=baseline.frequency,
+                sigma_base=baseline.sigma_smooth,
+                rng=rng,
+                module_type=module_type,
+                severity=severity,
             )
-            curve = curve + jitter
+            
+            # 混合少量基础残差以保持与真实数据的关联
+            base_residual = self.sample_residual_curve(rng)
+            base_scale = rng.uniform(0.2, 0.4)  # 降低基础残差的影响
+            base_residual = base_residual * base_scale
+            
+            # 组合: 模块噪声 + 基础残差
+            residual = module_noise * 0.6 + base_residual * 0.4
+            residual = self.winsorize_residual(residual)
+            
+            curve = baseline.rrs + residual
             metrics = compute_curve_metrics(curve, baseline)
             reasons = []
             if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
@@ -486,6 +701,7 @@ class SimulationConstraints:
             if not reasons:
                 return curve, []
         return curve, reasons
+
     def adjust_fault_curve(
         self,
         curve: np.ndarray,
@@ -512,8 +728,10 @@ class SimulationConstraints:
 
         if fault_kind in ("rl", "att"):
             # W2: More realistic ref_error offset distribution
-            # Real calibration drift: smaller magnitude, more variance, can be +/-
-            base = max(0.03, abs(baseline.global_offset_p95))
+            base = max(0.04, abs(baseline.global_offset_p95))  # Slightly higher base
+            
+            # W2: Ensure minimum offset for detectability
+            min_required = max(0.035, 0.85 * base)  # Guaranteed minimum
             
             # W2: Wider magnitude range with sample-to-sample variance
             if severity == "severe":
@@ -521,20 +739,25 @@ class SimulationConstraints:
             elif severity == "mid":
                 target_mag = rng.uniform(1.0 * base, 2.0 * base)
             else:
-                target_mag = rng.uniform(0.6 * base, 1.4 * base)  # Can be small
+                # Light severity: still needs to be detectable
+                target_mag = rng.uniform(max(0.8 * base, min_required), 1.5 * base)
             
             # W2: Random sign (not fixed based on baseline)
             sign = rng.choice([-1.0, 1.0])
             
-            # W2: Add sample-to-sample variance in offset
-            variance_factor = rng.uniform(0.7, 1.3)
-            target = sign * target_mag * variance_factor + rng.normal(0.0, 0.3 * base)
+            # W2: Add sample-to-sample variance in offset (smaller noise)
+            variance_factor = rng.uniform(0.85, 1.15)  # Reduced variance
+            target = sign * target_mag * variance_factor
+            
+            # Ensure minimum absolute offset
+            if abs(target) < min_required:
+                target = sign * min_required
             
             # W2: Optional slight frequency slope (real ref drift often has slope)
             if rng.random() < 0.4:
                 freq = baseline.frequency
                 x_norm = (freq - freq[0]) / (freq[-1] - freq[0] + 1e-12)
-                slope_mag = rng.uniform(-0.03, 0.03)  # Small slope
+                slope_mag = rng.uniform(-0.02, 0.02)  # Small slope
                 slope_component = slope_mag * (x_norm - 0.5)
                 curve = curve + slope_component
                 delta = curve - baseline.rrs
@@ -593,12 +816,13 @@ class SimulationConstraints:
             reasons.append("fault amplitude out of bounds")
         if fault_kind in ("rl", "att"):
             # W2: Use absolute minimum threshold for ref_error offset
-            # Allow smaller offsets for light severity (more realistic)
-            min_offset = max(0.03, 0.8 * abs(baseline.global_offset_p95))  # Lower threshold
+            # Relaxed threshold to allow module-specific noise variation
+            min_offset = max(0.025, 0.6 * abs(baseline.global_offset_p95))  # Lower threshold
             if abs(metrics["global_offset"]) < min_offset:
                 reasons.append("ref global_offset too small")
-            # W2: Relaxed p95_abs_dev requirement  
-            if metrics["p95_abs_dev"] < 0.8 * baseline.residual_abs_p95:  # More lenient
+            # W2: Very relaxed p95_abs_dev requirement
+            # Module-specific noise may have different characteristics
+            if metrics["p95_abs_dev"] < 0.5 * baseline.residual_abs_p95:  # Much more lenient
                 reasons.append("ref p95_abs_dev too small")
             return ConstraintResult(ok=not reasons, reasons=reasons)
 

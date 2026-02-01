@@ -474,27 +474,38 @@ def _build_peak_track_profile(
 ) -> Dict[str, object]:
     """Build peak frequency tracking error profile.
     
-    W4 Improvement: De-templating
-    - Center frequencies are now uniformly sampled from the full allowed range
-    - Width and amplitude have wider random ranges
-    - Added random number of events (not fixed by severity)
-    - Bands cannot overlap to avoid predictable patterns
-    - Spike positions are truly random (not clustered)
+    任务3改进: freq_error 不仅影响幅度，还影响:
+    - 峰值数量 (peak_count_effect)
+    - 峰值位置 (position_jitter)
+    - 峰值宽度 (width_modulation)
+    
+    这使得 freq_error 类型的故障更容易通过峰值特征识别。
     """
     base = frequency.astype(float).copy()
     step_hz = float(base[1] - base[0]) if len(base) > 1 else 1e7
     offsets = rng.normal(0.0, PEAK_TRACK_NOISE_HZ, size=len(base))
     mask = np.zeros(len(base), dtype=float)
     bands = []
+    
+    # 任务3新增: 峰值特征影响参数
+    peak_effects = {
+        "count_multiplier": 1.0,   # 峰值数量倍增器
+        "position_jitter_hz": 0.0,  # 位置抖动 (Hz)
+        "width_factor": 1.0,        # 宽度调制因子
+    }
 
     if track_type == "none":
-        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type, "peak_effects": peak_effects}
 
     if track_type == "spike":
         # W4: Random spike count with some variability
         # Minimum spike count matches light severity (4) to ensure detectability
         base_count = {"light": 4, "mid": 8, "severe": 12}[severity]
         spike_count = max(base_count - 1, base_count + rng.integers(-2, 3))
+        
+        # 任务3: spike 类型增加峰值数量效应
+        peak_effects["count_multiplier"] = rng.uniform(0.7, 1.3)  # 峰值数量变化
+        peak_effects["position_jitter_hz"] = rng.uniform(1e6, 5e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
         
         # W4: Spread spikes more uniformly across frequency range
         # Divide frequency range into regions and sample from each
@@ -519,12 +530,16 @@ def _build_peak_track_profile(
         spike_offsets = rng.uniform(3e6, 30e6, size=len(idx)) * rng.choice([-1, 1], size=len(idx))
         offsets[idx] += spike_offsets
         mask[idx] = 1.0
-        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+        return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type, "peak_effects": peak_effects}
 
     if track_type in ("dense", "hole"):
         # W4: Randomized band count
         base_count = {"light": 1, "mid": 2, "severe": 3}[severity]
         band_count = max(1, base_count + rng.integers(-1, 2))
+        
+        # 任务3: dense/hole 类型影响峰值宽度
+        peak_effects["width_factor"] = rng.uniform(0.8, 1.5) if track_type == "dense" else rng.uniform(0.6, 1.2)
+        peak_effects["position_jitter_hz"] = rng.uniform(0.5e6, 3e6) * ({"light": 0.5, "mid": 1.0, "severe": 1.5}[severity])
         
         # W4: Wider ranges for amplitude and width
         amp_ranges = {"dense": (5e6, 50e6), "hole": (15e6, 70e6)}[track_type]
@@ -598,7 +613,7 @@ def _build_peak_track_profile(
                 "amplitude_hz": amplitude, 
                 "ramp_hz": ramp_hz
             })
-    return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
+    return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type, "peak_effects": peak_effects}
 
 
 def _generate_peak_freq_meas(
@@ -626,6 +641,48 @@ def _write_reject_stats(out_dir: Path, constraints: SimulationConstraints) -> No
     )
 
 
+def _setup_chinese_font() -> None:
+    """设置中文字体支持，解决matplotlib中文乱码问题。
+    
+    任务4要求: 所有matplotlib输出必须正确显示中文。
+    """
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+        from matplotlib import font_manager as fm
+        
+        # 候选字体列表 (按优先级)
+        font_candidates = [
+            "SimHei",           # 黑体
+            "Microsoft YaHei",  # 微软雅黑
+            "Noto Sans CJK SC", # Noto思源黑体
+            "PingFang SC",      # 苹方字体
+            "WenQuanYi Zen Hei",# 文泉驿正黑
+            "Arial Unicode MS", # Arial Unicode
+            "DejaVu Sans",      # 备选西文字体
+        ]
+        
+        # 查找可用字体
+        available_fonts = [entry.name for entry in fm.fontManager.ttflist]
+        selected_font = None
+        for font in font_candidates:
+            if any(font in name for name in available_fonts):
+                selected_font = font
+                break
+        
+        # 设置字体
+        if selected_font:
+            matplotlib.rcParams["font.sans-serif"] = [selected_font, "DejaVu Sans"]
+        else:
+            matplotlib.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+        
+        matplotlib.rcParams["axes.unicode_minus"] = False
+        matplotlib.rcParams["figure.dpi"] = 150
+        
+    except Exception:
+        pass
+
+
 def _plot_overlay_audit(
     out_dir: Path,
     frequency: np.ndarray,
@@ -638,6 +695,9 @@ def _plot_overlay_audit(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
 
     def quantile_band(data: np.ndarray, q_low: float = 0.1, q_high: float = 0.9):
         if data is None or data.size == 0:
@@ -699,6 +759,10 @@ def _plot_normal_vs_real(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     plt.figure(figsize=(12, 6))
     for idx in range(min(5, traces.shape[0])):
         plt.plot(frequency / 1e9, traces[idx], color="tab:gray", alpha=0.4, linewidth=0.6)
@@ -707,9 +771,9 @@ def _plot_normal_vs_real(
         if labels.get(sample_id, {}).get("system_fault_class") == "normal":
             plt.plot(frequency / 1e9, curve, color="tab:blue", alpha=0.5, linewidth=0.7)
     plt.plot(frequency / 1e9, rrs, color="black", linewidth=1.5, label="RRS")
-    plt.xlabel("Frequency (GHz)")
-    plt.ylabel("Amplitude (dBm)")
-    plt.title("Normal vs Real Overlay (statistical consistency)")
+    plt.xlabel("频率 (GHz)")
+    plt.ylabel("幅度 (dBm)")
+    plt.title("正常样本 vs 真实数据 (统计一致性)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(out_dir / "sample_overlay_normal_vs_real.png", dpi=150)
@@ -724,23 +788,12 @@ def _plot_overlay_by_module(
 ) -> None:
     try:
         import matplotlib.pyplot as plt
-        from matplotlib import font_manager as fm
-        import matplotlib
     except Exception:
         return
-    font_candidates = [
-        "Microsoft YaHei",
-        "SimHei",
-        "Noto Sans CJK SC",
-        "PingFang SC",
-        "WenQuanYi Zen Hei",
-        "Arial Unicode MS",
-    ]
-    for font in font_candidates:
-        if any(font in entry.name for entry in fm.fontManager.ttflist):
-            matplotlib.rcParams["font.sans-serif"] = [font, "DejaVu Sans"]
-            matplotlib.rcParams["axes.unicode_minus"] = False
-            break
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     module_samples: Dict[str, List[int]] = {}
     for idx in range(len(curves)):
         sample_id = f"sim_{idx:05d}"
@@ -755,9 +808,9 @@ def _plot_overlay_by_module(
     for ax, module in zip(axes, modules):
         for idx in module_samples[module][:4]:
             ax.plot(frequency / 1e9, curves[idx], linewidth=0.7, alpha=0.7)
-        ax.set_title(f"Module Overlay: {module}")
+        ax.set_title(f"模块叠加: {module}")
         ax.grid(True, alpha=0.3)
-    axes[-1].set_xlabel("Frequency (GHz)")
+    axes[-1].set_xlabel("频率 (GHz)")
     fig.tight_layout()
     fig.savefig(out_dir / "sample_overlay_by_module.png", dpi=150)
     plt.close(fig)
@@ -773,6 +826,10 @@ def _plot_template_gallery(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     template_samples: Dict[str, List[int]] = {}
     for idx in range(len(curves)):
         sample_id = f"sim_{idx:05d}"
@@ -787,9 +844,9 @@ def _plot_template_gallery(
     for ax, template_id in zip(axes, templates):
         for idx in template_samples[template_id][:3]:
             ax.plot(frequency / 1e9, curves[idx], linewidth=0.7, alpha=0.7)
-        ax.set_title(f"Template: {template_id}")
+        ax.set_title(f"模板: {template_id}")
         ax.grid(True, alpha=0.3)
-    axes[-1].set_xlabel("Frequency (GHz)")
+    axes[-1].set_xlabel("频率 (GHz)")
     fig.tight_layout()
     fig.savefig(out_dir / "template_gallery.png", dpi=150)
     plt.close(fig)
@@ -805,6 +862,9 @@ def _plot_peak_track_audit(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
 
     track_types = ["spike", "dense", "hole"]
     plt.figure(figsize=(12, 7))
@@ -817,16 +877,16 @@ def _plot_peak_track_audit(
                 chosen = i
                 break
         if chosen is None:
-            ax.text(0.5, 0.5, f"No sample for {track_type}", ha="center", va="center")
+            ax.text(0.5, 0.5, f"无 {track_type} 样本", ha="center", va="center")
             ax.set_axis_off()
             continue
         diff = peak_freqs[chosen] - frequency
         ax.plot(frequency / 1e9, diff / 1e6, color="tab:blue", linewidth=0.8)
         ax.axhline(0, color="black", linewidth=0.5)
-        ax.set_title(f"Peak Track Type: {track_type}")
-        ax.set_ylabel("Δfreq (MHz)")
+        ax.set_title(f"峰值追踪类型: {track_type}")
+        ax.set_ylabel("Δ频率 (MHz)")
         ax.grid(True, alpha=0.3)
-    plt.xlabel("Frequency (GHz)")
+    plt.xlabel("频率 (GHz)")
     plt.tight_layout()
     plt.savefig(out_dir / "audit_peak_track.png", dpi=150)
     plt.close()
@@ -842,6 +902,10 @@ def _plot_peakfreq_behavior(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     track_types = ["spike", "dense", "hole"]
     fig, axes = plt.subplots(len(track_types), 1, figsize=(12, 7), sharex=True)
     for ax, track_type in zip(axes, track_types):
@@ -852,16 +916,16 @@ def _plot_peakfreq_behavior(
                 chosen = i
                 break
         if chosen is None:
-            ax.text(0.5, 0.5, f"No sample for {track_type}", ha="center", va="center")
+            ax.text(0.5, 0.5, f"无 {track_type} 样本", ha="center", va="center")
             ax.set_axis_off()
             continue
         diff = (peak_freqs[chosen] - frequency) / 1e6
         ax.plot(frequency / 1e9, diff, color="tab:purple", linewidth=0.8)
         ax.axhline(0, color="black", linewidth=0.5)
-        ax.set_title(f"freq_error peak_track: {track_type}")
-        ax.set_ylabel("Δfreq (MHz)")
+        ax.set_title(f"freq_error 峰值追踪: {track_type}")
+        ax.set_ylabel("Δ频率 (MHz)")
         ax.grid(True, alpha=0.3)
-    axes[-1].set_xlabel("Frequency (GHz)")
+    axes[-1].set_xlabel("频率 (GHz)")
     fig.tight_layout()
     fig.savefig(out_dir / "peakfreq_behavior_freq_error.png", dpi=150)
     plt.close(fig)
@@ -876,6 +940,10 @@ def _plot_amp_vs_ref_separability(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     amp_points = []
     ref_points = []
     for row in feature_rows:
@@ -892,14 +960,14 @@ def _plot_amp_vs_ref_separability(
     plt.figure(figsize=(6, 5))
     if amp_points:
         xs, ys = zip(*amp_points)
-        plt.scatter(xs, ys, s=12, alpha=0.6, label="amp_error")
+        plt.scatter(xs, ys, s=12, alpha=0.6, label="幅度失准")
     if ref_points:
         xs, ys = zip(*ref_points)
-        plt.scatter(xs, ys, s=12, alpha=0.6, label="ref_error")
+        plt.scatter(xs, ys, s=12, alpha=0.6, label="参考电平失准")
     plt.xlabel("X1")
     plt.ylabel("X3")
     plt.legend()
-    plt.title("Amp vs Ref separability (X1 vs X3)")
+    plt.title("幅度失准 vs 参考电平失准 可分性 (X1 vs X3)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(out_dir / "amp_vs_ref_separability.png", dpi=150)
@@ -918,6 +986,10 @@ def _plot_grid_with_manifest(
         import matplotlib.pyplot as plt
     except Exception:
         return
+    
+    # 任务4: 设置中文字体
+    _setup_chinese_font()
+    
     sample_ids = [f"sim_{idx:05d}" for idx in range(len(curves))]
     manifest_rows: List[Dict[str, object]] = []
     batch_index = 0
@@ -1151,7 +1223,28 @@ def simulate_curve(
             peak_freq_meas, _ = _generate_peak_freq_meas(frequency, rng, "none", severity)
             return curve, label_sys, label_mod, fault_params, peak_freq_meas, {"peak_track_type": "none"}
 
-        curve, reasons = constraints.generate_fault_base(rng)
+        # 将 fault_kind 映射到模块类型，用于生成模块特定的噪声
+        fault_kind_to_module = {
+            "amp": "校准源",
+            "freq": "时钟振荡器",
+            "rl": "衰减器",
+            "att": "衰减器",
+            "lpf": "低频段前置低通滤波器",
+            "mixer": "低频段第一混频器",
+            "adc": "ADC",
+            "vbw": "数字检波器",
+            "power": "电源模块",
+            "clock": "时钟合成与同步网络",
+            "lo": "本振混频组件",
+        }
+        module_type_for_noise = fault_kind_to_module.get(fault_kind, "校准源")
+        
+        # 使用模块特定的噪声模型生成故障基础
+        curve, reasons = constraints.generate_fault_base(
+            rng, 
+            module_type=module_type_for_noise,
+            severity=severity,
+        )
         if reasons:
             last_reasons = reasons
             constraints._record_reject("fault_base", fault_kind, reasons)
