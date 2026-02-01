@@ -1,0 +1,27 @@
+{
+  "alpha": 1.5,
+  "gamma": 0.0,
+  "T_low": 0.6829183634480511,
+  "T_high": 0.8329183634480511,
+  "k_normal_prior": 0.0,
+  "beta_amp": 1.0,
+  "beta_freq": 0.0,
+  "beta_ref": 0.0,
+  "jump_energy_p99": 0.17877860388447878,
+  "env_violation_p99": 1.941544769214168,
+  "overall_threshold": 0.6829183634480511,
+  "max_prob_threshold": 0.35,
+  "T_normal": 0.6829183634480511,
+  "T_prob": 0.35,
+  "calibration_balanced_accuracy": 0.23125,
+  "calibration_macro_f1": 0.09390862944162437,
+  "single_band_mode": true,
+  "version": "v8_X30_amp_ref_gate",
+  "calibration_split": {
+    "train_count": 240,
+    "val_count": 80,
+    "train_hash": "35cc508be8b35d3fa3287600f9f827fb78f816287b460d7b2db19452cb980f66",
+    "val_hash": "4c989cc4e2c86623476f852e40077c6bf4b5566f1736d5b8a88e2921bfab6aec",
+    "note": "calibration uses train/val only; test excluded"
+  }
+}

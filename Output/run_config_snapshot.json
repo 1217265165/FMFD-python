@@ -1,0 +1,7 @@
+{
+  "project_root": "/home/runner/work/FMFD-python/FMFD-python",
+  "single_band": true,
+  "disable_preamp": true,
+  "seed": 2025,
+  "output_dir": "/home/runner/work/FMFD-python/FMFD-python/Output"
+}
