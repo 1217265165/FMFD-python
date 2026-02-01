@@ -1233,12 +1233,10 @@ def simulate_curve(
                 peak_freq_meas = frequency + offsets
             else:
                 peak_freq_meas, _ = _generate_peak_freq_meas(frequency, rng, peak_track_type, severity)
-            if fault_kind in ("freq", "clock", "lo") and peak_track_type != "none":
+            if fault_kind in ("freq", "lo") and peak_track_type != "none":
                 peak_mae, peak_outlier_frac = _peak_freq_metrics(frequency, peak_freq_meas)
                 if peak_outlier_frac < 0.02 and peak_mae < 2e6:
-                    last_reasons = ["peak_freq mismatch too weak"]
-                    constraints._record_reject("fault", fault_kind, last_reasons)
-                    continue
+                    fault_params["peak_track_warning"] = "peak_freq mismatch too weak"
             return (
                 curve,
                 label_sys,
