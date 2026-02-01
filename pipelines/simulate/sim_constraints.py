@@ -473,16 +473,13 @@ class SimulationConstraints:
         global_offset = float(np.median(delta))
 
         if fault_kind in ("rl", "att"):
-            base = max(0.05, abs(baseline.global_offset_p95))
-            if severity == "severe":
-                target_mag = rng.uniform(2.2 * base, 3.0 * base)
-            elif severity == "mid":
-                target_mag = rng.uniform(1.8 * base, 2.6 * base)
-            else:
-                target_mag = rng.uniform(1.4 * base, 2.0 * base)
-            sign = 1.0 if baseline.global_offset_p50 >= 0 else -1.0
-            target = sign * target_mag + rng.normal(0.0, 0.15 * base)
-            curve = curve + (target - mean_offset)
+            # Reference errors should not lift the amplitude baseline; keep residual centered.
+            delta = delta - mean_offset
+            max_budget = rng.uniform(0.06, 0.16)
+            max_abs = float(np.max(np.abs(delta)))
+            if max_abs > max_budget and max_abs > 0:
+                delta = delta * (max_budget / max_abs)
+            curve = baseline.rrs + delta
             return curve
 
         if fault_kind == "amp":
@@ -525,10 +522,8 @@ class SimulationConstraints:
         if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
             reasons.append("fault amplitude out of bounds")
         if fault_kind in ("rl", "att"):
-            if abs(metrics["global_offset"]) < 1.4 * abs(baseline.global_offset_p95):
-                reasons.append("ref global_offset too small")
-            if metrics["p95_abs_dev"] < baseline.residual_abs_p95:
-                reasons.append("ref p95_abs_dev too small")
+            if abs(metrics["global_offset"]) > 0.5 * abs(baseline.global_offset_p95):
+                reasons.append("ref global_offset too large")
             return ConstraintResult(ok=not reasons, reasons=reasons)
 
         if fault_kind == "amp":
