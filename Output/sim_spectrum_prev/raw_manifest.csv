@@ -1,0 +1,401 @@
+label,module,module_v2,path,sample_id
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00000.csv,sim_00000
+幅度失准,本振混频组件,[RF板][Mixer1],raw_curves/sim_00001.csv,sim_00001
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00002.csv,sim_00002
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00003.csv,sim_00003
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00004.csv,sim_00004
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00005.csv,sim_00005
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00006.csv,sim_00006
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00007.csv,sim_00007
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00008.csv,sim_00008
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00009.csv,sim_00009
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00010.csv,sim_00010
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00011.csv,sim_00011
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00012.csv,sim_00012
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00013.csv,sim_00013
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00014.csv,sim_00014
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00015.csv,sim_00015
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00016.csv,sim_00016
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00017.csv,sim_00017
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00018.csv,sim_00018
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00019.csv,sim_00019
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00020.csv,sim_00020
+幅度失准,本振混频组件,[RF板][Mixer1],raw_curves/sim_00021.csv,sim_00021
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00022.csv,sim_00022
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00023.csv,sim_00023
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00024.csv,sim_00024
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00025.csv,sim_00025
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00026.csv,sim_00026
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00027.csv,sim_00027
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00028.csv,sim_00028
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00029.csv,sim_00029
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00030.csv,sim_00030
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00031.csv,sim_00031
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00032.csv,sim_00032
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00033.csv,sim_00033
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00034.csv,sim_00034
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00035.csv,sim_00035
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00036.csv,sim_00036
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00037.csv,sim_00037
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00038.csv,sim_00038
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00039.csv,sim_00039
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00040.csv,sim_00040
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00041.csv,sim_00041
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00042.csv,sim_00042
+幅度失准,数字放大器,数字放大器,raw_curves/sim_00043.csv,sim_00043
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00044.csv,sim_00044
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00045.csv,sim_00045
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00046.csv,sim_00046
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00047.csv,sim_00047
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00048.csv,sim_00048
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00049.csv,sim_00049
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00050.csv,sim_00050
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00051.csv,sim_00051
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00052.csv,sim_00052
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00053.csv,sim_00053
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00054.csv,sim_00054
+幅度失准,数字放大器,数字放大器,raw_curves/sim_00055.csv,sim_00055
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00056.csv,sim_00056
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00057.csv,sim_00057
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00058.csv,sim_00058
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00059.csv,sim_00059
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00060.csv,sim_00060
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00061.csv,sim_00061
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00062.csv,sim_00062
+幅度失准,中频放大器,中频放大器,raw_curves/sim_00063.csv,sim_00063
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00064.csv,sim_00064
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00065.csv,sim_00065
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00066.csv,sim_00066
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00067.csv,sim_00067
+幅度失准,本振混频组件,[RF板][Mixer1],raw_curves/sim_00068.csv,sim_00068
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00069.csv,sim_00069
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00070.csv,sim_00070
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00071.csv,sim_00071
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00072.csv,sim_00072
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00073.csv,sim_00073
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00074.csv,sim_00074
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00075.csv,sim_00075
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00076.csv,sim_00076
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00077.csv,sim_00077
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00078.csv,sim_00078
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00079.csv,sim_00079
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00080.csv,sim_00080
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00081.csv,sim_00081
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00082.csv,sim_00082
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00083.csv,sim_00083
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00084.csv,sim_00084
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00085.csv,sim_00085
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00086.csv,sim_00086
+幅度失准,中频放大器,中频放大器,raw_curves/sim_00087.csv,sim_00087
+幅度失准,低频段第一混频器,[RF板][Mixer1],raw_curves/sim_00088.csv,sim_00088
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00089.csv,sim_00089
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00090.csv,sim_00090
+幅度失准,电源模块,[RF板][RF] 输入连接/匹配/保护,raw_curves/sim_00091.csv,sim_00091
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00092.csv,sim_00092
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00093.csv,sim_00093
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00094.csv,sim_00094
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00095.csv,sim_00095
+幅度失准,数字检波器,[数字中频板][检波/对数],raw_curves/sim_00096.csv,sim_00096
+幅度失准,低频段前置低通滤波器,[RF板][RF] 低频通路固定滤波/抑制网络,raw_curves/sim_00097.csv,sim_00097
+幅度失准,中频放大器,中频放大器,raw_curves/sim_00098.csv,sim_00098
+幅度失准,ADC,[数字中频板][ADC],raw_curves/sim_00099.csv,sim_00099
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00100.csv,sim_00100
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00101.csv,sim_00101
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00102.csv,sim_00102
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00103.csv,sim_00103
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00104.csv,sim_00104
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00105.csv,sim_00105
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00106.csv,sim_00106
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00107.csv,sim_00107
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00108.csv,sim_00108
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00109.csv,sim_00109
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00110.csv,sim_00110
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00111.csv,sim_00111
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00112.csv,sim_00112
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00113.csv,sim_00113
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00114.csv,sim_00114
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00115.csv,sim_00115
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00116.csv,sim_00116
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00117.csv,sim_00117
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00118.csv,sim_00118
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00119.csv,sim_00119
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00120.csv,sim_00120
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00121.csv,sim_00121
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00122.csv,sim_00122
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00123.csv,sim_00123
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00124.csv,sim_00124
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00125.csv,sim_00125
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00126.csv,sim_00126
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00127.csv,sim_00127
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00128.csv,sim_00128
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00129.csv,sim_00129
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00130.csv,sim_00130
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00131.csv,sim_00131
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00132.csv,sim_00132
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00133.csv,sim_00133
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00134.csv,sim_00134
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00135.csv,sim_00135
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00136.csv,sim_00136
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00137.csv,sim_00137
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00138.csv,sim_00138
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00139.csv,sim_00139
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00140.csv,sim_00140
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00141.csv,sim_00141
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00142.csv,sim_00142
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00143.csv,sim_00143
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00144.csv,sim_00144
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00145.csv,sim_00145
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00146.csv,sim_00146
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00147.csv,sim_00147
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00148.csv,sim_00148
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00149.csv,sim_00149
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00150.csv,sim_00150
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00151.csv,sim_00151
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00152.csv,sim_00152
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00153.csv,sim_00153
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00154.csv,sim_00154
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00155.csv,sim_00155
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00156.csv,sim_00156
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00157.csv,sim_00157
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00158.csv,sim_00158
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00159.csv,sim_00159
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00160.csv,sim_00160
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00161.csv,sim_00161
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00162.csv,sim_00162
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00163.csv,sim_00163
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00164.csv,sim_00164
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00165.csv,sim_00165
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00166.csv,sim_00166
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00167.csv,sim_00167
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00168.csv,sim_00168
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00169.csv,sim_00169
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00170.csv,sim_00170
+频率失准,本振源（谐波发生器）,[LO/时钟板][LO1] 合成链,raw_curves/sim_00171.csv,sim_00171
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00172.csv,sim_00172
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00173.csv,sim_00173
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00174.csv,sim_00174
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00175.csv,sim_00175
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00176.csv,sim_00176
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00177.csv,sim_00177
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00178.csv,sim_00178
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00179.csv,sim_00179
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00180.csv,sim_00180
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00181.csv,sim_00181
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00182.csv,sim_00182
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00183.csv,sim_00183
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00184.csv,sim_00184
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00185.csv,sim_00185
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00186.csv,sim_00186
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00187.csv,sim_00187
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00188.csv,sim_00188
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00189.csv,sim_00189
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00190.csv,sim_00190
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00191.csv,sim_00191
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00192.csv,sim_00192
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00193.csv,sim_00193
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00194.csv,sim_00194
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00195.csv,sim_00195
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00196.csv,sim_00196
+频率失准,本振混频组件,[RF板][LO1] LO1 注入链,raw_curves/sim_00197.csv,sim_00197
+频率失准,时钟振荡器,[LO/时钟板][LO1] 合成链,raw_curves/sim_00198.csv,sim_00198
+频率失准,时钟合成与同步网络,[LO/时钟板][LO1] 合成链,raw_curves/sim_00199.csv,sim_00199
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00200.csv,sim_00200
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00201.csv,sim_00201
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00202.csv,sim_00202
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00203.csv,sim_00203
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00204.csv,sim_00204
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00205.csv,sim_00205
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00206.csv,sim_00206
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00207.csv,sim_00207
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00208.csv,sim_00208
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00209.csv,sim_00209
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00210.csv,sim_00210
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00211.csv,sim_00211
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00212.csv,sim_00212
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00213.csv,sim_00213
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00214.csv,sim_00214
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00215.csv,sim_00215
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00216.csv,sim_00216
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00217.csv,sim_00217
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00218.csv,sim_00218
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00219.csv,sim_00219
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00220.csv,sim_00220
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00221.csv,sim_00221
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00222.csv,sim_00222
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00223.csv,sim_00223
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00224.csv,sim_00224
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00225.csv,sim_00225
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00226.csv,sim_00226
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00227.csv,sim_00227
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00228.csv,sim_00228
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00229.csv,sim_00229
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00230.csv,sim_00230
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00231.csv,sim_00231
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00232.csv,sim_00232
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00233.csv,sim_00233
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00234.csv,sim_00234
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00235.csv,sim_00235
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00236.csv,sim_00236
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00237.csv,sim_00237
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00238.csv,sim_00238
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00239.csv,sim_00239
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00240.csv,sim_00240
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00241.csv,sim_00241
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00242.csv,sim_00242
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00243.csv,sim_00243
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00244.csv,sim_00244
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00245.csv,sim_00245
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00246.csv,sim_00246
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00247.csv,sim_00247
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00248.csv,sim_00248
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00249.csv,sim_00249
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00250.csv,sim_00250
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00251.csv,sim_00251
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00252.csv,sim_00252
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00253.csv,sim_00253
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00254.csv,sim_00254
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00255.csv,sim_00255
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00256.csv,sim_00256
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00257.csv,sim_00257
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00258.csv,sim_00258
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00259.csv,sim_00259
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00260.csv,sim_00260
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00261.csv,sim_00261
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00262.csv,sim_00262
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00263.csv,sim_00263
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00264.csv,sim_00264
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00265.csv,sim_00265
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00266.csv,sim_00266
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00267.csv,sim_00267
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00268.csv,sim_00268
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00269.csv,sim_00269
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00270.csv,sim_00270
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00271.csv,sim_00271
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00272.csv,sim_00272
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00273.csv,sim_00273
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00274.csv,sim_00274
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00275.csv,sim_00275
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00276.csv,sim_00276
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00277.csv,sim_00277
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00278.csv,sim_00278
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00279.csv,sim_00279
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00280.csv,sim_00280
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00281.csv,sim_00281
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00282.csv,sim_00282
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00283.csv,sim_00283
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00284.csv,sim_00284
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00285.csv,sim_00285
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00286.csv,sim_00286
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00287.csv,sim_00287
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00288.csv,sim_00288
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00289.csv,sim_00289
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00290.csv,sim_00290
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00291.csv,sim_00291
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00292.csv,sim_00292
+参考电平失准,存储器,[校准链路][校准表/存储],raw_curves/sim_00293.csv,sim_00293
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00294.csv,sim_00294
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00295.csv,sim_00295
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00296.csv,sim_00296
+参考电平失准,校准信号开关,[校准链路][校准路径开关/耦合],raw_curves/sim_00297.csv,sim_00297
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00298.csv,sim_00298
+参考电平失准,校准源,[校准链路][校准源],raw_curves/sim_00299.csv,sim_00299
+normal,none,none,raw_curves/sim_00300.csv,sim_00300
+normal,none,none,raw_curves/sim_00301.csv,sim_00301
+normal,none,none,raw_curves/sim_00302.csv,sim_00302
+normal,none,none,raw_curves/sim_00303.csv,sim_00303
+normal,none,none,raw_curves/sim_00304.csv,sim_00304
+normal,none,none,raw_curves/sim_00305.csv,sim_00305
+normal,none,none,raw_curves/sim_00306.csv,sim_00306
+normal,none,none,raw_curves/sim_00307.csv,sim_00307
+normal,none,none,raw_curves/sim_00308.csv,sim_00308
+normal,none,none,raw_curves/sim_00309.csv,sim_00309
+normal,none,none,raw_curves/sim_00310.csv,sim_00310
+normal,none,none,raw_curves/sim_00311.csv,sim_00311
+normal,none,none,raw_curves/sim_00312.csv,sim_00312
+normal,none,none,raw_curves/sim_00313.csv,sim_00313
+normal,none,none,raw_curves/sim_00314.csv,sim_00314
+normal,none,none,raw_curves/sim_00315.csv,sim_00315
+normal,none,none,raw_curves/sim_00316.csv,sim_00316
+normal,none,none,raw_curves/sim_00317.csv,sim_00317
+normal,none,none,raw_curves/sim_00318.csv,sim_00318
+normal,none,none,raw_curves/sim_00319.csv,sim_00319
+normal,none,none,raw_curves/sim_00320.csv,sim_00320
+normal,none,none,raw_curves/sim_00321.csv,sim_00321
+normal,none,none,raw_curves/sim_00322.csv,sim_00322
+normal,none,none,raw_curves/sim_00323.csv,sim_00323
+normal,none,none,raw_curves/sim_00324.csv,sim_00324
+normal,none,none,raw_curves/sim_00325.csv,sim_00325
+normal,none,none,raw_curves/sim_00326.csv,sim_00326
+normal,none,none,raw_curves/sim_00327.csv,sim_00327
+normal,none,none,raw_curves/sim_00328.csv,sim_00328
+normal,none,none,raw_curves/sim_00329.csv,sim_00329
+normal,none,none,raw_curves/sim_00330.csv,sim_00330
+normal,none,none,raw_curves/sim_00331.csv,sim_00331
+normal,none,none,raw_curves/sim_00332.csv,sim_00332
+normal,none,none,raw_curves/sim_00333.csv,sim_00333
+normal,none,none,raw_curves/sim_00334.csv,sim_00334
+normal,none,none,raw_curves/sim_00335.csv,sim_00335
+normal,none,none,raw_curves/sim_00336.csv,sim_00336
+normal,none,none,raw_curves/sim_00337.csv,sim_00337
+normal,none,none,raw_curves/sim_00338.csv,sim_00338
+normal,none,none,raw_curves/sim_00339.csv,sim_00339
+normal,none,none,raw_curves/sim_00340.csv,sim_00340
+normal,none,none,raw_curves/sim_00341.csv,sim_00341
+normal,none,none,raw_curves/sim_00342.csv,sim_00342
+normal,none,none,raw_curves/sim_00343.csv,sim_00343
+normal,none,none,raw_curves/sim_00344.csv,sim_00344
+normal,none,none,raw_curves/sim_00345.csv,sim_00345
+normal,none,none,raw_curves/sim_00346.csv,sim_00346
+normal,none,none,raw_curves/sim_00347.csv,sim_00347
+normal,none,none,raw_curves/sim_00348.csv,sim_00348
+normal,none,none,raw_curves/sim_00349.csv,sim_00349
+normal,none,none,raw_curves/sim_00350.csv,sim_00350
+normal,none,none,raw_curves/sim_00351.csv,sim_00351
+normal,none,none,raw_curves/sim_00352.csv,sim_00352
+normal,none,none,raw_curves/sim_00353.csv,sim_00353
+normal,none,none,raw_curves/sim_00354.csv,sim_00354
+normal,none,none,raw_curves/sim_00355.csv,sim_00355
+normal,none,none,raw_curves/sim_00356.csv,sim_00356
+normal,none,none,raw_curves/sim_00357.csv,sim_00357
+normal,none,none,raw_curves/sim_00358.csv,sim_00358
+normal,none,none,raw_curves/sim_00359.csv,sim_00359
+normal,none,none,raw_curves/sim_00360.csv,sim_00360
+normal,none,none,raw_curves/sim_00361.csv,sim_00361
+normal,none,none,raw_curves/sim_00362.csv,sim_00362
+normal,none,none,raw_curves/sim_00363.csv,sim_00363
+normal,none,none,raw_curves/sim_00364.csv,sim_00364
+normal,none,none,raw_curves/sim_00365.csv,sim_00365
+normal,none,none,raw_curves/sim_00366.csv,sim_00366
+normal,none,none,raw_curves/sim_00367.csv,sim_00367
+normal,none,none,raw_curves/sim_00368.csv,sim_00368
+normal,none,none,raw_curves/sim_00369.csv,sim_00369
+normal,none,none,raw_curves/sim_00370.csv,sim_00370
+normal,none,none,raw_curves/sim_00371.csv,sim_00371
+normal,none,none,raw_curves/sim_00372.csv,sim_00372
+normal,none,none,raw_curves/sim_00373.csv,sim_00373
+normal,none,none,raw_curves/sim_00374.csv,sim_00374
+normal,none,none,raw_curves/sim_00375.csv,sim_00375
+normal,none,none,raw_curves/sim_00376.csv,sim_00376
+normal,none,none,raw_curves/sim_00377.csv,sim_00377
+normal,none,none,raw_curves/sim_00378.csv,sim_00378
+normal,none,none,raw_curves/sim_00379.csv,sim_00379
+normal,none,none,raw_curves/sim_00380.csv,sim_00380
+normal,none,none,raw_curves/sim_00381.csv,sim_00381
+normal,none,none,raw_curves/sim_00382.csv,sim_00382
+normal,none,none,raw_curves/sim_00383.csv,sim_00383
+normal,none,none,raw_curves/sim_00384.csv,sim_00384
+normal,none,none,raw_curves/sim_00385.csv,sim_00385
+normal,none,none,raw_curves/sim_00386.csv,sim_00386
+normal,none,none,raw_curves/sim_00387.csv,sim_00387
+normal,none,none,raw_curves/sim_00388.csv,sim_00388
+normal,none,none,raw_curves/sim_00389.csv,sim_00389
+normal,none,none,raw_curves/sim_00390.csv,sim_00390
+normal,none,none,raw_curves/sim_00391.csv,sim_00391
+normal,none,none,raw_curves/sim_00392.csv,sim_00392
+normal,none,none,raw_curves/sim_00393.csv,sim_00393
+normal,none,none,raw_curves/sim_00394.csv,sim_00394
+normal,none,none,raw_curves/sim_00395.csv,sim_00395
+normal,none,none,raw_curves/sim_00396.csv,sim_00396
+normal,none,none,raw_curves/sim_00397.csv,sim_00397
+normal,none,none,raw_curves/sim_00398.csv,sim_00398
+normal,none,none,raw_curves/sim_00399.csv,sim_00399

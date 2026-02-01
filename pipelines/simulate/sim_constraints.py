@@ -363,10 +363,28 @@ class SimulationConstraints:
         rng: np.random.Generator,
         max_attempts: int = 25,
     ) -> Tuple[np.ndarray, List[str], str]:
+        """Generate normal sample with tightened noise budget to match real normal statistics.
+        
+        W1 Improvement: Noise budget table
+        - base_residual: 0.25-0.50 scale (was 0.45-0.95)
+        - segment_offsets: 0.3 * std (was 0.8 * std)
+        - corr_noise: 0.4-0.7 sigma scale (was 0.85-1.15)
+        - heavy_tail: disabled for normal (was enabled)
+        - hf_noise: narrower range with better smoothing
+        - hf_boost: reduced scale 0.10 (was 0.35)
+        - hf_burst: disabled for normal (was enabled)
+        
+        Target metrics (based on real normal):
+        - p95_abs_dev: 0.02-0.06 dB (not 0.10)
+        - hf_std: 0.004-0.012 dB
+        - global_offset: within real normal range
+        """
         baseline = self.baseline
-        global_offset_limit = max(0.001, 1.2 * abs(baseline.global_offset_p95))
-        hf_noise_low = max(1e-4, 0.6 * baseline.hf_noise_p50)
-        hf_noise_high = max(hf_noise_low, 2.2 * baseline.hf_noise_p95)
+        # Tighter global offset limit based on real statistics
+        global_offset_limit = max(0.001, 1.0 * abs(baseline.global_offset_p95))
+        # Tighter hf noise range to match real normal
+        hf_noise_low = max(1e-4, 0.8 * baseline.hf_noise_p50)
+        hf_noise_high = max(hf_noise_low, 1.2 * baseline.hf_noise_p95)
         rho = float(np.clip(baseline.residual_lag1, 0.1, 0.8))
         freq = baseline.frequency
         f_ghz = freq / 1e9
@@ -374,15 +392,23 @@ class SimulationConstraints:
         hf_end = max(6.5, float(np.max(f_ghz)))
         hf_weight = np.clip((f_ghz - hf_start) / max(hf_end - hf_start, 0.5), 0.0, 1.0)
         resid_std = np.std(baseline.residuals, axis=0) if baseline.residuals.size else np.zeros_like(freq)
+        
+        # Tighter p95 constraint (key for W1)
+        target_p95_abs_max = min(baseline.residual_abs_p95 * 1.15, 0.06)
+        
         for _ in range(max_attempts):
             global_offset = float(rng.choice(baseline.global_offsets))
             normal_state = "normal_state_A" if rng.random() > 0.2 else "normal_state_B"
             if normal_state == "normal_state_B":
-                global_offset += float(rng.uniform(-0.20, -0.10))
+                # Reduced offset for state B
+                global_offset += float(rng.uniform(-0.05, -0.02))
+            
+            # W1: Tightened base residual scale
             base_residual = self.sample_residual_curve(rng)
-            base_scale = rng.uniform(0.45, 0.95)
+            base_scale = rng.uniform(0.25, 0.50)  # Reduced from 0.45-0.95
             base_residual = base_residual * base_scale
 
+            # W1: Reduced segment offsets
             segment_offsets = np.zeros_like(base_residual)
             seg_edges = baseline.segment_edges
             for seg_idx, (start, end) in enumerate(zip(seg_edges[:-1], seg_edges[1:])):
@@ -390,31 +416,30 @@ class SimulationConstraints:
                     continue
                 mean = float(baseline.segment_bias_mean[min(seg_idx, len(baseline.segment_bias_mean) - 1)])
                 std = float(baseline.segment_bias_std[min(seg_idx, len(baseline.segment_bias_std) - 1)])
-                seg_offset = rng.normal(mean, 0.8 * std)
+                seg_offset = rng.normal(mean, 0.3 * std)  # Reduced from 0.8 * std
                 segment_offsets[start:end] = seg_offset
 
-            sigma = baseline.sigma_smooth * rng.uniform(0.85, 1.15)
+            # W1: Tightened correlated noise
+            sigma = baseline.sigma_smooth * rng.uniform(0.4, 0.7)  # Reduced from 0.85-1.15
             ar1 = _ar1_process(rng, len(baseline.rrs), rho)
             corr_noise = ar1 * sigma
-            heavy_tail = _heavy_tail_noise(
-                rng,
-                sigma * rng.uniform(0.5, 0.9),
-                tail_prob=min(0.05, max(0.015, baseline.residual_tail_prob * 2.0)),
-            )
+            
+            # W1: Disable heavy tail for normal samples (keep distribution tight)
+            # heavy_tail is set to zero
+            heavy_tail = np.zeros_like(corr_noise)
 
+            # W1: Tightened HF noise
             hf_std = float(rng.uniform(hf_noise_low, hf_noise_high))
             hf_noise = rng.normal(0.0, hf_std, size=len(baseline.rrs))
-            hf_noise = _smooth_noise(hf_noise, window=5)
+            hf_noise = _smooth_noise(hf_noise, window=9)  # More smoothing
 
-            hf_boost_scale = rng.uniform(0.6, 1.2)
-            hf_boost = rng.normal(0.0, resid_std * 0.35 * hf_boost_scale, size=len(freq))
+            # W1: Reduced HF boost
+            hf_boost_scale = rng.uniform(0.05, 0.15)  # Reduced from 0.6-1.2
+            hf_boost = rng.normal(0.0, resid_std * 0.10 * hf_boost_scale, size=len(freq))  # 0.10 from 0.35
             hf_boost = hf_boost * hf_weight
 
-            burst_prob = np.clip(baseline.residual_tail_prob * 2.5 + 0.01, 0.01, 0.08)
-            burst_mask = rng.random(len(freq)) < (burst_prob * hf_weight)
-            burst_scale = baseline.residual_abs_p95 * rng.uniform(0.6, 1.1)
-            hf_burst = rng.normal(0.0, burst_scale, size=len(freq)) * burst_mask
-            hf_burst = _smooth_noise(hf_burst, window=7)
+            # W1: Disable burst for normal samples (avoid tail artifacts)
+            hf_burst = np.zeros_like(hf_boost)
 
             residual = base_residual + segment_offsets + corr_noise + heavy_tail + hf_noise + hf_boost + hf_burst
             residual = residual - float(np.median(residual))
@@ -425,12 +450,13 @@ class SimulationConstraints:
                 reasons.append("normal amplitude out of bounds")
             if abs(metrics["global_offset"]) > global_offset_limit:
                 reasons.append("normal |global_offset| > limit")
-            if metrics["p95_abs_dev"] > 1.4 * baseline.residual_abs_p95:
+            # W1: Tighter p95 constraint
+            if metrics["p95_abs_dev"] > target_p95_abs_max:
                 reasons.append("normal p95_abs_dev too large")
             if not (hf_noise_low <= metrics["hf_noise_std"] <= hf_noise_high):
                 reasons.append("normal hf_noise_std outside range")
             rough = roughness_metric(curve)
-            if not (0.5 * baseline.rough_p50 <= rough <= 1.6 * baseline.rough_p50):
+            if not (0.6 * baseline.rough_p50 <= rough <= 1.3 * baseline.rough_p50):  # Tighter range
                 reasons.append("normal roughness outside target")
             if not reasons:
                 return curve, [], normal_state
@@ -467,25 +493,59 @@ class SimulationConstraints:
         severity: str,
         rng: np.random.Generator,
     ) -> np.ndarray:
+        """Adjust fault curve to match target characteristics.
+        
+        W2 Improvement for ref_error:
+        - Offset magnitude has wider range and sample-to-sample variance
+        - Sign can be either positive or negative (was fixed)
+        - Added frequency-dependent slope component
+        - Offset no longer "too stable" (~0.11 dB for all samples)
+        
+        W3 Improvement for amp_error:
+        - Remove systematic global offset (that's ref_error territory)
+        - Keep shape-based deviation (ripple, band effects)
+        """
         baseline = self.baseline
         delta = curve - baseline.rrs
         mean_offset = float(np.mean(delta))
         global_offset = float(np.median(delta))
 
         if fault_kind in ("rl", "att"):
-            base = max(0.05, abs(baseline.global_offset_p95))
+            # W2: More realistic ref_error offset distribution
+            # Real calibration drift: smaller magnitude, more variance, can be +/-
+            base = max(0.03, abs(baseline.global_offset_p95))
+            
+            # W2: Wider magnitude range with sample-to-sample variance
             if severity == "severe":
-                target_mag = rng.uniform(2.2 * base, 3.0 * base)
+                target_mag = rng.uniform(1.5 * base, 2.5 * base)
             elif severity == "mid":
-                target_mag = rng.uniform(1.8 * base, 2.6 * base)
+                target_mag = rng.uniform(1.0 * base, 2.0 * base)
             else:
-                target_mag = rng.uniform(1.4 * base, 2.0 * base)
-            sign = 1.0 if baseline.global_offset_p50 >= 0 else -1.0
-            target = sign * target_mag + rng.normal(0.0, 0.15 * base)
+                target_mag = rng.uniform(0.6 * base, 1.4 * base)  # Can be small
+            
+            # W2: Random sign (not fixed based on baseline)
+            sign = rng.choice([-1.0, 1.0])
+            
+            # W2: Add sample-to-sample variance in offset
+            variance_factor = rng.uniform(0.7, 1.3)
+            target = sign * target_mag * variance_factor + rng.normal(0.0, 0.3 * base)
+            
+            # W2: Optional slight frequency slope (real ref drift often has slope)
+            if rng.random() < 0.4:
+                freq = baseline.frequency
+                x_norm = (freq - freq[0]) / (freq[-1] - freq[0] + 1e-12)
+                slope_mag = rng.uniform(-0.03, 0.03)  # Small slope
+                slope_component = slope_mag * (x_norm - 0.5)
+                curve = curve + slope_component
+                delta = curve - baseline.rrs
+                mean_offset = float(np.mean(delta))
+            
             curve = curve + (target - mean_offset)
             return curve
 
         if fault_kind == "amp":
+            # W3: amp_error should NOT have systematic global offset
+            # Remove global offset to keep this as shape-based fault
             delta = delta - global_offset
             max_budget = rng.uniform(0.18, 0.35)
             max_abs = float(np.max(np.abs(delta)))
@@ -494,6 +554,7 @@ class SimulationConstraints:
             curve = baseline.rrs + delta
             return curve
 
+        # For other fault types (freq, etc.)
         delta = delta - mean_offset
         max_budget = rng.uniform(0.08, 0.20)
         max_abs = float(np.max(np.abs(delta)))
@@ -519,15 +580,25 @@ class SimulationConstraints:
         return ConstraintResult(ok=not reasons, reasons=reasons)
 
     def validate_fault(self, curve: np.ndarray, fault_kind: str) -> ConstraintResult:
+        """Validate fault curve meets minimum requirements.
+        
+        W2 Improvement for ref_error:
+        - Use absolute minimum offset threshold (not just relative to baseline)
+        - Allow smaller offsets for "light" severity ref errors
+        """
         baseline = self.baseline
         metrics = compute_curve_metrics(curve, baseline)
         reasons = []
         if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
             reasons.append("fault amplitude out of bounds")
         if fault_kind in ("rl", "att"):
-            if abs(metrics["global_offset"]) < 1.4 * abs(baseline.global_offset_p95):
+            # W2: Use absolute minimum threshold for ref_error offset
+            # Allow smaller offsets for light severity (more realistic)
+            min_offset = max(0.03, 0.8 * abs(baseline.global_offset_p95))  # Lower threshold
+            if abs(metrics["global_offset"]) < min_offset:
                 reasons.append("ref global_offset too small")
-            if metrics["p95_abs_dev"] < baseline.residual_abs_p95:
+            # W2: Relaxed p95_abs_dev requirement  
+            if metrics["p95_abs_dev"] < 0.8 * baseline.residual_abs_p95:  # More lenient
                 reasons.append("ref p95_abs_dev too small")
             return ConstraintResult(ok=not reasons, reasons=reasons)
 
@@ -652,7 +723,9 @@ def build_quality_report(
                     {"sample_id": sample_id, "reason": "normal hf_noise_std too low"}
                 )
         elif fault_kind in ("amp", "rl", "att"):
-            if fault_kind in ("rl", "att") and abs(metrics["global_offset"]) < 2.0 * abs(baseline.global_offset_p95):
+            # W2: Lowered ref offset threshold to allow smaller but realistic offsets
+            ref_min_offset = max(0.03, 0.8 * abs(baseline.global_offset_p95))  # Absolute min 0.03 dB
+            if fault_kind in ("rl", "att") and abs(metrics["global_offset"]) < ref_min_offset:
                 violations.append(
                     {"sample_id": sample_id, "reason": "ref global_offset too small"}
                 )
@@ -804,7 +877,7 @@ def build_quality_report(
         "before_after_samples": before_after,
         "thresholds": {
             "normal_global_offset_max": 1.2 * abs(baseline.global_offset_p95),
-            "ref_global_offset_min": 2.0 * abs(baseline.global_offset_p95),
+            "ref_global_offset_min": max(0.03, 0.8 * abs(baseline.global_offset_p95)),  # W2: Updated threshold
             "amp_global_offset_max": 1.5 * abs(baseline.global_offset_p95),
             "freq_proxy_threshold": freq_proxy_threshold,
             "hf_noise_std_low": 0.8 * baseline.hf_noise_p50,

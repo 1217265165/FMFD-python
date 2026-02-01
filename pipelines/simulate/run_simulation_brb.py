@@ -472,6 +472,15 @@ def _build_peak_track_profile(
     track_type: str,
     severity: str,
 ) -> Dict[str, object]:
+    """Build peak frequency tracking error profile.
+    
+    W4 Improvement: De-templating
+    - Center frequencies are now uniformly sampled from the full allowed range
+    - Width and amplitude have wider random ranges
+    - Added random number of events (not fixed by severity)
+    - Bands cannot overlap to avoid predictable patterns
+    - Spike positions are truly random (not clustered)
+    """
     base = frequency.astype(float).copy()
     step_hz = float(base[1] - base[0]) if len(base) > 1 else 1e7
     offsets = rng.normal(0.0, PEAK_TRACK_NOISE_HZ, size=len(base))
@@ -482,25 +491,80 @@ def _build_peak_track_profile(
         return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
 
     if track_type == "spike":
-        spike_count = {"light": 4, "mid": 8, "severe": 12}[severity]
-        idx = rng.choice(len(base), size=spike_count, replace=False)
-        spike_offsets = rng.uniform(5e6, 25e6, size=spike_count) * rng.choice([-1, 1], size=spike_count)
+        # W4: Random spike count with some variability
+        base_count = {"light": 4, "mid": 8, "severe": 12}[severity]
+        spike_count = max(2, base_count + rng.integers(-2, 3))
+        
+        # W4: Spread spikes more uniformly across frequency range
+        # Divide frequency range into regions and sample from each
+        n_regions = min(spike_count, 6)
+        region_size = len(base) // n_regions
+        spike_indices = []
+        for i in range(n_regions):
+            start_idx = i * region_size
+            end_idx = min((i + 1) * region_size, len(base))
+            if end_idx > start_idx:
+                spike_indices.append(rng.integers(start_idx, end_idx))
+        
+        # Add remaining spikes randomly
+        remaining = spike_count - len(spike_indices)
+        if remaining > 0:
+            available = set(range(len(base))) - set(spike_indices)
+            if available:
+                spike_indices.extend(rng.choice(list(available), size=min(remaining, len(available)), replace=False))
+        
+        idx = np.array(spike_indices[:spike_count])
+        # W4: Wider amplitude range for spikes
+        spike_offsets = rng.uniform(3e6, 30e6, size=len(idx)) * rng.choice([-1, 1], size=len(idx))
         offsets[idx] += spike_offsets
         mask[idx] = 1.0
         return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
 
     if track_type in ("dense", "hole"):
-        band_count = {"light": 1, "mid": 2, "severe": 3}[severity]
-        amp_ranges = {"dense": (8e6, 40e6), "hole": (20e6, 60e6)}[track_type]
-        width_ranges = {"light": (0.2e9, 0.5e9), "mid": (0.3e9, 0.8e9), "severe": (0.4e9, 1.0e9)}[severity]
-        ramp_hz = rng.uniform(0.05e9, 0.10e9)
-        jitter_hz = rng.uniform(0.5e6, 2.0e6)
+        # W4: Randomized band count
+        base_count = {"light": 1, "mid": 2, "severe": 3}[severity]
+        band_count = max(1, base_count + rng.integers(-1, 2))
+        
+        # W4: Wider ranges for amplitude and width
+        amp_ranges = {"dense": (5e6, 50e6), "hole": (15e6, 70e6)}[track_type]
+        width_ranges = {"light": (0.15e9, 0.6e9), "mid": (0.25e9, 0.9e9), "severe": (0.35e9, 1.2e9)}[severity]
+        ramp_hz = rng.uniform(0.03e9, 0.12e9)
+        jitter_hz = rng.uniform(0.3e6, 2.5e6)
+        
+        # W4: Track used frequency regions to avoid overlap
+        used_regions = []
+        freq_min = float(base[0])
+        freq_max = float(base[-1])
+        
         for _ in range(band_count):
-            center_hz = float(rng.uniform(base[0] + 0.5e9, base[-1] - 0.5e9))
-            center_hz += rng.uniform(-0.2e9, 0.2e9)
-            width_hz = float(rng.uniform(*width_ranges))
-            start_hz = max(base[0], center_hz - width_hz / 2)
-            end_hz = min(base[-1], center_hz + width_hz / 2)
+            # W4: Sample center from full allowed range (not fixed positions)
+            margin_hz = 0.3e9  # Keep away from edges
+            center_min = freq_min + margin_hz
+            center_max = freq_max - margin_hz
+            
+            # Try to find non-overlapping position
+            max_placement_attempts = 10
+            for _ in range(max_placement_attempts):
+                center_hz = float(rng.uniform(center_min, center_max))
+                width_hz = float(rng.uniform(*width_ranges))
+                
+                start_hz = max(freq_min, center_hz - width_hz / 2)
+                end_hz = min(freq_max, center_hz + width_hz / 2)
+                
+                # Check for overlap with existing bands
+                overlap = False
+                for (used_start, used_end) in used_regions:
+                    if start_hz < used_end and end_hz > used_start:
+                        overlap = True
+                        break
+                
+                if not overlap:
+                    used_regions.append((start_hz, end_hz))
+                    break
+            else:
+                # If we can't find non-overlapping position, skip this band
+                continue
+            
             start_idx = int(np.searchsorted(base, start_hz, side="left"))
             end_idx = int(np.searchsorted(base, end_hz, side="right"))
             if end_idx <= start_idx + 4:
@@ -513,11 +577,20 @@ def _build_peak_track_profile(
             middle = np.ones(middle_len)
             envelope = np.concatenate([left, middle, right])
             envelope = _smoothstep(envelope)
+            
+            # W4: Random amplitude with sign
             amplitude = float(rng.uniform(*amp_ranges)) * (1 if track_type == "dense" else rng.choice([-1, 1]))
             offsets[start_idx:end_idx] += amplitude * envelope
             offsets[start_idx:end_idx] += rng.normal(0.0, jitter_hz, size=len(envelope)) * envelope
             mask[start_idx:end_idx] = np.maximum(mask[start_idx:end_idx], envelope)
-            bands.append({"start_hz": start_hz, "end_hz": end_hz, "amplitude_hz": amplitude, "ramp_hz": ramp_hz})
+            bands.append({
+                "start_hz": start_hz, 
+                "end_hz": end_hz, 
+                "center_hz": center_hz,
+                "width_hz": width_hz,
+                "amplitude_hz": amplitude, 
+                "ramp_hz": ramp_hz
+            })
     return {"offsets": offsets, "mask": mask, "bands": bands, "track_type": track_type}
 
 
