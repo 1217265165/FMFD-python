@@ -366,8 +366,14 @@ class SimulationConstraints:
         baseline = self.baseline
         global_offset_limit = max(0.001, 1.2 * abs(baseline.global_offset_p95))
         hf_noise_low = max(1e-4, 0.6 * baseline.hf_noise_p50)
-        hf_noise_high = max(hf_noise_low, 1.6 * baseline.hf_noise_p95)
+        hf_noise_high = max(hf_noise_low, 2.2 * baseline.hf_noise_p95)
         rho = float(np.clip(baseline.residual_lag1, 0.1, 0.8))
+        freq = baseline.frequency
+        f_ghz = freq / 1e9
+        hf_start = 6.0
+        hf_end = max(6.5, float(np.max(f_ghz)))
+        hf_weight = np.clip((f_ghz - hf_start) / max(hf_end - hf_start, 0.5), 0.0, 1.0)
+        resid_std = np.std(baseline.residuals, axis=0) if baseline.residuals.size else np.zeros_like(freq)
         for _ in range(max_attempts):
             global_offset = float(rng.choice(baseline.global_offsets))
             normal_state = "normal_state_A" if rng.random() > 0.2 else "normal_state_B"
@@ -400,7 +406,17 @@ class SimulationConstraints:
             hf_noise = rng.normal(0.0, hf_std, size=len(baseline.rrs))
             hf_noise = _smooth_noise(hf_noise, window=5)
 
-            residual = base_residual + segment_offsets + corr_noise + heavy_tail + hf_noise
+            hf_boost_scale = rng.uniform(0.6, 1.2)
+            hf_boost = rng.normal(0.0, resid_std * 0.35 * hf_boost_scale, size=len(freq))
+            hf_boost = hf_boost * hf_weight
+
+            burst_prob = np.clip(baseline.residual_tail_prob * 2.5 + 0.01, 0.01, 0.08)
+            burst_mask = rng.random(len(freq)) < (burst_prob * hf_weight)
+            burst_scale = baseline.residual_abs_p95 * rng.uniform(0.6, 1.1)
+            hf_burst = rng.normal(0.0, burst_scale, size=len(freq)) * burst_mask
+            hf_burst = _smooth_noise(hf_burst, window=7)
+
+            residual = base_residual + segment_offsets + corr_noise + heavy_tail + hf_noise + hf_boost + hf_burst
             residual = residual - float(np.median(residual))
             curve = baseline.rrs + global_offset + residual
             metrics = compute_curve_metrics(curve, baseline)
@@ -457,14 +473,15 @@ class SimulationConstraints:
         global_offset = float(np.median(delta))
 
         if fault_kind in ("rl", "att"):
-            base = max(0.06, abs(baseline.global_offset_p95))
+            base = max(0.05, abs(baseline.global_offset_p95))
             if severity == "severe":
-                target = rng.uniform(2.8 * base, 3.6 * base)
+                target_mag = rng.uniform(2.2 * base, 3.0 * base)
             elif severity == "mid":
-                target = rng.uniform(2.2 * base, 3.2 * base)
+                target_mag = rng.uniform(1.8 * base, 2.6 * base)
             else:
-                target = rng.uniform(1.8 * base, 2.4 * base)
-            target = target * (-1 if rng.random() < 0.5 else 1)
+                target_mag = rng.uniform(1.4 * base, 2.0 * base)
+            sign = 1.0 if baseline.global_offset_p50 >= 0 else -1.0
+            target = sign * target_mag + rng.normal(0.0, 0.15 * base)
             curve = curve + (target - mean_offset)
             return curve
 
@@ -497,7 +514,7 @@ class SimulationConstraints:
             reasons.append("normal p95_abs_dev too large")
         if metrics["hf_noise_std"] < 0.6 * baseline.hf_noise_p50:
             reasons.append("normal hf_noise_std too low")
-        if metrics["hf_noise_std"] > 1.6 * baseline.hf_noise_p95:
+        if metrics["hf_noise_std"] > 2.2 * baseline.hf_noise_p95:
             reasons.append("normal hf_noise_std too high")
         return ConstraintResult(ok=not reasons, reasons=reasons)
 
@@ -508,7 +525,7 @@ class SimulationConstraints:
         if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
             reasons.append("fault amplitude out of bounds")
         if fault_kind in ("rl", "att"):
-            if abs(metrics["global_offset"]) < 2.0 * abs(baseline.global_offset_p95):
+            if abs(metrics["global_offset"]) < 1.4 * abs(baseline.global_offset_p95):
                 reasons.append("ref global_offset too small")
             if metrics["p95_abs_dev"] < baseline.residual_abs_p95:
                 reasons.append("ref p95_abs_dev too small")

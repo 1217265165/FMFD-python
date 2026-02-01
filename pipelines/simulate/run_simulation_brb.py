@@ -33,7 +33,7 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 import numpy as np
 
@@ -296,6 +296,31 @@ def _choose_ref_module(rng: np.random.Generator) -> str:
     if not enabled:
         return "校准源"
     return rng.choice(enabled)
+
+
+def _track_type_cycle(rng: np.random.Generator) -> Iterator[str]:
+    order = ["spike", "dense", "hole"]
+    while True:
+        rng.shuffle(order)
+        for item in order:
+            yield item
+
+
+def _build_track_type_plan(n: int, rng: np.random.Generator) -> List[str]:
+    if n <= 0:
+        return []
+    track_types = ["spike", "dense", "hole"]
+    if n <= 3:
+        return list(rng.choice(track_types, size=n, replace=True))
+    min_count = min(20, max(1, n // 4))
+    plan: List[str] = []
+    for track_type in track_types:
+        plan.extend([track_type] * min_count)
+    remaining = n - len(plan)
+    if remaining > 0:
+        plan.extend(list(rng.choice(track_types, size=remaining, replace=True)))
+    rng.shuffle(plan)
+    return plan
 
 
 def _has_enabled_ref_module() -> bool:
@@ -801,6 +826,124 @@ def _plot_amp_vs_ref_separability(
     plt.close()
 
 
+def _plot_grid_with_manifest(
+    out_dir: Path,
+    frequency: np.ndarray,
+    curves: List[np.ndarray],
+    labels: dict,
+    max_per_batch: int = 100,
+    ncols: int = 10,
+) -> None:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return
+    sample_ids = [f"sim_{idx:05d}" for idx in range(len(curves))]
+    manifest_rows: List[Dict[str, object]] = []
+    batch_index = 0
+    for start in range(0, len(curves), max_per_batch):
+        batch_ids = sample_ids[start : start + max_per_batch]
+        if not batch_ids:
+            continue
+        nrows = int(np.ceil(len(batch_ids) / ncols))
+        fig, axes = plt.subplots(nrows, ncols, figsize=(2.2 * ncols, 1.8 * nrows), sharex=True, sharey=True)
+        axes = np.array(axes).reshape(nrows, ncols)
+        for idx, sample_id in enumerate(batch_ids):
+            row = idx // ncols
+            col = idx % ncols
+            ax = axes[row, col]
+            curve_idx = start + idx
+            ax.plot(frequency / 1e9, curves[curve_idx], linewidth=0.6, alpha=0.8)
+            info = labels.get(sample_id, {})
+            title = (
+                f"{sample_id}\n"
+                f"{info.get('system_fault_class')} | "
+                f"{info.get('template_id')} | "
+                f"{info.get('module_cause')}"
+            )
+            ax.set_title(title, fontsize=7)
+            ax.grid(True, alpha=0.2)
+            manifest_rows.append(
+                {
+                    "batch_index": batch_index,
+                    "row": row,
+                    "col": col,
+                    "sample_id": sample_id,
+                    "system_fault_class": info.get("system_fault_class"),
+                    "template_id": info.get("template_id"),
+                    "module_cause": info.get("module_cause"),
+                    "severity": info.get("severity"),
+                    "amp_error_subtype": info.get("amp_error_subtype"),
+                    "peak_track_type": info.get("peak_track_type"),
+                }
+            )
+        for idx in range(len(batch_ids), nrows * ncols):
+            row = idx // ncols
+            col = idx % ncols
+            axes[row, col].axis("off")
+        fig.suptitle(f"Frequency Response Grid - Batch {batch_index:02d}", fontsize=12)
+        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.savefig(out_dir / f"all_in_grid_batch_{batch_index:02d}.png", dpi=150)
+        plt.close(fig)
+        batch_index += 1
+    if manifest_rows:
+        _write_csv(out_dir / "grid_manifest.csv", manifest_rows, encoding="utf-8-sig")
+
+
+def _write_ref_error_bucket_report(
+    out_dir: Path,
+    feature_rows: List[Dict[str, object]],
+    labels: dict,
+) -> None:
+    rows = []
+    for row in feature_rows:
+        sample_id = row.get("sample_id")
+        label = labels.get(sample_id, {})
+        if label.get("system_fault_class") != "ref_error":
+            continue
+        rows.append(
+            {
+                "sample_id": sample_id,
+                "template_id": label.get("template_id"),
+                "tier": label.get("tier"),
+                "severity": label.get("severity"),
+                "x1": float(row.get("X1", 0.0)),
+                "x3": float(row.get("X3", 0.0)),
+            }
+        )
+    if not rows:
+        return
+    buckets: Dict[Tuple[str, str, str], List[Dict[str, float]]] = {}
+    for row in rows:
+        key = (str(row["template_id"]), str(row["tier"]), str(row["severity"]))
+        buckets.setdefault(key, []).append(row)
+
+    lines = ["# ref_error bucket attribution report", "", "Bucketed by (template_id, tier, severity).", ""]
+    lines.append("| template_id | tier | severity | count | X1 mean | X1 std | X3 mean | X3 std |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    summary = []
+    for key, entries in buckets.items():
+        x1_vals = np.array([item["x1"] for item in entries])
+        x3_vals = np.array([item["x3"] for item in entries])
+        summary.append(
+            (
+                key,
+                len(entries),
+                float(np.mean(x1_vals)),
+                float(np.std(x1_vals)),
+                float(np.mean(x3_vals)),
+                float(np.std(x3_vals)),
+            )
+        )
+    summary.sort(key=lambda item: item[1], reverse=True)
+    for (template_id, tier, severity), count, x1_mean, x1_std, x3_mean, x3_std in summary:
+        lines.append(
+            f"| {template_id} | {tier} | {severity} | {count} | "
+            f"{x1_mean:.4f} | {x1_std:.4f} | {x3_mean:.4f} | {x3_std:.4f} |"
+        )
+    out_dir.joinpath("ref_error_bucket_report.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def simulate_curve(
     frequency: np.ndarray,
     rrs: np.ndarray,
@@ -813,6 +956,8 @@ def simulate_curve(
     active_kinds: List[str],
     target_class: str | None = None,
     forced_module_label: str | None = None,
+    forced_peak_track_type: str | None = None,
+    peak_track_cycle: Iterator[str] | None = None,
     max_attempts: int = 200,
 ) -> Tuple[np.ndarray, str, str, dict, np.ndarray, dict]:
     """Generate simulated curve with optional target fault class.
@@ -973,6 +1118,8 @@ def simulate_curve(
             label_sys = "参考电平失准"
             label_mod = forced_module_label or _choose_ref_module(rng)
             fault_params.update({"type": "ref_miscal"})
+            fault_params["subtype"] = "ref_error_offset"
+            template_id = "T1"
         # NOTE: preamp case is REMOVED - it's disabled in single-band mode
         elif fault_kind == "lpf":
             label_sys = "幅度失准"
@@ -1040,6 +1187,14 @@ def simulate_curve(
             peak_track_type = template_result.peak_track_type
             fault_params.update(template_result.params)
             fault_params["template_id"] = template_id
+            if forced_peak_track_type and fault_kind in ("freq", "clock", "lo"):
+                peak_track_type = forced_peak_track_type
+                fault_params["track_type"] = peak_track_type
+                fault_params["forced_peak_track_type"] = True
+            elif peak_track_cycle and fault_kind in ("freq", "clock", "lo"):
+                peak_track_type = next(peak_track_cycle)
+                fault_params["track_type"] = peak_track_type
+                fault_params["forced_peak_track_type"] = True
             if peak_track_type != "none":
                 peak_track_profile = _build_peak_track_profile(frequency, rng, peak_track_type, severity)
                 fault_params["peak_track_profile"] = {
@@ -1161,9 +1316,9 @@ def run_simulation(args: argparse.Namespace):
         real_stats_path = out_dir / "real_normal_stats.json"
         real_stats_path.write_text(json.dumps(real_stats, ensure_ascii=False, indent=2), encoding="utf-8")
     constraints = SimulationConstraints(baseline_stats)
-    normal_stats = _load_normal_stats(repo_root)
-
     rng = np.random.default_rng(args.seed)
+    track_cycle = _track_type_cycle(rng)
+    normal_stats = _load_normal_stats(repo_root)
 
     prev_dir = None
     if out_dir.exists() and (out_dir / "simulated_curves.npz").exists():
@@ -1207,6 +1362,7 @@ def run_simulation(args: argparse.Namespace):
             module_label = str(rng.choice(module_labels))
             spec = module_spec_by_label(module_label)
             target_class = spec.system_label if spec else None
+            forced_track_type = next(track_cycle) if target_class == "freq_error" else None
             curve, label_sys, label_mod, fault_params, peak_freq_meas, peak_meta = simulate_curve(
                 freq,
                 rrs,
@@ -1219,6 +1375,8 @@ def run_simulation(args: argparse.Namespace):
                 active_kinds,
                 target_class=target_class,
                 forced_module_label=module_label,
+                forced_peak_track_type=forced_track_type,
+                peak_track_cycle=track_cycle,
             )
             curves.append(curve)
             peak_freqs.append(peak_freq_meas)
@@ -1311,6 +1469,7 @@ def run_simulation(args: argparse.Namespace):
             'ref_error': n_per_class + (1 if remaining > 2 else 0),
             'normal': n_per_class,
         }
+        freq_track_plan = _build_track_type_plan(class_counts["freq_error"], rng)
         
         print(f"Generating balanced dataset with {args.n_samples} samples:")
         for cls, count in class_counts.items():
@@ -1321,6 +1480,9 @@ def run_simulation(args: argparse.Namespace):
         for target_class in ['amp_error', 'freq_error', 'ref_error', 'normal']:
             for _ in range(class_counts[target_class]):
                 sample_id = f"sim_{idx:05d}"
+                forced_track_type = (
+                    freq_track_plan.pop(0) if target_class == "freq_error" and freq_track_plan else None
+                )
                 curve, label_sys, label_mod, fault_params, peak_freq_meas, peak_meta = simulate_curve(
                     freq,
                     rrs,
@@ -1332,6 +1494,8 @@ def run_simulation(args: argparse.Namespace):
                     constraints,
                     active_kinds,
                     target_class=target_class,
+                    forced_peak_track_type=forced_track_type,
+                    peak_track_cycle=track_cycle,
                 )
                 curves.append(curve)
                 peak_freqs.append(peak_freq_meas)
@@ -1435,6 +1599,7 @@ def run_simulation(args: argparse.Namespace):
                 rng,
                 constraints,
                 active_kinds,
+                peak_track_cycle=track_cycle,
             )
             curves.append(curve)
             peak_freqs.append(peak_freq_meas)
@@ -1533,6 +1698,8 @@ def run_simulation(args: argparse.Namespace):
     _plot_template_gallery(out_dir, freq, curves, labels)
     _plot_peakfreq_behavior(out_dir, freq, peak_freqs, labels)
     _plot_amp_vs_ref_separability(out_dir, feature_rows, labels)
+    _plot_grid_with_manifest(out_dir, freq, curves, labels)
+    _write_ref_error_bucket_report(out_dir, feature_rows, labels)
 
     # Validate output counts
     raw_count = len(list((out_dir / "raw_curves").glob("*.csv")))
