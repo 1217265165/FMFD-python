@@ -173,9 +173,15 @@ def main():
         from features.extract import extract_system_features
         from BRB.system_brb import system_level_infer
         from BRB.module_brb import module_level_infer, DISABLED_MODULES
+        from BRB.uncertainty import (
+            detect_uncertainty, format_uncertainty_explanation, UncertaintyConfig
+        )
         from tools.label_mapping import (
             SYS_CLASS_TO_CN, CN_TO_SYS_CLASS, 
             get_topk_modules, normalize_module_name
+        )
+        from tools.module_validation import (
+            validate_module_diagnosis, format_validation_report
         )
         
         if args.verbose:
@@ -402,6 +408,39 @@ def main():
                     "topk": args.topk,
                 }
             }
+
+            # T3: 低置信度检测与解释
+            uncertainty_result = detect_uncertainty(sys_probs_dict, features)
+            result["uncertainty"] = uncertainty_result.to_dict()
+            
+            if args.verbose and uncertainty_result.is_uncertain:
+                print("\n" + format_uncertainty_explanation(uncertainty_result), file=sys.stderr)
+
+            # T6: 模块级诊断自动验证（如果有 GT）
+            if labels_data and sample_id in labels_data:
+                gt = labels_data[sample_id]
+                gt_module = gt.get("module_cause", gt.get("module", ""))
+                gt_module_v2 = gt.get("module_v2", "")
+                
+                validation_result = validate_module_diagnosis(
+                    sample_id=sample_id,
+                    gt_module=gt_module,
+                    gt_module_v2=gt_module_v2,
+                    module_probs=mod_probs,
+                    disabled_modules=list(DISABLED_MODULES),
+                )
+                result["module_validation"] = validation_result.to_dict()
+                
+                if args.verbose:
+                    print("\n" + "="*50, file=sys.stderr)
+                    print("[T6: 模块级验证]", file=sys.stderr)
+                    print("="*50, file=sys.stderr)
+                    print(f"  GT Module: {gt_module}", file=sys.stderr)
+                    print(f"  GT Module V2: {gt_module_v2}", file=sys.stderr)
+                    print(f"  Top1 Hit: {'✅' if validation_result.top1_hit else '❌'}", file=sys.stderr)
+                    print(f"  Top3 Hit: {'✅' if validation_result.top3_hit else '❌'}", file=sys.stderr)
+                    print(f"  GT Rank: {validation_result.gt_rank}", file=sys.stderr)
+                    print(f"  GT Prob: {validation_result.gt_prob:.4f}", file=sys.stderr)
 
             # 写入审计 trace（单样本）
             try:
