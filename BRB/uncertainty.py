@@ -13,6 +13,11 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 
+# 特征贡献度计算常量
+FEATURE_PREFERENCE_THRESHOLD = 1.5  # 特征倾向判定阈值（top_contrib > runnerup_contrib * 1.5 则倾向 top）
+CONFLICT_THRESHOLD = 0.3  # 冲突特征判定阈值（贡献差值 < max_contrib * 0.3 则为冲突）
+
+
 @dataclass
 class UncertaintyConfig:
     """低置信度机制配置
@@ -199,11 +204,11 @@ def compute_feature_contributions(
         runnerup_contrib = abs(feat_value) * runnerup_affinity
         
         # 判断特征倾向
-        if top_contrib > runnerup_contrib * 1.5:
+        if top_contrib > runnerup_contrib * FEATURE_PREFERENCE_THRESHOLD:
             support_top.append((feat_name, top_contrib))
-        elif runnerup_contrib > top_contrib * 1.5:
+        elif runnerup_contrib > top_contrib * FEATURE_PREFERENCE_THRESHOLD:
             support_runnerup.append((feat_name, runnerup_contrib))
-        elif abs(top_contrib - runnerup_contrib) < max(top_contrib, runnerup_contrib) * 0.3:
+        elif abs(top_contrib - runnerup_contrib) < max(top_contrib, runnerup_contrib) * CONFLICT_THRESHOLD:
             # 两边贡献接近，认为是冲突特征
             conflict.append((feat_name, top_contrib, runnerup_contrib))
     

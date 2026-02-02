@@ -131,9 +131,11 @@ def audit_label_consistency(labels_path: Path, output_dir: Path) -> Dict:
     
     # 生成 report_label_consistency.md
     report_path = output_dir / "report_label_consistency.md"
+    from datetime import datetime
+    audit_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with report_path.open("w", encoding="utf-8") as f:
         f.write("# T1: 数据-标签一致性审计报告\n\n")
-        f.write(f"**审计时间**: {Path(__file__).stat().st_mtime}\n")
+        f.write(f"**审计时间**: {audit_time}\n")
         f.write(f"**数据源**: `{labels_path}`\n\n")
         
         f.write("## 1. 概述\n\n")
