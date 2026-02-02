@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 """
 Simulation constraints and quality reporting for RRS-centered data.
+
+任务书第二阶段 §5: 模块→RRS形态签名
+实现可解释的模块级形态扰动项 Δy_module(f)，用于诊断可分性。
 """
 from __future__ import annotations
 
@@ -12,6 +15,316 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+
+
+# ============================================================================
+# 任务书 §5.2: 模块形态签名模板
+# ============================================================================
+
+def signature_lpf_global_slope(
+    x: np.ndarray, 
+    a1: float = None, 
+    a2: float = None,
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """LPF 模块签名：global_slope (全局斜率)
+    
+    Δy_LPF(x) = a1*(x - 0.5) + a2*(x - 0.5)^2
+    
+    Parameters
+    ----------
+    x : ndarray
+        归一化频率 [0, 1]
+    a1 : float, optional
+        一阶斜率系数，建议范围 [-0.18, -0.05]
+    a2 : float, optional
+        二阶曲率系数，建议范围 [0, 0.10]
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        形态签名扰动
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if a1 is None:
+        a1 = rng.uniform(-0.18, -0.05)
+    if a2 is None:
+        a2 = rng.uniform(0.0, 0.10)
+    
+    x_centered = x - 0.5
+    return a1 * x_centered + a2 * x_centered ** 2
+
+
+def signature_mixer_periodic_wave(
+    x: np.ndarray,
+    nu: float = None,
+    A0: float = None,
+    alpha: float = None,
+    phi: float = None,
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """Mixer 模块签名：periodic_wave (周期性波动)
+    
+    Δy_Mixer(x) = A(x) * sin(2π*ν*x + φ)
+    A(x) = A0 * (1 + α*(x - 0.5))
+    
+    Parameters
+    ----------
+    x : ndarray
+        归一化频率 [0, 1]
+    nu : float, optional
+        周期数，建议范围 [6, 14]
+    A0 : float, optional
+        基础幅度，建议范围 [0.03, 0.08]
+    alpha : float, optional
+        幅度调制系数，建议范围 [-0.4, 0.4]
+    phi : float, optional
+        相位，建议范围 [0, 2π]
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        形态签名扰动
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if nu is None:
+        nu = rng.uniform(6.0, 14.0)
+    if A0 is None:
+        A0 = rng.uniform(0.03, 0.08)
+    if alpha is None:
+        alpha = rng.uniform(-0.4, 0.4)
+    if phi is None:
+        phi = rng.uniform(0.0, 2 * np.pi)
+    
+    A_x = A0 * (1 + alpha * (x - 0.5))
+    return A_x * np.sin(2 * np.pi * nu * x + phi)
+
+
+def signature_detector_local_ripple(
+    x: np.ndarray,
+    x_c: float = None,
+    sigma: float = None,
+    num_harmonics: int = 2,
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """Detector 模块签名：local_ripple (局部纹理)
+    
+    W(x) = exp(-(x - x_c)^2 / (2*σ^2))
+    Δy_Det(x) = W(x) * Σ b_k * sin(2π*ν_k*x + φ_k)
+    
+    Parameters
+    ----------
+    x : ndarray
+        归一化频率 [0, 1]
+    x_c : float, optional
+        中心位置，建议范围 [0.35, 0.65]
+    sigma : float, optional
+        窗口宽度，建议范围 [0.08, 0.18]
+    num_harmonics : int
+        谐波数量
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        形态签名扰动
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if x_c is None:
+        x_c = rng.uniform(0.35, 0.65)
+    if sigma is None:
+        sigma = rng.uniform(0.08, 0.18)
+    
+    # 高斯窗
+    W = np.exp(-((x - x_c) ** 2) / (2 * sigma ** 2))
+    
+    # 多谐波叠加
+    ripple = np.zeros_like(x)
+    for _ in range(num_harmonics):
+        nu_k = rng.uniform(18.0, 40.0)
+        b_k = rng.uniform(0.008, 0.02)
+        phi_k = rng.uniform(0.0, 2 * np.pi)
+        ripple += b_k * np.sin(2 * np.pi * nu_k * x + phi_k)
+    
+    return W * ripple
+
+
+def signature_adc_step_bias(
+    x: np.ndarray,
+    num_steps: int = None,
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """ADC 模块签名：step_bias (台阶/分段偏置)
+    
+    Δy_ADC(x) = Σ s_i * sigmoid((x - t_i) / w_i)
+    
+    Parameters
+    ----------
+    x : ndarray
+        归一化频率 [0, 1]
+    num_steps : int, optional
+        台阶数量，建议范围 [1, 3]
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        形态签名扰动
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if num_steps is None:
+        num_steps = rng.integers(1, 4)
+    
+    # 确保台阶位置间隔 >= 0.15
+    result = np.zeros_like(x)
+    used_positions = []
+    
+    for _ in range(num_steps):
+        # 尝试找到不重叠的位置
+        for _ in range(10):  # 最多尝试10次
+            t_i = rng.uniform(0.15, 0.85)
+            if all(abs(t_i - p) >= 0.15 for p in used_positions):
+                used_positions.append(t_i)
+                break
+        else:
+            continue
+        
+        w_i = rng.uniform(0.003, 0.02)
+        s_i = rng.uniform(-0.08, 0.08)
+        
+        # Sigmoid 函数
+        step = s_i / (1 + np.exp(-(x - t_i) / w_i))
+        result += step
+    
+    return result
+
+
+def signature_power_highfreq_noise(
+    x: np.ndarray,
+    g0: float = None,
+    p: float = None,
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """Power 模块签名：highfreq_noise (高频噪声 - 降低主导性)
+    
+    任务书§5.2: 电源不再以主导异常，只在尾部噪声厚度上体现差异
+    Δy_PWR(x) = g0 * x^p * n(x)
+    
+    Parameters
+    ----------
+    x : ndarray
+        归一化频率 [0, 1]
+    g0 : float, optional
+        增益系数，建议范围 [0.015, 0.05] (降低)
+    p : float, optional
+        指数，建议范围 [1.5, 3.5]
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        形态签名扰动
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    if g0 is None:
+        g0 = rng.uniform(0.015, 0.05)  # 降低范围
+    if p is None:
+        p = rng.uniform(1.5, 3.5)
+    
+    # 高频端加权噪声
+    noise = rng.normal(0, 1, size=len(x))
+    return g0 * (x ** p) * noise
+
+
+def generate_module_signature(
+    frequency: np.ndarray,
+    module_type: str,
+    severity: str = "mid",
+    rng: np.random.Generator = None,
+) -> np.ndarray:
+    """根据模块类型生成形态签名。
+    
+    Parameters
+    ----------
+    frequency : ndarray
+        频率轴 (Hz)
+    module_type : str
+        模块类型：'lpf', 'mixer', 'detector', 'adc', 'power', 'normal'
+    severity : str
+        严重程度：'light', 'mid', 'severe'
+    rng : Generator, optional
+        随机数生成器
+    
+    Returns
+    -------
+    ndarray
+        模块形态签名扰动 (dB)
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    
+    # 归一化频率
+    f_min, f_max = frequency.min(), frequency.max()
+    x = (frequency - f_min) / (f_max - f_min + 1e-12)
+    
+    # 严重程度缩放因子
+    severity_scale = {"light": 0.6, "mid": 1.0, "severe": 1.5}.get(severity, 1.0)
+    
+    module_type = module_type.lower()
+    
+    if module_type == "lpf":
+        return severity_scale * signature_lpf_global_slope(x, rng=rng)
+    elif module_type == "mixer":
+        return severity_scale * signature_mixer_periodic_wave(x, rng=rng)
+    elif module_type == "detector":
+        return severity_scale * signature_detector_local_ripple(x, rng=rng)
+    elif module_type == "adc":
+        return severity_scale * signature_adc_step_bias(x, rng=rng)
+    elif module_type == "power":
+        return severity_scale * signature_power_highfreq_noise(x, rng=rng)
+    elif module_type == "normal":
+        # 正常状态：轻微高斯噪声，无特征签名
+        return rng.normal(0, 0.005 * severity_scale, size=len(x))
+    else:
+        # 未知模块类型：返回零
+        return np.zeros_like(x)
+
+
+# 模块类型到签名函数的映射
+MODULE_SIGNATURE_MAP = {
+    "低频段前置低通滤波器": "lpf",
+    "低频段第一混频器": "mixer",
+    "高频段YTF滤波器": "lpf",
+    "高频段混频器": "mixer",
+    "数字检波器": "detector",
+    "VBW滤波器": "detector",
+    "数字RBW": "detector",
+    "ADC": "adc",
+    "数字放大器": "adc",
+    "电源模块": "power",
+    "中频放大器": "mixer",
+    "时钟振荡器": "mixer",
+    "时钟合成与同步网络": "mixer",
+    "本振源（谐波发生器）": "mixer",
+    "本振混频组件": "mixer",
+    "校准源": "lpf",
+    "存储器": "adc",
+    "校准信号开关": "adc",
+    "衰减器": "lpf",
+    "前置放大器": "lpf",
+}
 
 
 @dataclass

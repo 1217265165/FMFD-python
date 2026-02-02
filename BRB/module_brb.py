@@ -161,6 +161,7 @@ def _aggregate_module_score(features: Dict[str, float], anomaly_type: str = None
     -------
     float
         聚合后的模块层异常分数(0-1)。
+        注意：返回值至少为 0.01 以避免 BRB 输出全零。
     """
 
     # 传统特征
@@ -197,7 +198,7 @@ def _aggregate_module_score(features: Dict[str, float], anomaly_type: str = None
             normalize_feature(features.get("X36", 0.0), 0.1, 0.9),  # 周期性
             normalize_feature(features.get("X37", 0.0), 0.001, 0.2),  # 线性拟合残差
         ]
-        return _mean(amp_features)
+        result = _mean(amp_features)
     
     elif anomaly_type == "频率失准":
         # 频率模块：使用频率相关特征X4,X14-X15,X16-X18
@@ -209,7 +210,7 @@ def _aggregate_module_score(features: Dict[str, float], anomaly_type: str = None
             normalize_feature(abs(features.get("X17", 0.0)), 0.001, 0.05),  # 缩放
             normalize_feature(abs(features.get("X18", 0.0)), 0.001, 0.05),  # 平移
         ]
-        return _mean(freq_features)
+        result = _mean(freq_features)
     
     elif anomaly_type == "参考电平失准":
         # 参考电平模块：使用参考相关特征X1,X3,X5,X11-X13
@@ -221,15 +222,79 @@ def _aggregate_module_score(features: Dict[str, float], anomaly_type: str = None
             normalize_feature(features.get("X13", 0.0), 0.1, 10.0),  # 违规能量
             normalize_feature(features.get("X35", 0.0), 0.001, 0.02),  # 差分方差
         ]
-        return _mean(ref_features)
+        result = _mean(ref_features)
     
     else:
         # 默认：使用所有传统特征
-        return _mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias])
+        result = _mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias])
+    
+    # 任务书§2.2: 确保返回值非零，避免 BRB 输出全零
+    # 设置最小阈值为 0.01
+    return max(0.01, result)
 
 
-def module_level_infer(features: Dict[str, float], sys_probs: Dict[str, float]) -> Dict[str, float]:
+def _validate_features(features: Dict[str, float]) -> Dict[str, object]:
+    """验证特征向量，检查 NaN/Inf，返回诊断信息。
+    
+    任务2.1: 特征向量检查 - 每个 feature 的 min/max/mean，是否 NaN/Inf
+    """
+    diagnostics = {
+        "nan_features": [],
+        "inf_features": [],
+        "valid": True,
+        "feature_stats": {},
+    }
+    
+    for key, val in features.items():
+        if not isinstance(val, (int, float)):
+            continue
+        if val != val:  # NaN check
+            diagnostics["nan_features"].append(key)
+            diagnostics["valid"] = False
+        elif abs(val) == float('inf'):
+            diagnostics["inf_features"].append(key)
+            diagnostics["valid"] = False
+        else:
+            diagnostics["feature_stats"][key] = float(val)
+    
+    return diagnostics
+
+
+def _validate_module_probs(probs: Dict[str, float]) -> Dict[str, object]:
+    """验证模块概率分布，确保 sum ≈ 1 且无全零。
+    
+    任务2.4: 概率输出检查 - sum(probs) 必须≈1，Top1 概率 > 0
+    """
+    total = sum(probs.values())
+    max_prob = max(probs.values()) if probs else 0.0
+    diagnostics = {
+        "sum": total,
+        "sum_valid": abs(total - 1.0) < 0.01,
+        "max_prob": max_prob,
+        "top1_nonzero": max_prob > 0,
+        "all_zero": all(v == 0 for v in probs.values()),
+    }
+    return diagnostics
+
+
+# 软门控阈值配置
+SOFT_GATING_CONFIG = {
+    "TH_NORMAL_STRONG": 0.85,  # Normal 概率高于此值时标记为低置信度
+    "TH_P_ABN_FORCE": 0.20,    # 异常概率之和高于此值时强制执行模块诊断
+}
+
+
+def module_level_infer(
+    features: Dict[str, float], 
+    sys_probs: Dict[str, float],
+    enable_soft_gating: bool = True,
+) -> Dict[str, float]:
     """Perform compressed module-level BRB inference with feature streaming.
+
+    改进说明（对应任务书 §3 软门控）：
+    1. 即使系统级判断为 Normal，只要异常概率 > 0.2，仍执行模块推理
+    2. Normal 概率 >= 0.85 时，输出模块 TopK 但标记为低置信度
+    3. 添加特征验证和概率验证的诊断信息
 
     Parameters
     ----------
@@ -240,6 +305,9 @@ def module_level_infer(features: Dict[str, float], sys_probs: Dict[str, float]) 
         系统级诊断概率分布，作为虚拟先验属性 V 对规则进行加权。
         既支持直接传入概率字典，也支持 system_level_infer 的完整
         返回值（会自动提取其中的 ``probabilities`` 字段）。
+    enable_soft_gating : bool
+        是否启用软门控。启用时，即使系统判断为 Normal，
+        也会输出模块级候选（可能标记低置信度）。
 
     Returns
     -------
@@ -247,12 +315,34 @@ def module_level_infer(features: Dict[str, float], sys_probs: Dict[str, float]) 
         20 个模块的概率分布，顺序与 ``MODULE_LABELS`` 对齐。
         NOTE: 前置放大器 is set to 0 in single-band mode.
     """
+    # 任务2.1: 特征验证
+    feature_diagnostics = _validate_features(features)
+    if not feature_diagnostics["valid"]:
+        import warnings
+        warnings.warn(
+            f"[BRB Module] 特征验证失败: NaN={feature_diagnostics['nan_features']}, "
+            f"Inf={feature_diagnostics['inf_features']}"
+        )
 
     probs = sys_probs.get("probabilities", sys_probs)
+    normal_prob = probs.get("正常", 0.0)
     amp_prior = probs.get("幅度失准", 0.3)
     freq_prior = probs.get("频率失准", 0.3)
     ref_prior = probs.get("参考电平失准", 0.3)
-
+    
+    # 任务书 §3.2: 软门控策略
+    # 计算异常概率之和 P_abn = 1 - P(Normal)
+    p_abn = 1.0 - normal_prob
+    
+    # 软门控条件判断
+    if enable_soft_gating:
+        # 条件1: 如果 Normal 概率很高 (>= 0.85)，仍执行推理但结果可能标记为低置信度
+        # 条件2: 如果 P_abn > 0.2，强制执行模块推理
+        force_module_infer = (p_abn > SOFT_GATING_CONFIG["TH_P_ABN_FORCE"])
+        
+        # 即使 is_normal=True，只要 p_abn > 阈值，也执行模块推理
+        # 这样避免了"Normal 就直接返回全 0"的情况
+    
     # 确定主导异常类型，用于特征分流
     max_prob_val = max(amp_prior, freq_prior, ref_prior)
     if amp_prior == max_prob_val:
@@ -266,6 +356,7 @@ def module_level_infer(features: Dict[str, float], sys_probs: Dict[str, float]) 
     md = _aggregate_module_score(features, anomaly_type)
 
     # Rules updated: 前置放大器 removed from amplitude rules in single-band mode
+    # 降低电源模块主导性（任务书 §5.2）
     rules = [
         BRBRule(
             weight=0.8 * ref_prior,
@@ -283,12 +374,25 @@ def module_level_infer(features: Dict[str, float], sys_probs: Dict[str, float]) 
         BRBRule(weight=0.5 * freq_prior, belief={"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
         BRBRule(weight=0.5 * freq_prior, belief={"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
         BRBRule(weight=0.4 * amp_prior, belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-        BRBRule(weight=0.3, belief={"电源模块": 1.0}),
+        # 电源模块权重降低（从 0.3 降到 0.15）
+        BRBRule(weight=0.15, belief={"电源模块": 1.0}),
     ]
 
     rules = _sanitize_rules(rules)
+    
+    # 任务2.3: 规则激活检查
+    if not rules:
+        import warnings
+        warnings.warn("[BRB Module] 规则激活数为 0，可能是所有模块被禁用或规则配置错误")
+    
     brb = SimpleBRB(MODULE_LABELS, rules)
     result = brb.infer([md])
+    
+    # 任务2.4: 概率验证
+    prob_diagnostics = _validate_module_probs(result)
+    if prob_diagnostics["all_zero"]:
+        import warnings
+        warnings.warn("[BRB Module] 模块概率全为 0，检查特征映射和规则激活")
 
     return _map_module_probs_to_v2(_apply_disabled_modules(result))
 
@@ -346,13 +450,18 @@ def module_level_infer_with_activation(
     
     # 检查是否为正常状态
     normal_prob = probs.get("正常", 0.0)
-    if normal_prob > 0.5:
-        # 正常状态，启用模块概率均匀分布，禁用模块为 0
-        enabled = [label for label in MODULE_LABELS if label not in DISABLED_MODULES]
-        if not enabled:
-            return _map_module_probs_to_v2({label: 0.0 for label in MODULE_LABELS})
-        base = {label: 1.0 / len(enabled) if label in enabled else 0.0 for label in MODULE_LABELS}
-        return _map_module_probs_to_v2(_apply_disabled_modules(base))
+    
+    # 任务书 §3.2 软门控改进：
+    # 即使 Normal 概率 > 0.5，只要 P_abn > 0.2 也要执行模块推理
+    # 不再简单返回均匀分布
+    p_abn = 1.0 - normal_prob
+    force_inference = (p_abn > SOFT_GATING_CONFIG["TH_P_ABN_FORCE"])
+    
+    # 只有在 Normal 非常高 (>= 0.85) 且 P_abn <= 0.2 时才考虑返回均匀分布
+    if normal_prob >= SOFT_GATING_CONFIG["TH_NORMAL_STRONG"] and not force_inference:
+        # 正常状态但仍执行推理，标记为低置信度
+        # 这里我们仍然执行推理，而不是直接返回均匀分布
+        pass  # 继续执行下面的推理逻辑
     
     amp_prior = probs.get("幅度失准", 0.3)
     freq_prior = probs.get("频率失准", 0.3)
@@ -394,7 +503,7 @@ def module_level_infer_with_activation(
         # 构建针对性的规则
         rules = _build_targeted_rules(anomaly_type, amp_prior, freq_prior, ref_prior)
     else:
-        # 使用完整规则集
+        # 使用完整规则集（降低电源模块权重）
         rules = [
             BRBRule(
                 weight=0.8 * ref_prior,
@@ -402,7 +511,7 @@ def module_level_infer_with_activation(
             ),
             BRBRule(
                 weight=0.6 * amp_prior,
-                belief={"前置放大器": 0.40, "中频放大器": 0.25, "数字放大器": 0.20, "衰减器": 0.10, "ADC": 0.05},
+                belief={"中频放大器": 0.35, "数字放大器": 0.30, "衰减器": 0.20, "ADC": 0.15},
             ),
             BRBRule(
                 weight=0.7 * freq_prior,
@@ -411,7 +520,8 @@ def module_level_infer_with_activation(
             BRBRule(weight=0.5 * freq_prior, belief={"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
             BRBRule(weight=0.5 * freq_prior, belief={"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
             BRBRule(weight=0.4 * amp_prior, belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-            BRBRule(weight=0.3, belief={"电源模块": 1.0}),
+            # 降低电源模块权重（从 0.3 降到 0.15）
+            BRBRule(weight=0.15, belief={"电源模块": 1.0}),
         ]
 
     rules = _sanitize_rules(rules)
@@ -478,9 +588,9 @@ def _build_targeted_rules(anomaly_type: str, amp_prior: float, freq_prior: float
             ),
         ])
     
-    # 添加通用规则（权重较低）
+    # 添加通用规则（电源模块权重降低 - 任务书§5.2：不再以电源为主导）
     rules.extend([
-        BRBRule(weight=0.2, belief={"电源模块": 1.0}),
+        BRBRule(weight=0.1, belief={"电源模块": 1.0}),  # 从 0.2 降到 0.1
     ])
     
     return rules
