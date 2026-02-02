@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Simulation constraints and quality reporting for RRS-centered data.
+Simulation constraints and quality reporting for RRS-centered data
 
 任务书第二阶段 §5: 模块→RRS形态签名
-实现可解释的模块级形态扰动项 Δy_module(f)，用于诊断可分性。
+实现可解释的模块级形态扰动项 Δy_module(f)，用于诊断可分性
 """
 from __future__ import annotations
 
@@ -15,6 +15,17 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
+
+
+# ============================================================================
+# 配置常量
+# ============================================================================
+
+# 签名生成重试次数
+SIGNATURE_MAX_RETRY = 10
+
+# 归一化频率计算的小量，避免除零
+FREQ_NORMALIZE_EPS = 1e-12
 
 
 # ============================================================================
@@ -191,7 +202,7 @@ def signature_adc_step_bias(
     
     for _ in range(num_steps):
         # 尝试找到不重叠的位置
-        for _ in range(10):  # 最多尝试10次
+        for _ in range(SIGNATURE_MAX_RETRY):
             t_i = rng.uniform(0.15, 0.85)
             if all(abs(t_i - p) >= 0.15 for p in used_positions):
                 used_positions.append(t_i)
@@ -277,7 +288,7 @@ def generate_module_signature(
     
     # 归一化频率
     f_min, f_max = frequency.min(), frequency.max()
-    x = (frequency - f_min) / (f_max - f_min + 1e-12)
+    x = (frequency - f_min) / (f_max - f_min + FREQ_NORMALIZE_EPS)
     
     # 严重程度缩放因子
     severity_scale = {"light": 0.6, "mid": 1.0, "severe": 1.5}.get(severity, 1.0)

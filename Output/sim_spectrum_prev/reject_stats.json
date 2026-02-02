@@ -1,8 +1,8 @@
 {
   "reject_counts": {
     "amp:amp shape deviation too small": 50,
-    "att:ref p95_abs_dev too small": 28,
-    "rl:ref p95_abs_dev too small": 48
+    "att:ref p95_abs_dev too small": 62,
+    "rl:ref p95_abs_dev too small": 32
   },
   "reject_records": [
     {
@@ -364,6 +364,531 @@
     },
     {
       "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "att",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
+      "fault_kind": "rl",
+      "reasons": [
+        "ref p95_abs_dev too small"
+      ]
+    },
+    {
+      "sample_id": "fault",
       "fault_kind": "att",
       "reasons": [
         "ref p95_abs_dev too small"
@@ -455,34 +980,6 @@
     },
     {
       "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
       "fault_kind": "att",
       "reasons": [
         "ref p95_abs_dev too small"
@@ -512,377 +1009,6 @@
     {
       "sample_id": "fault",
       "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "att",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
-      "reasons": [
-        "ref p95_abs_dev too small"
-      ]
-    },
-    {
-      "sample_id": "fault",
-      "fault_kind": "rl",
       "reasons": [
         "ref p95_abs_dev too small"
       ]

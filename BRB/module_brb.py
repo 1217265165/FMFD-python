@@ -20,6 +20,15 @@ from .utils import BRBRule, SimpleBRB, normalize_feature
 from tools.label_mapping import module_v2_from_v1
 
 
+# 软门控阈值配置
+SOFT_GATING_CONFIG = {
+    "TH_NORMAL_STRONG": 0.85,  # Normal 概率高于此值时标记为低置信度
+    "TH_P_ABN_FORCE": 0.20,    # 异常概率之和高于此值时强制执行模块诊断
+    "MIN_MODULE_SCORE": 0.01,  # 模块分数最小阈值，避免 BRB 输出全零
+    "PROB_SUM_TOLERANCE": 0.01,  # 概率和验证的容差
+}
+
+
 MODULE_LABELS: List[str] = [
     "衰减器",
     "前置放大器",  # DISABLED in single-band mode
@@ -229,8 +238,7 @@ def _aggregate_module_score(features: Dict[str, float], anomaly_type: str = None
         result = _mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias])
     
     # 任务书§2.2: 确保返回值非零，避免 BRB 输出全零
-    # 设置最小阈值为 0.01
-    return max(0.01, result)
+    return max(SOFT_GATING_CONFIG["MIN_MODULE_SCORE"], result)
 
 
 def _validate_features(features: Dict[str, float]) -> Dict[str, object]:
@@ -269,19 +277,12 @@ def _validate_module_probs(probs: Dict[str, float]) -> Dict[str, object]:
     max_prob = max(probs.values()) if probs else 0.0
     diagnostics = {
         "sum": total,
-        "sum_valid": abs(total - 1.0) < 0.01,
+        "sum_valid": abs(total - 1.0) < SOFT_GATING_CONFIG["PROB_SUM_TOLERANCE"],
         "max_prob": max_prob,
         "top1_nonzero": max_prob > 0,
         "all_zero": all(v == 0 for v in probs.values()),
     }
     return diagnostics
-
-
-# 软门控阈值配置
-SOFT_GATING_CONFIG = {
-    "TH_NORMAL_STRONG": 0.85,  # Normal 概率高于此值时标记为低置信度
-    "TH_P_ABN_FORCE": 0.20,    # 异常概率之和高于此值时强制执行模块诊断
-}
 
 
 def module_level_infer(
@@ -457,11 +458,10 @@ def module_level_infer_with_activation(
     p_abn = 1.0 - normal_prob
     force_inference = (p_abn > SOFT_GATING_CONFIG["TH_P_ABN_FORCE"])
     
-    # 只有在 Normal 非常高 (>= 0.85) 且 P_abn <= 0.2 时才考虑返回均匀分布
-    if normal_prob >= SOFT_GATING_CONFIG["TH_NORMAL_STRONG"] and not force_inference:
-        # 正常状态但仍执行推理，标记为低置信度
-        # 这里我们仍然执行推理，而不是直接返回均匀分布
-        pass  # 继续执行下面的推理逻辑
+    # 注意：即使 Normal 概率很高 (>= 0.85) 且 P_abn <= 0.2，
+    # 我们仍然执行推理（可以标记为低置信度），而不是返回均匀分布
+    # 这样保证模块级诊断始终输出有意义的结果
+    _ = (normal_prob >= SOFT_GATING_CONFIG["TH_NORMAL_STRONG"] and not force_inference)  # 可用于标记低置信度
     
     amp_prior = probs.get("幅度失准", 0.3)
     freq_prior = probs.get("频率失准", 0.3)
