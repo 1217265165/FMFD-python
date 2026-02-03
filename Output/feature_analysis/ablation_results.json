@@ -1,0 +1,63 @@
+{
+  "all_features": {
+    "n_features": 58,
+    "accuracy": 0.95,
+    "macro_f1": 0.9499765478424016
+  },
+  "knowledge_guided_only": {
+    "n_features": 21,
+    "accuracy": 0.9625,
+    "macro_f1": 0.9624295259725297,
+    "features": [
+      "global_offset_db",
+      "offset_db",
+      "offset_slope",
+      "shape_rmse",
+      "ripple_hp",
+      "tail_asym",
+      "freq_shift_score",
+      "switch_step_mean_abs",
+      "switch_step_std",
+      "high_low_energy_ratio",
+      "compress_ratio",
+      "compress_ratio_high",
+      "env_overrun_rate",
+      "env_overrun_mean",
+      "env_overrun_max",
+      "viol_rate_aligned",
+      "viol_energy_aligned",
+      "band_offset_db_1",
+      "band_offset_db_2",
+      "band_offset_db_3",
+      "band_offset_db_4"
+    ]
+  },
+  "statistical_only": {
+    "n_features": 37,
+    "accuracy": 0.95,
+    "macro_f1": 0.9496336996336996
+  },
+  "random_features": {
+    "n_features": 58,
+    "accuracy": 0.225,
+    "macro_f1": 0.22614468864468865,
+    "note": "随机高斯噪声作为特征（基线）"
+  },
+  "top_knowledge_features": {
+    "n_features": 10,
+    "accuracy": 0.9625,
+    "macro_f1": 0.962171669793621,
+    "features": [
+      "shape_rmse",
+      "ripple_hp",
+      "freq_shift_score",
+      "offset_db",
+      "high_low_energy_ratio",
+      "tail_asym",
+      "viol_rate_aligned",
+      "offset_slope",
+      "band_offset_db_4",
+      "band_offset_db_1"
+    ]
+  }
+}

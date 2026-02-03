@@ -1,0 +1,350 @@
+[
+  {
+    "rank": 1,
+    "feature": "X32",
+    "importance": 0.08245852719697132,
+    "domain": "statistical"
+  },
+  {
+    "rank": 2,
+    "feature": "shape_rmse",
+    "importance": 0.07204589857518151,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 3,
+    "feature": "ripple_hp",
+    "importance": 0.06828110147791715,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 4,
+    "feature": "X24",
+    "importance": 0.058685612983353015,
+    "domain": "statistical"
+  },
+  {
+    "rank": 5,
+    "feature": "X25",
+    "importance": 0.05378554456776508,
+    "domain": "statistical"
+  },
+  {
+    "rank": 6,
+    "feature": "X23",
+    "importance": 0.04626494914439563,
+    "domain": "statistical"
+  },
+  {
+    "rank": 7,
+    "feature": "X15",
+    "importance": 0.04172318647993988,
+    "domain": "statistical"
+  },
+  {
+    "rank": 8,
+    "feature": "freq_shift_score",
+    "importance": 0.04158800649618966,
+    "domain": "frequency_domain"
+  },
+  {
+    "rank": 9,
+    "feature": "X8",
+    "importance": 0.03930505731280773,
+    "domain": "statistical"
+  },
+  {
+    "rank": 10,
+    "feature": "X30",
+    "importance": 0.03813783555113084,
+    "domain": "statistical"
+  },
+  {
+    "rank": 11,
+    "feature": "X13",
+    "importance": 0.03809063682174749,
+    "domain": "statistical"
+  },
+  {
+    "rank": 12,
+    "feature": "offset_db",
+    "importance": 0.037279266441678005,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 13,
+    "feature": "X14",
+    "importance": 0.03179659210399479,
+    "domain": "statistical"
+  },
+  {
+    "rank": 14,
+    "feature": "X16",
+    "importance": 0.030539931824615,
+    "domain": "statistical"
+  },
+  {
+    "rank": 15,
+    "feature": "X6",
+    "importance": 0.029141408422906558,
+    "domain": "statistical"
+  },
+  {
+    "rank": 16,
+    "feature": "X1",
+    "importance": 0.028065918629423297,
+    "domain": "statistical"
+  },
+  {
+    "rank": 17,
+    "feature": "X5",
+    "importance": 0.023768022396536578,
+    "domain": "statistical"
+  },
+  {
+    "rank": 18,
+    "feature": "X29",
+    "importance": 0.018110473151110754,
+    "domain": "statistical"
+  },
+  {
+    "rank": 19,
+    "feature": "X35",
+    "importance": 0.01769818683153497,
+    "domain": "statistical"
+  },
+  {
+    "rank": 20,
+    "feature": "X33",
+    "importance": 0.01692532079046263,
+    "domain": "statistical"
+  },
+  {
+    "rank": 21,
+    "feature": "X4",
+    "importance": 0.01570945408446201,
+    "domain": "statistical"
+  },
+  {
+    "rank": 22,
+    "feature": "X31",
+    "importance": 0.014627357697241895,
+    "domain": "statistical"
+  },
+  {
+    "rank": 23,
+    "feature": "X37",
+    "importance": 0.014610029780256885,
+    "domain": "statistical"
+  },
+  {
+    "rank": 24,
+    "feature": "high_low_energy_ratio",
+    "importance": 0.014583653662734354,
+    "domain": "reference_domain"
+  },
+  {
+    "rank": 25,
+    "feature": "X27",
+    "importance": 0.013052741888217369,
+    "domain": "statistical"
+  },
+  {
+    "rank": 26,
+    "feature": "X9",
+    "importance": 0.011987300921155056,
+    "domain": "statistical"
+  },
+  {
+    "rank": 27,
+    "feature": "X36",
+    "importance": 0.010093030197426434,
+    "domain": "statistical"
+  },
+  {
+    "rank": 28,
+    "feature": "tail_asym",
+    "importance": 0.009689184138908038,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 29,
+    "feature": "X7",
+    "importance": 0.009215868360327804,
+    "domain": "statistical"
+  },
+  {
+    "rank": 30,
+    "feature": "X22",
+    "importance": 0.008197103722386682,
+    "domain": "statistical"
+  },
+  {
+    "rank": 31,
+    "feature": "X28",
+    "importance": 0.006743388313112491,
+    "domain": "statistical"
+  },
+  {
+    "rank": 32,
+    "feature": "viol_rate_aligned",
+    "importance": 0.0052566214245595416,
+    "domain": "envelope_domain"
+  },
+  {
+    "rank": 33,
+    "feature": "X10",
+    "importance": 0.005206684033696808,
+    "domain": "statistical"
+  },
+  {
+    "rank": 34,
+    "feature": "X2",
+    "importance": 0.004788590839807534,
+    "domain": "statistical"
+  },
+  {
+    "rank": 35,
+    "feature": "offset_slope",
+    "importance": 0.004445318858384096,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 36,
+    "feature": "band_offset_db_4",
+    "importance": 0.004116957996717919,
+    "domain": "band_offset_domain"
+  },
+  {
+    "rank": 37,
+    "feature": "X3",
+    "importance": 0.004057210395275076,
+    "domain": "statistical"
+  },
+  {
+    "rank": 38,
+    "feature": "band_offset_db_1",
+    "importance": 0.0037792346917133305,
+    "domain": "band_offset_domain"
+  },
+  {
+    "rank": 39,
+    "feature": "X34",
+    "importance": 0.0036838429386474433,
+    "domain": "statistical"
+  },
+  {
+    "rank": 40,
+    "feature": "X19",
+    "importance": 0.0036197800159476936,
+    "domain": "statistical"
+  },
+  {
+    "rank": 41,
+    "feature": "band_offset_db_2",
+    "importance": 0.0031326932464439817,
+    "domain": "band_offset_domain"
+  },
+  {
+    "rank": 42,
+    "feature": "band_offset_db_3",
+    "importance": 0.002749531063425374,
+    "domain": "band_offset_domain"
+  },
+  {
+    "rank": 43,
+    "feature": "X20",
+    "importance": 0.0026984399284900994,
+    "domain": "statistical"
+  },
+  {
+    "rank": 44,
+    "feature": "X21",
+    "importance": 0.0023713393570043576,
+    "domain": "statistical"
+  },
+  {
+    "rank": 45,
+    "feature": "X26",
+    "importance": 0.0023299903609751565,
+    "domain": "statistical"
+  },
+  {
+    "rank": 46,
+    "feature": "compress_ratio",
+    "importance": 0.00163513893170384,
+    "domain": "reference_domain"
+  },
+  {
+    "rank": 47,
+    "feature": "env_overrun_mean",
+    "importance": 0.0008485772731046469,
+    "domain": "envelope_domain"
+  },
+  {
+    "rank": 48,
+    "feature": "env_overrun_rate",
+    "importance": 0.000839467524093673,
+    "domain": "envelope_domain"
+  },
+  {
+    "rank": 49,
+    "feature": "X11",
+    "importance": 0.000674538968897748,
+    "domain": "statistical"
+  },
+  {
+    "rank": 50,
+    "feature": "X18",
+    "importance": 0.00037576398389383374,
+    "domain": "statistical"
+  },
+  {
+    "rank": 51,
+    "feature": "env_overrun_max",
+    "importance": 0.00032044168100494604,
+    "domain": "envelope_domain"
+  },
+  {
+    "rank": 52,
+    "feature": "compress_ratio_high",
+    "importance": 0.00031323901442056277,
+    "domain": "reference_domain"
+  },
+  {
+    "rank": 53,
+    "feature": "X12",
+    "importance": 0.0002528493520752952,
+    "domain": "statistical"
+  },
+  {
+    "rank": 54,
+    "feature": "viol_energy_aligned",
+    "importance": 0.00022518692385728632,
+    "domain": "envelope_domain"
+  },
+  {
+    "rank": 55,
+    "feature": "X17",
+    "importance": 7.797122996870367e-05,
+    "domain": "statistical"
+  },
+  {
+    "rank": 56,
+    "feature": "global_offset_db",
+    "importance": 0.0,
+    "domain": "amplitude_domain"
+  },
+  {
+    "rank": 57,
+    "feature": "switch_step_mean_abs",
+    "importance": 0.0,
+    "domain": "frequency_domain"
+  },
+  {
+    "rank": 58,
+    "feature": "switch_step_std",
+    "importance": 0.0,
+    "domain": "frequency_domain"
+  }
+]
