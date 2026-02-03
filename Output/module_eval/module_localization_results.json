@@ -1,0 +1,35 @@
+{
+  "mod_top1": 0.44666666666666666,
+  "mod_top3": 0.7633333333333333,
+  "total": 300,
+  "by_fault_type": {
+    "amp_error": {
+      "total": 100,
+      "top1": 29,
+      "top3": 59,
+      "top1_acc": 0.29,
+      "top3_acc": 0.59
+    },
+    "freq_error": {
+      "total": 100,
+      "top1": 70,
+      "top3": 70,
+      "top1_acc": 0.7,
+      "top3_acc": 0.7
+    },
+    "ref_error": {
+      "total": 100,
+      "top1": 35,
+      "top3": 100,
+      "top1_acc": 0.35,
+      "top3_acc": 1.0
+    }
+  },
+  "dominance_check": {
+    "max_module": "[RF板][RF] 低频通路固定滤波/抑制网络",
+    "max_count": 100,
+    "dominance_ratio": 0.3333333333333333,
+    "is_diverse": true
+  },
+  "error_cases_count": 166
+}
