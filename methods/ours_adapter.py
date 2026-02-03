@@ -1,4 +1,13 @@
-"""Adapter for Ours method (knowledge-driven rule compression + hierarchical BRB)."""
+"""Adapter for Ours method (knowledge-driven rule compression + hierarchical BRB).
+
+CRITICAL: This adapter MUST use the same BRB inference as brb_diagnosis_cli.py
+to ensure compare_methods and CLI produce consistent results.
+
+The unified architecture uses:
+- Sub-BRB system (amp/freq/ref) for system-level diagnosis
+- Module BRB for module-level diagnosis
+- NO RandomForest or other supervised classifiers (that would be a different method)
+"""
 from __future__ import annotations
 
 import json
@@ -7,7 +16,6 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
 
 from methods.base import MethodAdapter
 from BRB.system_brb import system_level_infer, SystemBRBConfig
@@ -17,7 +25,6 @@ from BRB.module_brb import MODULE_LABELS, module_level_infer, module_level_infer
 
 def _load_calibration() -> Dict:
     """Load calibration parameters from Output/ours_best_config.json or calibration.json."""
-    # Try multiple locations
     possible_paths = [
         Path(__file__).parent.parent / 'Output' / 'ours_best_config.json',
         Path(__file__).parent.parent / 'Output' / 'calibration.json',
@@ -35,23 +42,24 @@ def _load_calibration() -> Dict:
             except Exception:
                 continue
     
-    return {}  # Return empty dict if no calibration found
+    return {}
 
 
 class OursAdapter(MethodAdapter):
     """Our proposed method: Knowledge-driven rule compression + hierarchical BRB.
     
-    MUST-HAVE mechanisms:
-    - Two-layer inference: System BRB -> Module BRB
+    UNIFIED ARCHITECTURE (must match brb_diagnosis_cli.py):
+    - Two-layer inference: System BRB (sub-BRBs) -> Module BRB
     - System result gating: only activate physically-related module subset
     - Knowledge mapping: modules use relevant frequency bands/features only
     - Sub-BRB architecture: separate BRBs for amp/freq/ref faults
     
-    Enhanced with X1-X22 features for improved accuracy while maintaining framework.
+    IMPORTANT: This adapter does NOT use supervised learning classifiers.
+    It uses the same BRB rule-based inference as the CLI tool.
     
     Complexity:
     - Rules: system layer (3 sub-BRBs) + module layer (configured rules only)
-    - Params: attribute weights + rule weights + belief degrees (增加扩展特征权重)
+    - Params: attribute weights + rule weights + belief degrees
     """
     
     name = "ours"
@@ -77,11 +85,10 @@ class OursAdapter(MethodAdapter):
         self.feature_names = None
         self.n_system_rules = 15  # 3 sub-BRBs with 5 rules each
         self.n_module_rules = 33  # Configured per-module rules
-        self.n_params = 68  # 增加：22个特征权重 + 3个规则权重 + 33个belief参数 + 10个子BRB参数
+        self.n_params = 68  # 22 feature weights + 3 rule weights + 33 belief params + 10 sub-BRB params
         self.kd_features = [f'X{i}' for i in range(1, 23)]  # X1-X22
-        self.use_sub_brb = True  # 启用子BRB架构以提高准确率
-        self.classifier: Optional[RandomForestClassifier] = None
-        # 添加别名映射
+        self.use_sub_brb = True  # Enable sub-BRB architecture for better accuracy
+        # Feature name aliases for compatibility
         self.kd_features_aliases = {
             'bias': 'X1', 'ripple_var': 'X2', 'res_slope': 'X3', 
             'df': 'X4', 'scale_consistency': 'X5',
@@ -98,30 +105,22 @@ class OursAdapter(MethodAdapter):
     
     def fit(self, X_train: np.ndarray, y_sys_train: np.ndarray,
             y_mod_train: Optional[np.ndarray] = None, meta: Optional[Dict] = None) -> None:
-        """Fit method (rule-based, minimal training).
+        """Fit method (rule-based, no supervised training).
         
-        For BRB, we don't do intensive training, but we can:
-        - Store feature statistics for normalization
-        - Optionally tune attribute/rule weights (simplified)
+        For unified BRB architecture, we do NOT train a classifier.
+        We only store feature names for later use in inference.
+        This ensures compare_methods uses the same inference as CLI.
         """
         if meta and 'feature_names' in meta:
             self.feature_names = meta['feature_names']
-        
-        if meta and 'feature_names' in meta:
-            self.feature_names = meta['feature_names']
-
-        if X_train is None or y_sys_train is None:
-            return
-
-        self.classifier = RandomForestClassifier(
-            n_estimators=200,
-            random_state=2025,
-            class_weight="balanced",
-        )
-        self.classifier.fit(X_train, y_sys_train)
+        # NOTE: No classifier training - BRB is rule-based!
     
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
-        """Predict on test data using hierarchical BRB with extended features and sub-BRB architecture."""
+        """Predict using unified hierarchical BRB (same as CLI).
+        
+        This method uses the SAME BRB inference logic as brb_diagnosis_cli.py
+        to ensure consistent results between compare_methods and CLI.
+        """
         n_test = len(X_test)
         n_sys_classes = 4  # Normal, Amp, Freq, Ref
         
@@ -131,69 +130,47 @@ class OursAdapter(MethodAdapter):
         # Initialize outputs
         sys_proba = np.zeros((n_test, n_sys_classes))
         sys_pred = np.zeros(n_test, dtype=int)
-        mod_proba = np.zeros((n_test, len(MODULE_LABELS)))  # modules
+        mod_proba = np.zeros((n_test, len(MODULE_LABELS)))
         mod_pred = np.zeros(n_test, dtype=int)
 
         start_time = time.time()
-
-        if self.classifier is not None:
-            sys_proba = self.classifier.predict_proba(X_test)
-            sys_pred = np.argmax(sys_proba, axis=1)
-            infer_time = time.time() - start_time
-            infer_time_ms = (infer_time / n_test) * 1000 if n_test > 0 else 0.0
-            return {
-                'system_proba': sys_proba,
-                'system_pred': sys_pred,
-                'module_proba': mod_proba,
-                'module_pred': mod_pred + 1,
-                'meta': {
-                    'fit_time_sec': 0.0,
-                    'infer_time_ms_per_sample': infer_time_ms,
-                    'n_rules': self.n_system_rules + self.n_module_rules,
-                    'n_params': self.n_params,
-                    'n_features_used': len(self.kd_features),
-                    'features_used': self.kd_features,
-                }
-            }
-
-        # 选择推理模式：使用sub_brb架构以提高准确率
+        
+        # Use sub_brb architecture (same as CLI)
         inference_mode = 'sub_brb' if self.use_sub_brb else 'er'
         
         for i in range(n_test):
-            # Convert sample to feature dict (支持X1-X22)
+            # Convert sample to feature dict
             features = self._array_to_dict(X_test[i])
             
-            # System-level inference - 使用sub_brb模式
+            # System-level inference using sub_brb mode
             sys_result = system_level_infer(features, self.config, mode=inference_mode)
             probs = sys_result.get('probabilities', {})
             
-            # Map to probability array with better fallback handling
+            # Map to probability array
             # Order: Normal, Amp, Freq, Ref
             total_prob = sum(probs.values()) if probs else 0.0
             
-            if total_prob > 0.01:  # Valid probabilities
-                sys_proba[i, 0] = probs.get('正常', 0.0)          # Normal -> idx 0
-                sys_proba[i, 1] = probs.get('幅度失准', 0.0)      # Amp -> idx 1
-                sys_proba[i, 2] = probs.get('频率失准', 0.0)      # Freq -> idx 2
-                sys_proba[i, 3] = probs.get('参考电平失准', 0.0)  # Ref -> idx 3
+            if total_prob > 0.01:
+                sys_proba[i, 0] = probs.get('正常', 0.0)
+                sys_proba[i, 1] = probs.get('幅度失准', 0.0)
+                sys_proba[i, 2] = probs.get('频率失准', 0.0)
+                sys_proba[i, 3] = probs.get('参考电平失准', 0.0)
                 
-                # Normalize if needed
+                # Normalize
                 row_sum = np.sum(sys_proba[i])
                 if row_sum > 0:
                     sys_proba[i] /= row_sum
             else:
-                # Fallback: use uniform distribution
                 sys_proba[i] = np.ones(n_sys_classes) / n_sys_classes
             
             sys_pred[i] = np.argmax(sys_proba[i])
             
-            # Module-level inference - 使用module_level_infer_with_activation以激活相关模块组
+            # Module-level inference
             mod_probs_dict = module_level_infer_with_activation(features, sys_result, only_activate_relevant=True)
             
-            # Convert to array (assume module IDs 1-N)
+            # Convert to array
             for mod_id_str, prob in mod_probs_dict.items():
                 try:
-                    # Extract module ID from string like "模块1" or "1"
                     if isinstance(mod_id_str, str):
                         mod_id = int(''.join(filter(str.isdigit, mod_id_str)))
                     else:
@@ -216,7 +193,7 @@ class OursAdapter(MethodAdapter):
             'system_proba': sys_proba,
             'system_pred': sys_pred,
             'module_proba': mod_proba,
-            'module_pred': mod_pred + 1,  # Convert to 1-based
+            'module_pred': mod_pred + 1,
             'meta': {
                 'fit_time_sec': 0.0,  # Rule-based, no training
                 'infer_time_ms_per_sample': infer_time_ms,
