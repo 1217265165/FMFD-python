@@ -22,8 +22,8 @@
   "feature_integrity_report": "/home/runner/work/FMFD-python/FMFD-python/Output/compare_methods/feature_integrity_report.json",
   "best_params": {
     "path": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/best_params.json",
-    "exists": true,
-    "sha256": "b466c5f467d41f798e9fc357ed378e5a4460daf2c6b1a4ae11a3a09192f60e99"
+    "exists": false,
+    "sha256": null
   },
   "single_band": true,
   "disable_preamp": true,
