@@ -85,6 +85,7 @@ def evaluate_module_localization(results: List[Dict]) -> Dict:
         # 系统级准确率
         sys_correct = (sys_pred == gt_fault_type) or (
             # 处理中英文映射
+            (sys_pred == "正常" and gt_fault_type == "normal") or
             (sys_pred == "幅度失准" and gt_fault_type == "amp_error") or
             (sys_pred == "频率失准" and gt_fault_type == "freq_error") or
             (sys_pred == "参考电平失准" and gt_fault_type == "ref_error")

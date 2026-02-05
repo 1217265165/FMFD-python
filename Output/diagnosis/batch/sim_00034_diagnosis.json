@@ -1,0 +1,246 @@
+{
+  "status": "success",
+  "meta": {
+    "sample_id": "sim_00034",
+    "input_file": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/raw_curves/sim_00034.csv",
+    "operating_condition": {
+      "inject_power_dbm": -10.0,
+      "freq_start_hz": 10000000.0,
+      "freq_end_hz": 8200000000.0,
+      "step_hz": 10000000.0,
+      "frontend": {
+        "low_band_only": true,
+        "ac_coupling": true,
+        "preamp": false
+      }
+    }
+  },
+  "data_points": 820,
+  "frequency_range": {
+    "min": 10000000.0,
+    "max": 8200000000.0
+  },
+  "features": {
+    "X1": -9.93307256097561,
+    "X2": 0.0006624178033495281,
+    "X3": 0.00027255097737813213,
+    "X4": 0.02970344628570207,
+    "X5": 0.2728089279009073,
+    "X6": 0.0010036605519779893,
+    "X7": 0.07860000000000156,
+    "X8": 0.025022804878048775,
+    "X9": 0.0008822947212475882,
+    "X10": 0.015315451115663266,
+    "X11": 0.0,
+    "X12": 0.0,
+    "X13": 0.1761718835415967,
+    "X14": 0.003535531135531231,
+    "X15": 0.005043568463833879,
+    "X16": -0.023665016823847838,
+    "X17": 0.0,
+    "X18": 0.0,
+    "X19": -5.7533395550957094e-05,
+    "X20": 0.062016498457167835,
+    "X21": 8.0,
+    "X22": 0.03841424268456807,
+    "X23": 3.191215853658616e-05,
+    "X24": 0.07490445795054701,
+    "X25": 3.191215853658616e-05,
+    "X26": 0.0006597178250861756,
+    "X27": 7.976186544232345e-06,
+    "X28": -0.03384094754376197,
+    "X29": -0.11154767614129879,
+    "X30": 0.002138719512195307,
+    "X31": 0.0009806351515300794,
+    "X32": -0.3691850355927311,
+    "X33": 0.6098336793641573,
+    "X34": 0.015724515044080647,
+    "X35": 0.0003732584652357541,
+    "X36": 0.7876923046737211,
+    "X37": 0.02970344628570207,
+    "offset_db": 0.0003000000000010772,
+    "viol_rate_aligned": 0.0,
+    "viol_energy_aligned": 0.1761718835415967,
+    "global_offset_db": 0.0,
+    "shape_rmse": 0.005649084752115705,
+    "ripple_hp": 0.007339338135809299,
+    "tail_asym": -0.0006050000000038299,
+    "compress_ratio": 0.19878048780487806,
+    "compress_ratio_high": 0.19661016949152543,
+    "freq_shift_score": 0.01591320739487978,
+    "offset_slope": -0.00015554886672790552,
+    "high_low_energy_ratio": 12.528644948584613,
+    "band_offset_db_1": -0.0016500000000014836,
+    "band_offset_db_2": 0.00019999999999775753,
+    "band_offset_db_3": 0.0005999999999986017,
+    "band_offset_db_4": -0.0004000000000008441
+  },
+  "system": {
+    "probs": {
+      "正常": 0.9875579529812241,
+      "幅度失准": 0.004169267849763483,
+      "频率失准": 0.0020660429958574557,
+      "参考电平失准": 0.006206736172167473
+    },
+    "decision": "正常",
+    "confidence": 0.9875579529812241,
+    "is_normal": true
+  },
+  "module": {
+    "topk": [
+      {
+        "module_id": "[电源板] 电源管理模块",
+        "gamma": 0.9498865886799583
+      },
+      {
+        "module_id": "[校准链路][校准源]",
+        "gamma": 0.021224503617899994
+      },
+      {
+        "module_id": "[校准链路][校准路径开关/耦合]",
+        "gamma": 0.015328808168483327
+      }
+    ],
+    "gating": {
+      "disabled_modules": [
+        "高频段YTF滤波器",
+        "高频段混频器",
+        "前置放大器",
+        "衰减器"
+      ],
+      "topk_k": 3
+    }
+  },
+  "evidence": {
+    "global_offset_db": 0.0003000000000010772,
+    "hf_std_db": 0.005163745375483888,
+    "p95_abs_dev_db": 0.00989999999999842,
+    "inside_env_frac": 1.0,
+    "peak_freq_mae_hz": 143717.37343526867,
+    "peak_freq_outlier_frac": 0.003658536585365854
+  },
+  "artifacts": {
+    "output_json": "Output/diagnosis/batch/sim_00034_diagnosis.json"
+  },
+  "system_diagnosis": {
+    "probabilities": {
+      "正常": 0.9875579529812241,
+      "幅度失准": 0.004169267849763483,
+      "频率失准": 0.0020660429958574557,
+      "参考电平失准": 0.006206736172167473
+    },
+    "predicted_class": "正常",
+    "max_prob": 0.9875579529812241,
+    "is_normal": true
+  },
+  "module_diagnosis": {
+    "probabilities": {
+      "[电源板] 电源管理模块": 0.9498865886799583,
+      "[校准链路][校准源]": 0.021224503617899994,
+      "[校准链路][校准路径开关/耦合]": 0.015328808168483327,
+      "[校准链路][校准表/存储]": 0.013560099533658328,
+      "[RF板][RF] 输入衰减器组": 0.0,
+      "前置放大器": 0.0,
+      "[RF板][RF] 低频通路固定滤波/抑制网络": 0.0,
+      "[RF板][Mixer1]": 0.0,
+      "[RF板][YTF]": 0.0,
+      "[RF板][Mixer2]": 0.0
+    },
+    "topk": [
+      {
+        "module": "[电源板] 电源管理模块",
+        "probability": 0.9498865886799583
+      },
+      {
+        "module": "[校准链路][校准源]",
+        "probability": 0.021224503617899994
+      },
+      {
+        "module": "[校准链路][校准路径开关/耦合]",
+        "probability": 0.015328808168483327
+      }
+    ],
+    "disabled_modules": [
+      "高频段YTF滤波器",
+      "高频段混频器",
+      "前置放大器",
+      "衰减器"
+    ]
+  },
+  "evidence_detail": {
+    "viol_rate": 0.0,
+    "envelope_violation": false,
+    "violation_max_db": 0.0,
+    "violation_energy": 0.1761718835415967,
+    "baseline_coverage": 1.0
+  },
+  "config": {
+    "mode": "unified_entry",
+    "gating_status": "fallback_brb_only",
+    "run_name": null,
+    "topk": 3
+  },
+  "uncertainty": {
+    "is_uncertain": false,
+    "reason": "",
+    "top_class": "正常",
+    "runner_up": "参考电平失准",
+    "max_prob": 0.9875579529812241,
+    "second_prob": 0.006206736172167473,
+    "prob_gap": 0.9813512168090566,
+    "support_top_features": [],
+    "support_runnerup_features": [],
+    "conflict_features": [],
+    "suggested_actions": []
+  },
+  "module_validation": {
+    "sample_id": "sim_00034",
+    "gt_module": "时钟合成与同步网络",
+    "gt_module_v2": "[LO/时钟板][LO1] 合成链",
+    "top1": "[电源板] 电源管理模块",
+    "top3": [
+      "[电源板] 电源管理模块",
+      "[校准链路][校准源]",
+      "[校准链路][校准路径开关/耦合]"
+    ],
+    "top5": [
+      "[电源板] 电源管理模块",
+      "[校准链路][校准源]",
+      "[校准链路][校准路径开关/耦合]",
+      "[校准链路][校准表/存储]",
+      "[RF板][RF] 输入衰减器组"
+    ],
+    "gt_rank": -1,
+    "gt_prob": 0.0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false
+  },
+  "ground_truth": {
+    "type": "fault",
+    "system_class_en": "freq_error",
+    "system_class_cn": "频率失准",
+    "module": "时钟合成与同步网络",
+    "module_v2": "[LO/时钟板][LO1] 合成链",
+    "fault_params": {
+      "severity": "light",
+      "tier_target": "mild_oos",
+      "delta_f_hz": -297517.4702963298,
+      "ppm": -36.32691945010132,
+      "shift_bins": -0.029751747029632982,
+      "bandwidth_hz": 8190000000.0,
+      "type": "clock_drift",
+      "track_type": "spike",
+      "template_id": "T8",
+      "forced_peak_track_type": true,
+      "peak_track_profile": {
+        "bands": [],
+        "track_type": "spike"
+      },
+      "freq_amp_coupling": {
+        "bias_db_min": -0.1,
+        "bias_db_max": -0.02
+      }
+    }
+  }
+}

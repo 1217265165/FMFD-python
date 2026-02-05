@@ -170,9 +170,9 @@ def main():
         from baseline.baseline import align_to_frequency
         from baseline.config import BASELINE_ARTIFACTS, BASELINE_META, BAND_RANGES
         from baseline.rrs_envelope import vendor_tolerance_db
-        from features.extract import extract_system_features
-        from BRB.system_brb import system_level_infer
-        from BRB.module_brb import module_level_infer, DISABLED_MODULES
+        from features.feature_extraction import extract_system_features
+        from methods.ours_adapter import infer_system_and_modules
+        from BRB.module_brb import DISABLED_MODULES
         from BRB.uncertainty import (
             detect_uncertainty, format_uncertainty_explanation, UncertaintyConfig
         )
@@ -283,31 +283,58 @@ def main():
 
             # 3. 对齐频率并提取特征
             amp = align_to_frequency(frequency, freq_raw, amp_raw)
-            features = extract_system_features(frequency, rrs, bounds, band_ranges, amp)
+            # Use feature_extraction.py for X1-X22 format
+            features = extract_system_features(amp, baseline_curve=rrs, envelope=bounds)
 
             if args.verbose:
                 print(f"[INFO] 提取特征数: {len(features)}", file=sys.stderr)
                 print(f"[INFO] 特征: {list(features.keys())}", file=sys.stderr)
 
-            # 4. 执行BRB推理
-            infer_mode = "sub_brb" if args.mode == "online_infer" else args.mode
-            sys_probs = system_level_infer(features, mode=infer_mode)
-            mod_probs = module_level_infer(features, sys_probs)
+            # 4. 执行推理 - 使用统一入口 infer_system_and_modules
+            unified_result = infer_system_and_modules(
+                features,
+                use_gating=True,
+                rf_classifier=None,  # No RF classifier for CLI (fallback to BRB)
+                allow_fallback=True,
+            )
+            
+            # Extract results from unified entry
+            sys_probs_en = unified_result["system_probs"]
+            fault_type_pred = unified_result["fault_type_pred"]
+            module_topk = unified_result["module_topk"]
+            debug_info = unified_result["debug"]
+            
+            # Convert to Chinese for compatibility
+            sys_probs_dict = {
+                "正常": sys_probs_en.get("normal", 0.0),
+                "幅度失准": sys_probs_en.get("amp_error", 0.0),
+                "频率失准": sys_probs_en.get("freq_error", 0.0),
+                "参考电平失准": sys_probs_en.get("ref_error", 0.0),
+            }
+            
+            # Map fault_type_pred from English to Chinese
+            pred_to_cn = {
+                "normal": "正常",
+                "amp_error": "幅度失准",
+                "freq_error": "频率失准",
+                "ref_error": "参考电平失准",
+            }
+            predicted_class = pred_to_cn.get(fault_type_pred, fault_type_pred)
+            max_prob = max(sys_probs_dict.values()) if sys_probs_dict else 0.0
+            is_normal = (fault_type_pred == "normal")
+            
+            # Convert module_topk format
+            mod_probs = {m["name"]: m["prob"] for m in module_topk}
 
             if args.verbose:
-                print(f"[INFO] 系统级诊断完成", file=sys.stderr)
-                print(f"[INFO] 模块级诊断完成 ({len(mod_probs)}个模块)", file=sys.stderr)
+                print(f"[INFO] 系统级诊断完成 (gating: {debug_info.get('gating_status', 'unknown')})", file=sys.stderr)
+                print(f"[INFO] 模块级诊断完成 ({len(module_topk)}个模块)", file=sys.stderr)
 
             # 5. 构造输出结果
-            sys_probs_dict = sys_probs.get('probabilities', sys_probs) if isinstance(sys_probs, dict) else sys_probs
-            is_normal = sys_probs.get('is_normal', False) if isinstance(sys_probs, dict) else False
-            max_prob = max(sys_probs_dict.values()) if sys_probs_dict else 0.0
-            predicted_class = max(sys_probs_dict, key=sys_probs_dict.get) if sys_probs_dict else "未知"
-
             topk_modules = get_topk_modules(mod_probs, k=args.topk, skip_disabled=True, disabled_modules=list(DISABLED_MODULES))
             topk_list = [{"module": name, "probability": float(prob)} for name, prob in topk_modules]
 
-            viol_rate = float(features.get('viol_rate', 0.0))
+            viol_rate = float(features.get('X11', features.get('viol_rate', 0.0)))
 
             step_hz = float(np.median(np.diff(freq_raw))) if len(freq_raw) > 1 else 0.0
             offset_db = float(np.median(amp - rrs))
@@ -403,7 +430,8 @@ def main():
                     "baseline_coverage": 1.0 - viol_rate,
                 },
                 "config": {
-                    "mode": infer_mode,
+                    "mode": "unified_entry",
+                    "gating_status": debug_info.get("gating_status", "unknown"),
                     "run_name": args.run_name,
                     "topk": args.topk,
                 }
