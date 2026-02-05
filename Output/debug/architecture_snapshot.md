@@ -1,254 +1,149 @@
-# Architecture Snapshot - 当前代码真实架构审计
+# Architecture Snapshot
 
-生成时间: 2026-02-05
-审计范围: methods/ours_adapter.py, BRB/module_brb.py, pipelines/compare_methods.py
+Generated: 2026-02-05T11:14:57.672894
+
+This document answers 8 critical questions about the current code architecture.
 
 ---
 
-## 1. 系统级推理架构
+## 1. System-level inference entry point
 
-### 1.1 当前架构类型: **RF+BRB 门控融合 (Gating Prior Fusion)**
+**Answer**: `methods/ours_adapter.py::infer_system_and_modules()`
 
+This is the ONLY entry point that all evaluation paths must use:
+- `compare_methods.py` → `OursAdapter.predict()` → `infer_system_and_modules()`
+- `brb_diagnosis_cli.py` → `infer_system_and_modules()`
+- `eval_module_localization.py` → `infer_system_and_modules()`
+
+---
+
+## 2. RF artifact usage
+
+**RF Artifact Path**: `/home/runner/work/FMFD-python/FMFD-python/artifacts/rf_system_classifier.joblib`
+**Artifact Exists**: `True`
+**Meta Exists**: `True`
+
+**Behavior when RF not found**:
+- If `allow_fallback=True`: Silent fallback to BRB-only (gating_status="fallback_brb_only")
+- If `allow_fallback=False`: Raises `ValueError`
+
+---
+
+## 3. BRB system-level inference
+
+**Answer**: Yes, BRB `system_level_infer()` is ALWAYS called.
+
+From analysis: `system_level_infer() is called`
+
+BRB output dimension: 4 classes (normal, amp_error, freq_error, ref_error)
+
+---
+
+## 4. Gating fusion method
+
+**Gating Configuration**:
+```json
+{
+  "_version": "1.0",
+  "_description": "门控先验融合配置 - 所有入口必须加载此配置",
+  "method": "gated",
+  "linear_weight": 0.7,
+  "logit_weight": 0.6,
+  "gated": {
+    "threshold": 0.55,
+    "w_min": 0.3,
+    "w_max": 0.85,
+    "temperature": 1.0
+  },
+  "fallback": {
+    "allow_fallback": true,
+    "fallback_method": "brb_only"
+  }
+}
 ```
-                    ┌──────────────┐
-                    │   Features   │
-                    │   X1-X22     │
-                    └──────┬───────┘
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-    ┌─────────────────┐       ┌─────────────────┐
-    │ RF Classifier   │       │ BRB System      │
-    │ (Prior)         │       │ (Posterior)     │
-    │ rf_probs        │       │ brb_probs       │
-    └────────┬────────┘       └────────┬────────┘
-             │                         │
-             └──────────┬──────────────┘
-                        ▼
-              ┌─────────────────┐
-              │ GatingPriorFusion│
-              │ fused_probs      │
-              └────────┬────────┘
-                       ▼
-              ┌─────────────────┐
-              │ fault_type_pred │
-              │ = argmax(fused) │
-              └─────────────────┘
-```
 
-### 1.2 融合公式
-
-位置: `BRB/gating_prior.py::GatingPriorFusion.fuse()`
-
+**Fusion Formula**: Linear weighted average
 ```python
-# 默认配置 (gating_prior_config.json)
-alpha = 0.6  # BRB权重
-beta = 0.4   # RF权重
-
 fused = alpha * brb_probs + beta * rf_probs
-fused = fused / sum(fused)  # 归一化
+# Default: alpha=0.6, beta=0.4
 ```
 
-### 1.3 Fallback 逻辑
-
-| 条件 | 结果 | gating_status |
-|------|------|---------------|
-| RF artifact 存在且加载成功 | RF+BRB融合 | "gated_ok" |
-| RF artifact 不存在, allow_fallback=True | 仅BRB | "fallback_brb_only" |
-| RF artifact 不存在, allow_fallback=False | 抛出异常 | - |
-| use_gating=False | 仅BRB | "disabled" |
+**Analysis**: `GatingPriorFusion is used for RF+BRB fusion`
 
 ---
 
-## 2. 模块级推理架构
+## 5. Final system-level output for fault_type determination
 
-### 2.1 当前架构类型: **分层BRB + 软门控 (Soft-Gating)**
+**Answer**: `fused_probs` is used for fault_type prediction (when gating enabled)
 
-```
-              ┌─────────────────┐
-              │ fused_probs     │
-              │ (系统级概率)    │
-              └────────┬────────┘
-                       │
-        ┌──────────────┴──────────────┐
-        │ top1 - top2 < delta (0.1)?  │
-        └──────────────┬──────────────┘
-                       │
-        ┌──────────YES─┴─NO────────────┐
-        ▼                              ▼
-┌───────────────────┐        ┌───────────────────┐
-│ 激活 Top-2 假设   │        │ 仅激活 Top-1 假设 │
-│ 运行两个子图      │        │ 运行一个子图      │
-└────────┬──────────┘        └────────┬──────────┘
-         │                            │
-         ▼                            ▼
-┌───────────────────┐        ┌───────────────────┐
-│ 加权融合:         │        │ 直接使用:         │
-│ score = Σ P(t)*   │        │ score = score_t1  │
-│   score_t(module) │        │                   │
-└────────┬──────────┘        └────────┬──────────┘
-         │                            │
-         └──────────────┬─────────────┘
-                        ▼
-              ┌─────────────────┐
-              │ module_topk     │
-              │ (模块排名)      │
-              └─────────────────┘
-```
+Flow:
+1. `rf_probs` from RF classifier (if available)
+2. `brb_probs` from BRB system_level_infer()
+3. `fused_probs` = GatingPriorFusion.fuse(rf_probs, brb_probs)
+4. `fault_type_pred` = argmax(fused_probs)
 
-### 2.2 子图选择逻辑: **Soft Gate (软门控)**
+When RF unavailable: `fault_type_pred` = argmax(brb_probs)
 
-位置: `BRB/module_brb.py::hierarchical_module_infer_soft_gating()`
+---
 
+## 6. Module-level inference entry point
+
+**Answer**: `BRB/module_brb.py::hierarchical_module_infer_soft_gating()`
+
+Fallback: `BRB/module_brb.py::module_level_infer_with_activation()`
+
+Analysis: `hierarchical_module_infer_soft_gating() is used`
+
+---
+
+## 7. Soft-gating multi-subgraph activation
+
+**Answer**: YES, soft-gating exists.
+
+**Trigger Condition**: When `top1_prob - top2_prob < delta` (delta=0.1 by default)
+
+**Fusion Method**:
 ```python
-MIN_FAULT_PROBABILITY = 0.01
-delta = 0.1  # 软门控阈值
-
-# 过滤 normal 和低概率假设
-fault_hypotheses = [(ft, p) for ft, p in sorted_faults 
-                    if ft != "normal" and p > MIN_FAULT_PROBABILITY]
-
-top1_ft, top1_prob = fault_hypotheses[0]
-top2_ft, top2_prob = fault_hypotheses[1] if len(fault_hypotheses) >= 2 else (None, 0)
-
-# 软门控决策
-if (top1_prob - top2_prob) < delta:
-    # 激活两个假设，加权融合
-    use_top2 = True
-else:
-    # 仅激活 top1
-    use_top2 = False
+# Activate top-2 fault hypotheses
+score(module) = sum(P(fault_type) * score_type(module))
 ```
 
-### 2.3 Fallback 逻辑
-
-| 条件 | 结果 |
-|------|------|
-| soft_gating 成功 | 返回 fused_topk |
-| soft_gating 异常 | 回退到 module_level_infer_with_activation() |
+When top1-top2 diff >= delta: Only top1 hypothesis is activated.
 
 ---
 
-## 3. Feature Pool 使用情况
+## 8. Feature pool separation
 
-### 3.1 当前状态: **Feature Pool 未在推理代码中显式分离**
+**Answer**: **NOT IMPLEMENTED IN INFERENCE CODE**
 
-| 组件 | 是否使用分池特征 | 说明 |
-|------|------------------|------|
-| RF Classifier | 否 | 使用完整 X1-X22 |
-| BRB System | 否 | 使用完整特征字典 |
-| BRB Module | 否 | 使用完整特征字典 |
+Analysis: `No feature pool separation in inference`
 
-### 3.2 特征列表 (X1-X22)
-
-当前推理使用的特征索引:
-- X1-X22: 全部22个特征
-- 无显式 AMP_POOL / FREQ_POOL / REF_POOL 分离
-
-**结论**: Feature Pool 仅存在于设计文档/构想中，尚未在推理代码中生效。
+Current state:
+- All 22 features (X1-X22) are used uniformly
+- No AMP_POOL / FREQ_POOL / REF_POOL separation in `infer_system_and_modules()`
+- Feature pools exist only in documentation/planning
 
 ---
 
-## 4. 推理入口调用链
+## Summary
 
-### 4.1 三条链路统一入口
-
-**唯一合法入口**: `methods/ours_adapter.py::infer_system_and_modules()`
-
-| 链路 | 入口脚本 | 调用路径 |
-|------|----------|----------|
-| 右键链路 | compare_methods.py | OursAdapter.predict() → infer_system_and_modules() |
-| 诊断链路1 | brb_diagnosis_cli.py | 直接调用 infer_system_and_modules() |
-| 诊断链路2 | eval_module_localization.py | 直接调用 infer_system_and_modules() |
-
-### 4.2 调用链详情
-
-```
-compare_methods.py
-└── main()
-    └── evaluate_method(OursAdapter)
-        └── OursAdapter.predict(X_test)
-            └── infer_system_and_modules(features)
-                ├── system_level_infer()         # BRB系统级
-                ├── load_rf_artifact()           # RF分类器
-                ├── GatingPriorFusion.fuse()     # 融合
-                └── hierarchical_module_infer_soft_gating()  # 模块级
-
-brb_diagnosis_cli.py
-└── main()
-    └── _infer_one(input_path)
-        └── infer_system_and_modules(features)
-            └── (同上)
-
-tools/eval_module_localization.py
-└── main()
-    └── evaluate_module_localization(samples)
-        └── infer_system_and_modules(features)
-            └── (同上)
-```
+| Question | Answer |
+|----------|--------|
+| System entry | `infer_system_and_modules()` |
+| RF used? | Yes (with fallback) |
+| BRB used? | Yes (always) |
+| Fusion | Linear (alpha*BRB + beta*RF) |
+| Final probs | fused_probs (or brb_probs fallback) |
+| Module entry | hierarchical_module_infer_soft_gating() |
+| Soft gating? | Yes (delta=0.1 trigger) |
+| Feature pools? | NOT implemented |
 
 ---
 
-## 5. 样本数差异来源分析
+## Truth Fields (from config/eval_truth.json)
 
-### 5.1 样本数裁剪路径
-
-| 原始样本数 | 裁剪后 | 来源 | 裁剪规则 |
-|-----------|--------|------|----------|
-| 400 | 80 | compare_methods.py | train/val/test = 60%/20%/20% 划分，测试集 80 样本 |
-| 400 | 300 | aggregate_batch / eval_module | 过滤 normal 样本 (100个)，仅评估故障样本 |
-| 400 | 240/80/80 | compare_methods.py | 完整划分：train=240, val=80, test=80 |
-
-### 5.2 裁剪代码位置
-
-**compare_methods.py 的 test split**:
-```python
-# pipelines/compare_methods.py 约 line 660
-indices = np.arange(n_samples)
-train_idx, temp_idx = train_test_split(indices, train_size=0.6, stratify=y_sys, random_state=seed)
-val_idx, test_idx = train_test_split(temp_idx, train_size=0.5, stratify=y_sys[temp_idx], random_state=seed)
-# 结果: train=60%, val=20%, test=20%
-```
-
-**aggregate_batch / eval_module 的 normal 过滤**:
-```python
-# tools/aggregate_batch_diagnosis.py
-if fault_type == "normal" or not gt_module:
-    continue  # 跳过 normal 样本
-```
+- **System truth field**: `system_fault_class`
+- **Module truth field**: `module_v2`
+- **Module eval policy**: Exclude normal samples
 
 ---
-
-## 6. 标签与模块名规范化
-
-### 6.1 系统级标签映射
-
-| 中文标签 | 英文标签 (canonical) |
-|----------|---------------------|
-| 正常 | normal |
-| 幅度失准 | amp_error |
-| 频率失准 | freq_error |
-| 参考电平失准 | ref_error |
-
-### 6.2 模块名规范化
-
-使用 `utils/canonicalize.py::canonical_module_v2()` 进行 V1→V2 映射。
-
-### 6.3 模块匹配策略
-
-所有链路统一使用: `utils/canonicalize.py::modules_match()`
-- 策略: alias + contains (关键词匹配)
-
----
-
-## 7. 总结
-
-| 问题 | 答案 |
-|------|------|
-| 系统级架构 | RF+BRB 门控融合 (Gating Prior Fusion) |
-| 模块级架构 | 分层BRB + 软门控 (Hierarchical BRB with Soft-Gating) |
-| Feature Pool | 未在代码中生效，仅存在于设计文档 |
-| 400→80 | compare_methods test split (20%) |
-| 400→300 | 过滤 normal 样本 |
-| 推理入口 | 统一使用 infer_system_and_modules() |
-| 标签规范 | 统一使用 canonical_fault_type() / canonical_module_v2() |

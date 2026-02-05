@@ -224,3 +224,69 @@ def fault_types_match(pred: str, gt: str) -> bool:
         True if fault types match
     """
     return canonical_fault_type(pred) == canonical_fault_type(gt)
+
+
+def get_truth_fault_type(label_row: dict) -> str:
+    """
+    Get canonical fault type from a label row.
+    
+    ONLY reads from `system_fault_class` field (per eval_truth.json).
+    
+    Parameters
+    ----------
+    label_row : dict
+        Label dictionary for a sample
+        
+    Returns
+    -------
+    str
+        Canonical fault type (normal/amp_error/freq_error/ref_error)
+    """
+    # Only read from system_fault_class (the designated truth field)
+    raw = label_row.get("system_fault_class", "")
+    if not raw:
+        # Fallback to "type" only if system_fault_class is empty
+        raw = label_row.get("type", "normal")
+    return canonical_fault_type(raw)
+
+
+def get_truth_module(label_row: dict) -> str:
+    """
+    Get canonical module name from a label row.
+    
+    ONLY reads from `module_v2` field (per eval_truth.json).
+    
+    Parameters
+    ----------
+    label_row : dict
+        Label dictionary for a sample
+        
+    Returns
+    -------
+    str
+        Canonical V2 module name
+    """
+    # Only read from module_v2 (the designated truth field)
+    raw = label_row.get("module_v2", "")
+    if not raw:
+        # Fallback to module_cause only if module_v2 is empty
+        raw = label_row.get("module_cause", "")
+    return canonical_module_v2(raw)
+
+
+def is_normal_sample(label_row: dict) -> bool:
+    """
+    Check if a sample is normal (should be excluded from module evaluation).
+    
+    Parameters
+    ----------
+    label_row : dict
+        Label dictionary for a sample
+        
+    Returns
+    -------
+    bool
+        True if this is a normal sample
+    """
+    fault_type = get_truth_fault_type(label_row)
+    return fault_type == "normal"
