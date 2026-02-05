@@ -136,6 +136,12 @@ def rerank_modules(
     candidates = topk_modules[:max_rerank]
     reranked = []
     
+    # Validate weights
+    if consistency_weight + evidence_weight > 1.0:
+        total_w = consistency_weight + evidence_weight
+        consistency_weight = consistency_weight / total_w * 0.9
+        evidence_weight = evidence_weight / total_w * 0.9
+    
     for module_name, original_score in candidates:
         # Compute consistency score
         consistency_score = compute_subgraph_consistency_score(module_name, fault_type_weights)

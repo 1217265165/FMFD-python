@@ -62,7 +62,7 @@ def compute_auc_per_class(X: np.ndarray, y: np.ndarray, feature_idx: int, target
             return 0.5
         
         return roc_auc_score(y_binary, feature_vals)
-    except:
+    except (ValueError, RuntimeError, ImportError):
         return 0.5
 
 

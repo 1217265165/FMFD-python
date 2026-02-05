@@ -43,10 +43,12 @@ def load_rf_probs(features_path: Path, labels_path: Path) -> Tuple[np.ndarray, n
     if rf_artifact_path.exists() and HAS_SKLEARN:
         rf_model = joblib.load(rf_artifact_path)
         
-        # Extract feature columns
-        feature_cols = [c for c in features_df.columns if c.startswith('X') or c.startswith('feat')]
+        # Extract feature columns (explicitly filter out non-feature columns)
+        non_feature_cols = {'sample_id', 'Unnamed: 0', 'index', 'label', 'fault_type'}
+        feature_cols = [c for c in features_df.columns 
+                       if (c.startswith('X') or c.startswith('feat')) and c not in non_feature_cols]
         if not feature_cols:
-            feature_cols = features_df.columns[1:].tolist()  # Skip sample_id
+            feature_cols = [c for c in features_df.columns if c not in non_feature_cols]
         
         X = features_df[feature_cols].values
         rf_probs = rf_model.predict_proba(X)
