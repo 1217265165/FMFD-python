@@ -877,11 +877,14 @@ def hierarchical_module_infer_soft_gating(
             "single_hypothesis": bool
         }
     """
+    # Minimum probability threshold for fault hypotheses
+    MIN_FAULT_PROBABILITY = 0.01
+    
     # Sort fault types by probability (descending)
     sorted_faults = sorted(final_probs.items(), key=lambda x: x[1], reverse=True)
     
     # Filter out "normal" from hypotheses for module inference
-    fault_hypotheses = [(ft, p) for ft, p in sorted_faults if ft != "normal" and p > 0.01]
+    fault_hypotheses = [(ft, p) for ft, p in sorted_faults if ft != "normal" and p > MIN_FAULT_PROBABILITY]
     
     if not fault_hypotheses:
         # No fault hypotheses, return uniform distribution

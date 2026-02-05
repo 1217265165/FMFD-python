@@ -1448,6 +1448,10 @@ def main():
     print("Saving results...")
     print("="*60)
     
+    def _extract_row(result: Dict, fieldnames: List[str]) -> Dict:
+        """Extract row data with default values for missing keys."""
+        return {k: result.get(k, 0.0) for k in fieldnames}
+    
     comparison_path = output_dir / "comparison_table.csv"
     with open(comparison_path, 'w', newline='', encoding='utf-8') as f:
         fieldnames = ['method', 'sys_accuracy', 'sys_macro_f1', 'mod_top1_accuracy', 'mod_top3_accuracy',
@@ -1456,8 +1460,7 @@ def main():
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for result in all_results:
-            row = {k: result.get(k, 0.0) for k in fieldnames}
-            writer.writerow(row)
+            writer.writerow(_extract_row(result, fieldnames))
     print(f"Saved comparison table to: {comparison_path}")
 
     performance_path = output_dir / "performance_table.csv"
@@ -1466,8 +1469,7 @@ def main():
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for result in all_results:
-            row = {k: result.get(k, 0.0) for k in fieldnames}
-            writer.writerow(row)
+            writer.writerow(_extract_row(result, fieldnames))
     print(f"Saved performance table to: {performance_path}")
 
     summary_json_path = output_dir / "comparison_summary.json"
