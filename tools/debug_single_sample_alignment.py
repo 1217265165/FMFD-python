@@ -78,10 +78,13 @@ def load_csv_curve(csv_path: Path) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def extract_features_unified(csv_path: Path) -> Dict[str, float]:
-    """Extract features from CSV using unified extraction."""
+    """Extract features from CSV using unified extraction.
+    
+    Uses features/feature_extraction.py which outputs X1-X22 format.
+    """
     from baseline.baseline import align_to_frequency
     from baseline.config import BASELINE_ARTIFACTS, BASELINE_META, BAND_RANGES
-    from features.extract import extract_system_features
+    from features.feature_extraction import extract_system_features
     
     # Load CSV
     freq_raw, amp_raw = load_csv_curve(csv_path)
@@ -102,9 +105,11 @@ def extract_features_unified(csv_path: Path) -> Dict[str, float]:
         meta = json.load(f)
     band_ranges = meta.get("band_ranges", BAND_RANGES)
     
-    # Align and extract features
+    # Align curve
     amp = align_to_frequency(frequency, freq_raw, amp_raw)
-    features = extract_system_features(frequency, rrs, bounds, band_ranges, amp)
+    
+    # Extract features using feature_extraction.py (outputs X1-X22)
+    features = extract_system_features(amp, baseline_curve=rrs, envelope=bounds)
     
     return features
 

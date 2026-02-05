@@ -1,0 +1,407 @@
+{
+  "summary": {
+    "total_samples": 20,
+    "errors": 0,
+    "sys_acc": 0.35,
+    "mod_top1": 0.06666666666666667,
+    "mod_top3": 0.13333333333333333,
+    "by_fault_type": {
+      "amp_error": {
+        "total": 5,
+        "sys": 0,
+        "top1": 1,
+        "top3": 1
+      },
+      "freq_error": {
+        "total": 5,
+        "sys": 2,
+        "top1": 0,
+        "top3": 0
+      },
+      "ref_error": {
+        "total": 5,
+        "sys": 0,
+        "top1": 0,
+        "top3": 1
+      },
+      "normal": {
+        "total": 5,
+        "sys": 5,
+        "top1": 0,
+        "top3": 0
+      }
+    },
+    "gating_stats": {
+      "fallback_brb_only": 20
+    },
+    "mismatches": {
+      "entry_mismatch": 0,
+      "feature_mismatch": 0,
+      "label_mismatch": 0,
+      "module_name_mismatch": 0
+    },
+    "unified_entry": true
+  },
+  "samples": [
+    {
+      "sample_id": "sim_00000",
+      "status": "ok",
+      "features_hash": "14f4640edf7c34ef",
+      "gt_fault_type": "amp_error",
+      "fault_type_pred": "freq_error",
+      "gt_module": "[RF板][Mixer1]",
+      "module_top1": "[RF板][Mixer1]",
+      "module_top3": [
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO",
+        "[时钟板][参考分配]"
+      ],
+      "sys_hit": false,
+      "top1_hit": true,
+      "top3_hit": true,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00003",
+      "status": "ok",
+      "features_hash": "f20adef65f0f67be",
+      "gt_fault_type": "amp_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[数字中频板][ADC]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00008",
+      "status": "ok",
+      "features_hash": "9019dc09c474a590",
+      "gt_fault_type": "amp_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[数字中频板][检波/对数]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00020",
+      "status": "ok",
+      "features_hash": "63369e498368e2b5",
+      "gt_fault_type": "amp_error",
+      "fault_type_pred": "freq_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "module_top1": "[RF板][Mixer1]",
+      "module_top3": [
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO",
+        "[时钟板][参考分配]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00023",
+      "status": "ok",
+      "features_hash": "e578ad46a1fa654e",
+      "gt_fault_type": "amp_error",
+      "fault_type_pred": "freq_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "module_top1": "[RF板][Mixer1]",
+      "module_top3": [
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO",
+        "[时钟板][参考分配]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00025",
+      "status": "ok",
+      "features_hash": "1cd274d747aa055f",
+      "gt_fault_type": "freq_error",
+      "fault_type_pred": "freq_error",
+      "gt_module": "[LO/时钟板][LO1] 合成链",
+      "module_top1": "[RF板][Mixer1]",
+      "module_top3": [
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO",
+        "[时钟板][参考分配]"
+      ],
+      "sys_hit": true,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00028",
+      "status": "ok",
+      "features_hash": "ace2707de9a7c9a7",
+      "gt_fault_type": "freq_error",
+      "fault_type_pred": "ref_error",
+      "gt_module": "[LO/时钟板][LO1] 合成链",
+      "module_top1": "[校准链路][校准源]",
+      "module_top3": [
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]",
+        "[电源板] 电源管理模块"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00033",
+      "status": "ok",
+      "features_hash": "1b649acd6159cb34",
+      "gt_fault_type": "freq_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[LO/时钟板][LO1] 合成链",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00045",
+      "status": "ok",
+      "features_hash": "781a5106a0dbcb7d",
+      "gt_fault_type": "freq_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[RF板][LO1] LO1 注入链",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00048",
+      "status": "ok",
+      "features_hash": "2624788526b827fb",
+      "gt_fault_type": "freq_error",
+      "fault_type_pred": "freq_error",
+      "gt_module": "[LO/时钟板][LO1] 合成链",
+      "module_top1": "[RF板][Mixer1]",
+      "module_top3": [
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO",
+        "[时钟板][参考分配]"
+      ],
+      "sys_hit": true,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00050",
+      "status": "ok",
+      "features_hash": "d1116251a35a4af8",
+      "gt_fault_type": "ref_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[校准链路][校准表/存储]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00053",
+      "status": "ok",
+      "features_hash": "8267c4c33a1bfb43",
+      "gt_fault_type": "ref_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[校准链路][校准源]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": true,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00058",
+      "status": "ok",
+      "features_hash": "dbe5fc3d30f67559",
+      "gt_fault_type": "ref_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[校准链路][校准表/存储]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00070",
+      "status": "ok",
+      "features_hash": "0bd67125ba01ea1b",
+      "gt_fault_type": "ref_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[校准链路][校准表/存储]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00073",
+      "status": "ok",
+      "features_hash": "d39da21f95ebf07d",
+      "gt_fault_type": "ref_error",
+      "fault_type_pred": "normal",
+      "gt_module": "[校准链路][校准表/存储]",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]"
+      ],
+      "sys_hit": false,
+      "top1_hit": false,
+      "top3_hit": false,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00075",
+      "status": "ok",
+      "features_hash": "8569267e7c030ee3",
+      "gt_fault_type": "normal",
+      "fault_type_pred": "normal",
+      "gt_module": "",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": true,
+      "top1_hit": null,
+      "top3_hit": null,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00078",
+      "status": "ok",
+      "features_hash": "93504fbe77452113",
+      "gt_fault_type": "normal",
+      "fault_type_pred": "normal",
+      "gt_module": "",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": true,
+      "top1_hit": null,
+      "top3_hit": null,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00083",
+      "status": "ok",
+      "features_hash": "38b9d964f47c883a",
+      "gt_fault_type": "normal",
+      "fault_type_pred": "normal",
+      "gt_module": "",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": true,
+      "top1_hit": null,
+      "top3_hit": null,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00095",
+      "status": "ok",
+      "features_hash": "f200aa49990492b5",
+      "gt_fault_type": "normal",
+      "fault_type_pred": "normal",
+      "gt_module": "",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": true,
+      "top1_hit": null,
+      "top3_hit": null,
+      "gating_status": "fallback_brb_only"
+    },
+    {
+      "sample_id": "sim_00098",
+      "status": "ok",
+      "features_hash": "1e130c05eef41bce",
+      "gt_fault_type": "normal",
+      "fault_type_pred": "normal",
+      "gt_module": "",
+      "module_top1": "[电源板] 电源管理模块",
+      "module_top3": [
+        "[电源板] 电源管理模块",
+        "[RF板][Mixer1]",
+        "[时钟板][参考域] 10MHz 基准 OCXO"
+      ],
+      "sys_hit": true,
+      "top1_hit": null,
+      "top3_hit": null,
+      "gating_status": "fallback_brb_only"
+    }
+  ]
+}
