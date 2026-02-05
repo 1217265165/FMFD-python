@@ -22,7 +22,7 @@ echo "============================================================"
 echo "V-C.1 Triplet Run - All Three Paths"
 echo "============================================================"
 echo "Working directory: $(pwd)"
-echo "Timestamp: $(date -Iseconds)"
+echo "Timestamp: $(date '+%Y-%m-%dT%H:%M:%S')"
 
 # Create output directory
 OUTPUT_DIR="Output/debug/triplet_runs"

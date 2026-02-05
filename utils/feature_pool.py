@@ -109,7 +109,9 @@ def get_feature_pool(fault_type: str) -> List[str]:
     if fault_type in FEATURE_POOLS:
         return FEATURE_POOLS[fault_type]
     
-    # Default to all features if unknown
+    # Default to all features if unknown (with warning)
+    import warnings
+    warnings.warn(f"Unknown fault_type '{fault_type}', returning all features")
     return list(FEATURE_NAMES.keys())
 
 
