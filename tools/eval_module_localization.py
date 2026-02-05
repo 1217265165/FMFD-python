@@ -141,9 +141,17 @@ def evaluate_module_localization(
             # 使用默认特征
             features = {}
         
-        # 进行分层推理
+        # 进行推理 - 使用统一入口 infer_system_and_modules
         try:
-            pred_probs = hierarchical_module_infer(fault_type, features)
+            from methods.ours_adapter import infer_system_and_modules
+            result = infer_system_and_modules(
+                features,
+                use_gating=True,
+                rf_classifier=None,  # No RF classifier (fallback to BRB)
+                allow_fallback=True,
+            )
+            # Convert module_topk to dict
+            pred_probs = {m["name"]: m["prob"] for m in result["module_topk"]}
         except Exception as e:
             # 构造系统级概率
             sys_probs = {

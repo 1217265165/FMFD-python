@@ -148,9 +148,9 @@ def infer_system_and_modules(
                 rf_classes = rf_classifier.classes_
                 rf_probs = {}
                 for i, cls in enumerate(rf_classes):
-                    # Handle both int and string classes
-                    if isinstance(cls, int):
-                        cls_name = CLASS_NAMES[cls] if cls < len(CLASS_NAMES) else "normal"
+                    # Handle both int and string classes (including numpy integers)
+                    if isinstance(cls, (int, np.integer)):
+                        cls_name = CLASS_NAMES[int(cls)] if int(cls) < len(CLASS_NAMES) else "normal"
                     else:
                         cls_name = str(cls)
                     rf_probs[cls_name] = float(rf_proba[i])
@@ -390,6 +390,8 @@ class OursAdapter(MethodAdapter):
         
         Stage 1: RandomForest for system-level classification (high accuracy)
         Stage 2: BRB for module-level diagnosis (interpretable)
+        
+        Now uses the unified entry infer_system_and_modules() for consistency.
         """
         n_test = len(X_test)
         n_sys_classes = 4  # Normal, Amp, Freq, Ref
@@ -405,50 +407,35 @@ class OursAdapter(MethodAdapter):
 
         start_time = time.time()
         
-        # Stage 1: System-level classification using RandomForest
-        if self.is_fitted:
-            sys_pred = self.classifier.predict(X_test)
-            sys_proba = self.classifier.predict_proba(X_test)
-        else:
-            # Fallback to BRB if not fitted
-            inference_mode = 'sub_brb' if self.use_sub_brb else 'er'
-            for i in range(n_test):
-                features = self._array_to_dict(X_test[i])
-                sys_result = system_level_infer(features, self.config, mode=inference_mode)
-                probs = sys_result.get('probabilities', {})
-                
-                total_prob = sum(probs.values()) if probs else 0.0
-                if total_prob > 0.01:
-                    sys_proba[i, 0] = probs.get('正常', 0.0)
-                    sys_proba[i, 1] = probs.get('幅度失准', 0.0)
-                    sys_proba[i, 2] = probs.get('频率失准', 0.0)
-                    sys_proba[i, 3] = probs.get('参考电平失准', 0.0)
-                    row_sum = np.sum(sys_proba[i])
-                    if row_sum > 0:
-                        sys_proba[i] /= row_sum
-                else:
-                    sys_proba[i] = np.ones(n_sys_classes) / n_sys_classes
-                sys_pred[i] = np.argmax(sys_proba[i])
-        
-        # Stage 2: Module-level diagnosis using BRB
+        # Process each sample using unified entry
         for i in range(n_test):
             features = self._array_to_dict(X_test[i])
             
-            # Create sys_result dict for module inference
-            sys_labels = ['正常', '幅度失准', '频率失准', '参考电平失准']
-            sys_result = {
-                'predicted_class': sys_labels[int(sys_pred[i])],
-                'max_prob': float(np.max(sys_proba[i])),
-                'probabilities': {
-                    '正常': float(sys_proba[i, 0]),
-                    '幅度失准': float(sys_proba[i, 1]),
-                    '频率失准': float(sys_proba[i, 2]),
-                    '参考电平失准': float(sys_proba[i, 3]),
-                }
-            }
+            # Use unified entry with RF classifier if fitted
+            result = infer_system_and_modules(
+                features,
+                use_gating=True,
+                rf_classifier=self.classifier if self.is_fitted else None,
+                allow_fallback=True,
+            )
             
-            # Module-level inference using BRB
-            mod_probs_dict = module_level_infer_with_activation(features, sys_result, only_activate_relevant=True)
+            # Extract system probabilities (order: normal, amp_error, freq_error, ref_error)
+            sys_probs = result["system_probs"]
+            sys_proba[i, 0] = sys_probs.get("normal", 0.0)
+            sys_proba[i, 1] = sys_probs.get("amp_error", 0.0)
+            sys_proba[i, 2] = sys_probs.get("freq_error", 0.0)
+            sys_proba[i, 3] = sys_probs.get("ref_error", 0.0)
+            
+            # Normalize
+            row_sum = np.sum(sys_proba[i])
+            if row_sum > 0:
+                sys_proba[i] /= row_sum
+            else:
+                sys_proba[i] = np.ones(n_sys_classes) / n_sys_classes
+            sys_pred[i] = np.argmax(sys_proba[i])
+            
+            # Module probabilities
+            mod_probs_dict = {m["name"]: m["prob"] for m in result["module_topk"]}
             
             # Convert to array
             for mod_id_str, prob in mod_probs_dict.items():
