@@ -1,0 +1,256 @@
+{
+  "status": "success",
+  "meta": {
+    "sample_id": "sim_00140",
+    "input_file": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/raw_curves/sim_00140.csv",
+    "operating_condition": {
+      "inject_power_dbm": -10.0,
+      "freq_start_hz": 10000000.0,
+      "freq_end_hz": 8200000000.0,
+      "step_hz": 10000000.0,
+      "frontend": {
+        "low_band_only": true,
+        "ac_coupling": true,
+        "preamp": false
+      }
+    }
+  },
+  "data_points": 820,
+  "frequency_range": {
+    "min": 10000000.0,
+    "max": 8200000000.0
+  },
+  "features": {
+    "X1": -9.93307219512195,
+    "X2": 0.0008323924363804605,
+    "X3": 0.0002528552772978777,
+    "X4": 0.030942655340074093,
+    "X5": 0.3249885284059481,
+    "X6": 0.0010525412024985123,
+    "X7": 0.06930000000000014,
+    "X8": 0.025866097560975593,
+    "X9": 0.0009574479194946158,
+    "X10": 0.013767961779599758,
+    "X11": 0.0,
+    "X12": 0.0,
+    "X13": 0.5704552070490508,
+    "X14": 0.007363736263736176,
+    "X15": 0.004212233325084635,
+    "X16": 0.06610257991054194,
+    "X17": 0.0,
+    "X18": 0.0,
+    "X19": -0.0001600270228858987,
+    "X20": -0.11456943916807738,
+    "X21": 4.0,
+    "X22": 0.0434126647280408,
+    "X23": 6.896058536585845e-05,
+    "X24": 0.055949476099904305,
+    "X25": 6.896058536585845e-05,
+    "X26": 0.0006334941009035415,
+    "X27": 9.942958887396715e-05,
+    "X28": -0.29985443957070185,
+    "X29": -1.9409175543861388,
+    "X30": 0.003517073170731813,
+    "X31": 0.004386259279159184,
+    "X32": -2.0845806430760865,
+    "X33": 0.5177732644346699,
+    "X34": 0.015264594739665746,
+    "X35": 0.0002821748798752473,
+    "X36": 0.8518997217614149,
+    "X37": 0.030942655340074097,
+    "offset_db": 0.001800000000001134,
+    "viol_rate_aligned": 0.0,
+    "viol_energy_aligned": 0.5704552070490508,
+    "global_offset_db": 0.0,
+    "shape_rmse": 0.008304251041837454,
+    "ripple_hp": 0.0058275635780402155,
+    "tail_asym": -0.014825000000002753,
+    "compress_ratio": 0.2,
+    "compress_ratio_high": 0.19661016949152543,
+    "freq_shift_score": 0.031542987247315524,
+    "offset_slope": 0.00037886847019082885,
+    "high_low_energy_ratio": 0.47373008932696,
+    "band_offset_db_1": -0.0008000000000008001,
+    "band_offset_db_2": 0.0003999999999972914,
+    "band_offset_db_3": 0.00014999999999787406,
+    "band_offset_db_4": -0.0001000000000015433
+  },
+  "system": {
+    "probs": {
+      "正常": 0.75754452104281,
+      "幅度失准": 0.010656383659453185,
+      "频率失准": 0.21676532590624173,
+      "参考电平失准": 0.015033769315740719
+    },
+    "decision": "正常",
+    "confidence": 0.75754452104281,
+    "is_normal": true
+  },
+  "module": {
+    "topk": [
+      {
+        "module_id": "[LO/时钟板][LO1] 合成链",
+        "gamma": 0.35
+      },
+      {
+        "module_id": "[时钟板][参考域] 10MHz 基准 OCXO",
+        "gamma": 0.35
+      },
+      {
+        "module_id": "[时钟板][参考分配]",
+        "gamma": 0.3
+      }
+    ],
+    "gating": {
+      "disabled_modules": [
+        "高频段YTF滤波器",
+        "高频段混频器",
+        "前置放大器",
+        "衰减器"
+      ],
+      "topk_k": 3
+    }
+  },
+  "evidence": {
+    "global_offset_db": 0.001800000000001134,
+    "hf_std_db": 0.00566152506822736,
+    "p95_abs_dev_db": 0.02162500000000109,
+    "inside_env_frac": 1.0,
+    "peak_freq_mae_hz": 2233009.0715847905,
+    "peak_freq_outlier_frac": 0.08048780487804878
+  },
+  "artifacts": {
+    "output_json": "Output/batch_diagnosis/sim_00140_diagnosis.json"
+  },
+  "system_diagnosis": {
+    "probabilities": {
+      "正常": 0.75754452104281,
+      "幅度失准": 0.010656383659453185,
+      "频率失准": 0.21676532590624173,
+      "参考电平失准": 0.015033769315740719
+    },
+    "predicted_class": "正常",
+    "max_prob": 0.75754452104281,
+    "is_normal": true
+  },
+  "module_diagnosis": {
+    "probabilities": {
+      "[LO/时钟板][LO1] 合成链": 0.35,
+      "[时钟板][参考域] 10MHz 基准 OCXO": 0.35,
+      "[时钟板][参考分配]": 0.3
+    },
+    "topk": [
+      {
+        "module": "[LO/时钟板][LO1] 合成链",
+        "probability": 0.35
+      },
+      {
+        "module": "[时钟板][参考域] 10MHz 基准 OCXO",
+        "probability": 0.35
+      },
+      {
+        "module": "[时钟板][参考分配]",
+        "probability": 0.3
+      }
+    ],
+    "disabled_modules": [
+      "高频段YTF滤波器",
+      "高频段混频器",
+      "前置放大器",
+      "衰减器"
+    ]
+  },
+  "evidence_detail": {
+    "viol_rate": 0.0,
+    "envelope_violation": false,
+    "violation_max_db": 0.0,
+    "violation_energy": 0.5704552070490508,
+    "baseline_coverage": 1.0
+  },
+  "config": {
+    "mode": "unified_entry",
+    "gating_status": "gated_ok",
+    "run_name": null,
+    "topk": 3
+  },
+  "uncertainty": {
+    "is_uncertain": false,
+    "reason": "",
+    "top_class": "正常",
+    "runner_up": "频率失准",
+    "max_prob": 0.75754452104281,
+    "second_prob": 0.21676532590624173,
+    "prob_gap": 0.5407791951365682,
+    "support_top_features": [],
+    "support_runnerup_features": [],
+    "conflict_features": [],
+    "suggested_actions": []
+  },
+  "module_validation": {
+    "sample_id": "sim_00140",
+    "gt_module": "时钟振荡器",
+    "gt_module_v2": "[LO/时钟板][LO1] 合成链",
+    "top1": "[LO/时钟板][LO1] 合成链",
+    "top3": [
+      "[LO/时钟板][LO1] 合成链",
+      "[时钟板][参考域] 10MHz 基准 OCXO",
+      "[时钟板][参考分配]"
+    ],
+    "top5": [
+      "[LO/时钟板][LO1] 合成链",
+      "[时钟板][参考域] 10MHz 基准 OCXO",
+      "[时钟板][参考分配]"
+    ],
+    "gt_rank": 1,
+    "gt_prob": 0.35,
+    "top1_hit": true,
+    "top3_hit": true,
+    "top5_hit": true
+  },
+  "ground_truth": {
+    "type": "fault",
+    "system_class_en": "freq_error",
+    "system_class_cn": "频率失准",
+    "module": "时钟振荡器",
+    "module_v2": "[LO/时钟板][LO1] 合成链",
+    "fault_params": {
+      "severity": "mid",
+      "tier_target": "in_spec_weak",
+      "delta_f_hz": 163800.0,
+      "ppm": 20.0,
+      "shift_bins": 0.01638,
+      "bandwidth_hz": 8190000000.0,
+      "warp_scale": 1.0002294674081282,
+      "warp_bias": 1.997560975609756e-05,
+      "type": "freq_miscal",
+      "track_type": "dense",
+      "template_id": "T8",
+      "forced_peak_track_type": true,
+      "peak_track_profile": {
+        "bands": [
+          {
+            "start_hz": 1614811002.9508634,
+            "end_hz": 2253518883.791477,
+            "center_hz": 1934164943.3711703,
+            "width_hz": 638707880.8406136,
+            "amplitude_hz": 22892289.194729213,
+            "ramp_hz": 97525102.02318518
+          },
+          {
+            "start_hz": 2647097510.9734836,
+            "end_hz": 2988391512.755944,
+            "center_hz": 2817744511.8647137,
+            "width_hz": 341294001.78246,
+            "amplitude_hz": 21704477.363367245,
+            "ramp_hz": 97525102.02318518
+          }
+        ],
+        "track_type": "dense"
+      },
+      "freq_amp_coupling": {
+        "bias_db_min": -0.1,
+        "bias_db_max": -0.02
+      }
+    }
+  }
+}

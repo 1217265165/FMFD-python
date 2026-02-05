@@ -1,35 +1,35 @@
 {
-  "mod_top1": 0.05333333333333334,
-  "mod_top3": 0.15,
+  "mod_top1": 0.34,
+  "mod_top3": 0.61,
   "total": 300,
   "by_fault_type": {
     "amp_error": {
       "total": 100,
-      "top1": 16,
+      "top1": 29,
       "top3": 45,
-      "top1_acc": 0.16,
+      "top1_acc": 0.29,
       "top3_acc": 0.45
     },
     "freq_error": {
       "total": 100,
-      "top1": 0,
-      "top3": 0,
-      "top1_acc": 0.0,
-      "top3_acc": 0.0
+      "top1": 39,
+      "top3": 40,
+      "top1_acc": 0.39,
+      "top3_acc": 0.4
     },
     "ref_error": {
       "total": 100,
-      "top1": 0,
-      "top3": 0,
-      "top1_acc": 0.0,
-      "top3_acc": 0.0
+      "top1": 34,
+      "top3": 98,
+      "top1_acc": 0.34,
+      "top3_acc": 0.98
     }
   },
   "dominance_check": {
-    "max_module": "[RF板][RF] 输入连接/匹配/保护",
-    "max_count": 300,
-    "dominance_ratio": 1.0,
-    "is_diverse": false
+    "max_module": "[校准链路][校准源]",
+    "max_count": 120,
+    "dominance_ratio": 0.4,
+    "is_diverse": true
   },
-  "error_cases_count": 284
+  "error_cases_count": 198
 }
