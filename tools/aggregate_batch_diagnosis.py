@@ -20,6 +20,13 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+# Add root to path for imports
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+# P2: Import unified module matching from utils.canonicalize
+from utils.canonicalize import modules_match as unified_modules_match
+
 
 def load_diagnosis_results(input_dir: str) -> List[Dict]:
     """加载所有诊断结果文件"""
@@ -98,39 +105,9 @@ def evaluate_module_localization(results: List[Dict]) -> Dict:
         pred_top1 = module_topk[0]["module"] if module_topk else ""
         pred_top3 = [m["module"] for m in module_topk[:3]]
         
-        # 模块匹配函数
-        def modules_match(pred: str, gt: str) -> bool:
-            """检查两个模块名是否匹配"""
-            if not pred or not gt:
-                return False
-            if pred == gt:
-                return True
-            
-            # 关键词匹配
-            keywords = [
-                ("中频放大", "中频放大"),
-                ("检波", "检波"),
-                ("ADC", "ADC"),
-                ("低频通路", "低频通路"),
-                ("Mixer1", "Mixer1"),
-                ("混频", "混频"),
-                ("输入连接", "输入连接"),
-                ("匹配", "匹配"),
-                ("RBW", "RBW"),
-                ("数字放大", "数字放大"),
-                ("数字增益", "数字"),
-                ("LO1", "LO1"),
-                ("时钟", "时钟"),
-                ("振荡器", "振荡器"),
-            ]
-            for kw1, kw2 in keywords:
-                if kw1 in pred and kw2 in gt:
-                    return True
-            
-            return False
-        
-        top1_hit = modules_match(pred_top1, gt_module)
-        top3_hit = any(modules_match(m, gt_module) for m in pred_top3)
+        # P2: Use unified modules_match from utils.canonicalize
+        top1_hit = unified_modules_match(pred_top1, gt_module)
+        top3_hit = any(unified_modules_match(m, gt_module) for m in pred_top3)
         
         # 也检查 module_validation 字段（如果有）
         validation = result.get("module_validation", {})

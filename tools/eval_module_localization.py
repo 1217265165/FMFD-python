@@ -33,6 +33,10 @@ from BRB.module_brb import (
     MODULE_LABELS_V2
 )
 
+# P2: Import unified module metrics
+from metrics.module_localization_metrics import compute_mod_topk, compute_mod_metrics
+from utils.canonicalize import modules_match as unified_modules_match
+
 
 def load_eval_set(eval_set_path: str = None) -> Dict:
     """加载固定评估集"""
@@ -183,83 +187,18 @@ def evaluate_module_localization(
         # 也标准化 gt_module_v2 本身
         gt_v2_normalized = normalize_module_name(gt_module_v2, mapping)
         
-        # 计算命中 - 使用更灵活的匹配
-        def modules_match(pred: str, gt: str) -> bool:
-            """检查两个模块名是否匹配"""
-            if not pred or not gt:
-                return False
-            if pred == gt:
-                return True
-            
-            # 提取关键词进行匹配
-            def extract_key(s):
-                """从模块名提取关键部分"""
-                if ']' in s:
-                    # 处理 [板][模块] 格式
-                    parts = [p for p in s.split(']') if p.strip()]
-                    if parts:
-                        last = parts[-1].strip()
-                        # 如果最后部分以 [ 开头，去掉 [
-                        if last.startswith('['):
-                            last = last[1:]
-                        return last
-                return s
-            
-            pred_key = extract_key(pred)
-            gt_key = extract_key(gt)
-            
-            # 关键词完全匹配
-            if pred_key == gt_key:
-                return True
-            # 关键词包含匹配
-            if pred_key and gt_key:
-                if pred_key in gt_key or gt_key in pred_key:
-                    return True
-            
-            # 全文关键词匹配（不依赖 key 提取）
-            # 中频放大器 <-> 中频放大/衰减链
-            if "中频放大" in pred and "中频放大" in gt:
-                return True
-            # 数字检波 <-> ADC/检波 <-> 检波/对数
-            if "检波" in pred and "检波" in gt:
-                return True
-            if "ADC" in pred and "ADC" in gt:
-                return True
-            # 低频通路 <-> 低频通路固定滤波
-            if "低频通路" in pred and "低频通路" in gt:
-                return True
-            # Mixer1 匹配
-            if "Mixer1" in pred and "Mixer1" in gt:
-                return True
-            if "混频" in pred and "混频" in gt:
-                return True
-            # 输入连接/匹配 相关
-            if "输入连接" in pred and "输入连接" in gt:
-                return True
-            if "匹配" in pred and "匹配" in gt and "RF" in pred and "RF" in gt:
-                return True
-            # RBW 匹配
-            if "RBW" in pred and "RBW" in gt:
-                return True
-            # 数字放大 <-> DSP/数字增益
-            if "数字放大" in pred and "数字放大" in gt:
-                return True
-            if "数字增益" in pred and "数字放大" in gt:
-                return True
-            if "数字放大" in pred and "数字增益" in gt:
-                return True
-                
-            return False
+        # P2: Use unified modules_match from utils.canonicalize
+        # (replaced local implementation with unified_modules_match imported above)
         
         top1_hit = (
-            modules_match(top1_module, gt_normalized) or 
-            modules_match(top1_module, gt_module_v2) or
-            modules_match(top1_module, gt_v2_normalized)
+            unified_modules_match(top1_module, gt_normalized) or 
+            unified_modules_match(top1_module, gt_module_v2) or
+            unified_modules_match(top1_module, gt_v2_normalized)
         )
         top3_hit = any(
-            modules_match(m, gt_normalized) or 
-            modules_match(m, gt_module_v2) or
-            modules_match(m, gt_v2_normalized)
+            unified_modules_match(m, gt_normalized) or 
+            unified_modules_match(m, gt_module_v2) or
+            unified_modules_match(m, gt_v2_normalized)
             for m in top3_modules
         )
         
