@@ -1,0 +1,107 @@
+# DBRB-style Layered Feature Injection Configuration
+#
+# This configuration defines how features are injected layer-by-layer
+# into the sub-BRB inference process.
+#
+# Structure:
+#   Each layer receives:
+#   - Input features (from feature pool)
+#   - Previous layer's belief vector (for layers > 1)
+#   - Outputs a belief/probability vector
+#
+# The final layer aggregates all intermediate beliefs.
+
+version: "1.0"
+
+# Feature injection layers
+layers:
+  # Layer 1: Core amplitude features
+  layer_1:
+    name: "amplitude_core"
+    features: ["X1", "X2", "X3"]
+    input_from_prev: false
+    output_dim: 4  # [normal, amp, freq, ref]
+    activation: "softmax"
+    
+  # Layer 2: Deviation features (depends on Layer 1)
+  layer_2:
+    name: "deviation"
+    features: ["X4", "X5", "X6"]
+    input_from_prev: true
+    prev_weight: 0.3
+    output_dim: 4
+    activation: "softmax"
+    
+  # Layer 3: Frequency features (depends on Layer 2)
+  layer_3:
+    name: "frequency"
+    features: ["X7", "X8", "X9", "X10"]
+    input_from_prev: true
+    prev_weight: 0.4
+    output_dim: 4
+    activation: "softmax"
+    
+  # Layer 4: Reference features (depends on Layer 3)
+  layer_4:
+    name: "reference"
+    features: ["X11", "X12", "X13"]
+    input_from_prev: true
+    prev_weight: 0.5
+    output_dim: 4
+    activation: "softmax"
+    
+  # Layer 5: Integration layer (uses all remaining features)
+  layer_5:
+    name: "integration"
+    features: ["X14", "X15", "X16", "X17", "X18", "X19", "X20", "X21", "X22"]
+    input_from_prev: true
+    prev_weight: 0.6
+    output_dim: 4
+    activation: "softmax"
+
+# Aggregation strategy for final output
+aggregation:
+  method: "weighted_sum"  # or "attention", "max"
+  layer_weights:
+    layer_1: 0.10
+    layer_2: 0.15
+    layer_3: 0.25
+    layer_4: 0.25
+    layer_5: 0.25
+  normalize: true
+
+# Module-level sub-BRB injection (per fault type)
+module_injection:
+  amp_error:
+    primary_layers: ["layer_1", "layer_2"]
+    secondary_layers: ["layer_3"]
+    layer_weights:
+      layer_1: 0.4
+      layer_2: 0.4
+      layer_3: 0.2
+      
+  freq_error:
+    primary_layers: ["layer_3"]
+    secondary_layers: ["layer_1", "layer_2"]
+    layer_weights:
+      layer_1: 0.2
+      layer_2: 0.2
+      layer_3: 0.6
+      
+  ref_error:
+    primary_layers: ["layer_4"]
+    secondary_layers: ["layer_1", "layer_2"]
+    layer_weights:
+      layer_1: 0.2
+      layer_2: 0.2
+      layer_4: 0.6
+
+# Soft activation settings
+soft_activation:
+  enabled: true
+  # Threshold for activating secondary hypothesis
+  delta_threshold: 0.15
+  # Maximum number of hypotheses to activate
+  max_hypotheses: 3
+  # Fusion method for multi-hypothesis
+  fusion_method: "probability_weighted"  # or "uniform", "entropy_weighted"
