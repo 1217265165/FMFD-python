@@ -79,4 +79,6 @@ metrics/module_localization_metrics.py::compute_mod_topk()
 To verify consistency:
 1. Run all three paths on the same dataset
 2. Compare N_eval, sys_acc, mod_top1, mod_top3
-3. Maximum allowed difference: ≤ 1 sample
+3. Maximum allowed differences:
+   - N_eval: Must be exactly equal across all paths
+   - sys_acc, mod_top1, mod_top3: ≤ 1 sample difference in correct count
