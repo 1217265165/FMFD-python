@@ -1,0 +1,227 @@
+{
+  "status": "success",
+  "meta": {
+    "sample_id": "sim_00317",
+    "input_file": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/raw_curves/sim_00317.csv",
+    "operating_condition": {
+      "inject_power_dbm": -10.0,
+      "freq_start_hz": 10000000.0,
+      "freq_end_hz": 8200000000.0,
+      "step_hz": 10000000.0,
+      "frontend": {
+        "low_band_only": true,
+        "ac_coupling": true,
+        "preamp": false
+      }
+    }
+  },
+  "data_points": 820,
+  "frequency_range": {
+    "min": 10000000.0,
+    "max": 8200000000.0
+  },
+  "features": {
+    "X1": -9.919276829268293,
+    "X2": 0.0006365908569634472,
+    "X3": 0.0002723469318351305,
+    "X4": 0.03277008134283933,
+    "X5": 0.29033966473390904,
+    "X6": 0.0012367080972635334,
+    "X7": 0.06709999999999994,
+    "X8": 0.028098292682926795,
+    "X9": 0.0010738782312163064,
+    "X10": 0.018805183669339653,
+    "X11": 0.0,
+    "X12": 0.0,
+    "X13": 0.19377535292024003,
+    "X14": 0.011921611721611559,
+    "X15": 0.010658850342703937,
+    "X16": -0.0029227407229709037,
+    "X17": 0.0,
+    "X18": 0.0,
+    "X19": 9.824211948574496e-05,
+    "X20": -0.07771366370847321,
+    "X21": 3.0,
+    "X22": 0.0487026340139428,
+    "X23": 0.0002087139999999965,
+    "X24": 0.019281426449481387,
+    "X25": 0.0002087139999999965,
+    "X26": 0.0001726776092841523,
+    "X27": 0.00013138992287230512,
+    "X28": 0.168421052627135,
+    "X29": -0.9453264264099649,
+    "X30": 0.010887078417765431,
+    "X31": 0.007876871721703036,
+    "X32": -4.469777544028028,
+    "X33": 0.5065520762785343,
+    "X34": 0.01926303338424668,
+    "X35": 0.0003173331216334878,
+    "X36": 0.8523460315573891,
+    "X37": 0.03277008134283933,
+    "offset_db": 0.012500000000000178,
+    "viol_rate_aligned": 0.0,
+    "viol_energy_aligned": 0.19377535292024003,
+    "global_offset_db": -8.881784197001252e-16,
+    "shape_rmse": 0.014446937391710357,
+    "ripple_hp": 0.0034867802661866887,
+    "tail_asym": 0.008300000000001969,
+    "compress_ratio": 0.1975609756097561,
+    "compress_ratio_high": 0.2,
+    "freq_shift_score": 0.08678098775289478,
+    "offset_slope": -0.0008922474493312466,
+    "high_low_energy_ratio": 0.6298252190820837,
+    "band_offset_db_1": -0.018950000000000244,
+    "band_offset_db_2": 0.007999999999999119,
+    "band_offset_db_3": -0.0015999999999971593,
+    "band_offset_db_4": -0.007600000000000051
+  },
+  "system": {
+    "probs": {
+      "正常": 0.9990775829890396,
+      "幅度失准": 0.00047366841260396554,
+      "频率失准": 0.0002439147711413699,
+      "参考电平失准": 0.00020483372730718374
+    },
+    "decision": "正常",
+    "confidence": 0.9990775829890396,
+    "is_normal": true
+  },
+  "module": {
+    "topk": [
+      {
+        "module_id": "[RF板][RF] 输入连接/匹配/保护",
+        "gamma": 0.058823529411764705
+      },
+      {
+        "module_id": "[RF板][RF] 输入衰减器组",
+        "gamma": 0.058823529411764705
+      },
+      {
+        "module_id": "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "gamma": 0.058823529411764705
+      }
+    ],
+    "gating": {
+      "disabled_modules": [
+        "高频段YTF滤波器",
+        "高频段混频器",
+        "前置放大器",
+        "衰减器"
+      ],
+      "topk_k": 3
+    }
+  },
+  "evidence": {
+    "global_offset_db": 0.012500000000000178,
+    "hf_std_db": 0.007367609751252449,
+    "p95_abs_dev_db": 0.028805000000000365,
+    "inside_env_frac": 1.0,
+    "peak_freq_mae_hz": 4072.29484116304,
+    "peak_freq_outlier_frac": 0.0
+  },
+  "artifacts": {
+    "output_json": "Output/batch_diagnosis/sim_00317_diagnosis.json"
+  },
+  "system_diagnosis": {
+    "probabilities": {
+      "正常": 0.9990775829890396,
+      "幅度失准": 0.00047366841260396554,
+      "频率失准": 0.0002439147711413699,
+      "参考电平失准": 0.00020483372730718374
+    },
+    "predicted_class": "正常",
+    "max_prob": 0.9990775829890396,
+    "is_normal": true
+  },
+  "module_diagnosis": {
+    "probabilities": {
+      "[RF板][RF] 输入连接/匹配/保护": 0.058823529411764705,
+      "[RF板][RF] 输入衰减器组": 0.058823529411764705,
+      "[RF板][RF] 低频通路固定滤波/抑制网络": 0.058823529411764705,
+      "[RF板][RF] 高频通路固定滤波/抑制网络": 0.058823529411764705,
+      "[RF板][Mixer1]": 0.058823529411764705
+    },
+    "topk": [
+      {
+        "module": "[RF板][RF] 输入连接/匹配/保护",
+        "probability": 0.058823529411764705
+      },
+      {
+        "module": "[RF板][RF] 输入衰减器组",
+        "probability": 0.058823529411764705
+      },
+      {
+        "module": "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "probability": 0.058823529411764705
+      }
+    ],
+    "disabled_modules": [
+      "高频段YTF滤波器",
+      "高频段混频器",
+      "前置放大器",
+      "衰减器"
+    ]
+  },
+  "evidence_detail": {
+    "viol_rate": 0.0,
+    "envelope_violation": false,
+    "violation_max_db": 0.0,
+    "violation_energy": 0.19377535292024003,
+    "baseline_coverage": 1.0
+  },
+  "config": {
+    "mode": "unified_entry",
+    "gating_status": "gated_ok",
+    "run_name": null,
+    "topk": 3
+  },
+  "uncertainty": {
+    "is_uncertain": false,
+    "reason": "",
+    "top_class": "正常",
+    "runner_up": "幅度失准",
+    "max_prob": 0.9990775829890396,
+    "second_prob": 0.00047366841260396554,
+    "prob_gap": 0.9986039145764356,
+    "support_top_features": [],
+    "support_runnerup_features": [],
+    "conflict_features": [],
+    "suggested_actions": []
+  },
+  "module_validation": {
+    "sample_id": "sim_00317",
+    "gt_module": null,
+    "gt_module_v2": null,
+    "top1": "[RF板][RF] 输入连接/匹配/保护",
+    "top3": [
+      "[RF板][RF] 输入连接/匹配/保护",
+      "[RF板][RF] 输入衰减器组",
+      "[RF板][RF] 低频通路固定滤波/抑制网络"
+    ],
+    "top5": [
+      "[RF板][RF] 输入连接/匹配/保护",
+      "[RF板][RF] 输入衰减器组",
+      "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "[RF板][RF] 高频通路固定滤波/抑制网络",
+      "[RF板][Mixer1]"
+    ],
+    "gt_rank": -1,
+    "gt_prob": 0.0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false
+  },
+  "ground_truth": {
+    "type": "normal",
+    "system_class_en": "normal",
+    "system_class_cn": "正常",
+    "module": null,
+    "module_v2": null,
+    "fault_params": {
+      "severity": "mid",
+      "tier_target": "in_spec_weak",
+      "type": "normal",
+      "normal_state": "normal_state_A"
+    }
+  }
+}

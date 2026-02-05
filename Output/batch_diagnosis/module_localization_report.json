@@ -1,0 +1,251 @@
+{
+  "summary": {
+    "total_samples": 300,
+    "sys_acc": 0.4767,
+    "mod_top1": 0.33,
+    "mod_top3": 0.6033
+  },
+  "by_fault_type": {
+    "amp_error": {
+      "total": 100,
+      "sys_acc": 0.8,
+      "top1_acc": 0.29,
+      "top3_acc": 0.45
+    },
+    "freq_error": {
+      "total": 100,
+      "sys_acc": 0.08,
+      "top1_acc": 0.36,
+      "top3_acc": 0.38
+    },
+    "ref_error": {
+      "total": 100,
+      "sys_acc": 0.55,
+      "top1_acc": 0.34,
+      "top3_acc": 0.98
+    }
+  },
+  "error_cases_count": 201,
+  "error_cases": [
+    {
+      "sample_id": "sim_00002",
+      "fault_type": "amp_error",
+      "gt_module": "中频放大器",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00003",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][检波/对数]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00004",
+      "fault_type": "amp_error",
+      "gt_module": "数字放大器",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00006",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00007",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][ADC]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00008",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00010",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][检波/对数]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00012",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00013",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][检波/对数]",
+      "pred_top1": "[校准链路][校准源]",
+      "pred_top3": [
+        "[校准链路][校准源]",
+        "[校准链路][校准路径开关/耦合]",
+        "[校准链路][校准表/存储]"
+      ]
+    },
+    {
+      "sample_id": "sim_00014",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][ADC]",
+      "pred_top1": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top3": [
+        "[RF板][RF] 输入连接/匹配/保护",
+        "[RF板][RF] 输入衰减器组",
+        "[RF板][RF] 低频通路固定滤波/抑制网络"
+      ]
+    },
+    {
+      "sample_id": "sim_00015",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][Mixer1]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00016",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][Mixer1]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00017",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][Mixer1]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00018",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][ADC]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00019",
+      "fault_type": "amp_error",
+      "gt_module": "中频放大器",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00020",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][ADC]",
+      "pred_top1": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top3": [
+        "[RF板][RF] 输入连接/匹配/保护",
+        "[RF板][RF] 输入衰减器组",
+        "[RF板][RF] 低频通路固定滤波/抑制网络"
+      ]
+    },
+    {
+      "sample_id": "sim_00021",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][检波/对数]",
+      "pred_top1": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top3": [
+        "[RF板][RF] 输入连接/匹配/保护",
+        "[RF板][RF] 输入衰减器组",
+        "[RF板][RF] 低频通路固定滤波/抑制网络"
+      ]
+    },
+    {
+      "sample_id": "sim_00022",
+      "fault_type": "amp_error",
+      "gt_module": "[数字中频板][检波/对数]",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00023",
+      "fault_type": "amp_error",
+      "gt_module": "[RF板][RF] 输入连接/匹配/保护",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    },
+    {
+      "sample_id": "sim_00024",
+      "fault_type": "amp_error",
+      "gt_module": "中频放大器",
+      "pred_top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "pred_top3": [
+        "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "[数字中频板][ADC] 数字检波与平均",
+        "[数字中频板][IF] 中频放大/衰减链"
+      ]
+    }
+  ]
+}

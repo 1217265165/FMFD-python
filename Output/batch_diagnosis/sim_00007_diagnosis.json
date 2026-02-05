@@ -1,0 +1,233 @@
+{
+  "status": "success",
+  "meta": {
+    "sample_id": "sim_00007",
+    "input_file": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/raw_curves/sim_00007.csv",
+    "operating_condition": {
+      "inject_power_dbm": -10.0,
+      "freq_start_hz": 10000000.0,
+      "freq_end_hz": 8200000000.0,
+      "step_hz": 10000000.0,
+      "frontend": {
+        "low_band_only": true,
+        "ac_coupling": true,
+        "preamp": false
+      }
+    }
+  },
+  "data_points": 820,
+  "frequency_range": {
+    "min": 10000000.0,
+    "max": 8200000000.0
+  },
+  "features": {
+    "X1": -9.933072926829269,
+    "X2": 0.003282474796086985,
+    "X3": 0.0001523586304463156,
+    "X4": 0.05973620252438075,
+    "X5": 0.36887641159736306,
+    "X6": 0.0037012265841165977,
+    "X7": 0.07189999999999941,
+    "X8": 0.051065609756097564,
+    "X9": 0.0035684138920338334,
+    "X10": 0.016112179325143,
+    "X11": 0.02195121951219512,
+    "X12": 0.00833251044935146,
+    "X13": 0.0,
+    "X14": 0.04591080586080573,
+    "X15": 0.052475482260560036,
+    "X16": -0.03209841738006058,
+    "X17": 0.0,
+    "X18": 0.0,
+    "X19": -2.6378515412796153e-05,
+    "X20": -0.7984051008531337,
+    "X21": 0.0,
+    "X22": 0.11627728676351404,
+    "X23": 0.002780689085365849,
+    "X24": 0.08839791798091001,
+    "X25": 0.002780689085365849,
+    "X26": 0.0007376656857811931,
+    "X27": 5.325454300960782e-05,
+    "X28": 0.010422380691098257,
+    "X29": 0.015827404165323973,
+    "X30": 0.08029237804878048,
+    "X31": 0.0038296993815137063,
+    "X32": -9.309760159190878,
+    "X33": 0.31839632918405364,
+    "X34": 0.015115272885016745,
+    "X35": 0.00037521636949673474,
+    "X36": 0.9467130862861777,
+    "X37": 0.05973620252438075,
+    "offset_db": -0.0003500000000000725,
+    "viol_rate_aligned": 0.02195121951219512,
+    "viol_energy_aligned": 0.0,
+    "global_offset_db": 0.0,
+    "shape_rmse": 0.05273223952541604,
+    "ripple_hp": 0.007962709516978249,
+    "tail_asym": 0.0018000000000011201,
+    "compress_ratio": 0.2,
+    "compress_ratio_high": 0.2,
+    "freq_shift_score": 0.5011985254839981,
+    "offset_slope": -0.00037007948133577846,
+    "high_low_energy_ratio": 0.8026202281261958,
+    "band_offset_db_1": -0.05379999999999985,
+    "band_offset_db_2": 0.0016499999999997073,
+    "band_offset_db_3": 0.007500000000001172,
+    "band_offset_db_4": -0.003750000000000142
+  },
+  "system": {
+    "probs": {
+      "正常": 0.0009910504104471364,
+      "幅度失准": 0.9838491641607456,
+      "频率失准": 0.015157276541814419,
+      "参考电平失准": 2.5087886078758154e-06
+    },
+    "decision": "幅度失准",
+    "confidence": 0.9838491641607456,
+    "is_normal": false
+  },
+  "module": {
+    "topk": [
+      {
+        "module_id": "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "gamma": 0.19285099242708584
+      },
+      {
+        "module_id": "[数字中频板][ADC] 数字检波与平均",
+        "gamma": 0.16790674055593582
+      },
+      {
+        "module_id": "[数字中频板][IF] 中频放大/衰减链",
+        "gamma": 0.16360143951604
+      }
+    ],
+    "gating": {
+      "disabled_modules": [
+        "高频段YTF滤波器",
+        "高频段混频器",
+        "前置放大器",
+        "衰减器"
+      ],
+      "topk_k": 3
+    }
+  },
+  "evidence": {
+    "global_offset_db": -0.0003500000000000725,
+    "hf_std_db": 0.06318850588827743,
+    "p95_abs_dev_db": 0.08655499999999909,
+    "inside_env_frac": 0.9780487804878049,
+    "peak_freq_mae_hz": 4033.9002397541185,
+    "peak_freq_outlier_frac": 0.0
+  },
+  "artifacts": {
+    "output_json": "Output/batch_diagnosis/sim_00007_diagnosis.json"
+  },
+  "system_diagnosis": {
+    "probabilities": {
+      "正常": 0.0009910504104471364,
+      "幅度失准": 0.9838491641607456,
+      "频率失准": 0.015157276541814419,
+      "参考电平失准": 2.5087886078758154e-06
+    },
+    "predicted_class": "幅度失准",
+    "max_prob": 0.9838491641607456,
+    "is_normal": false
+  },
+  "module_diagnosis": {
+    "probabilities": {
+      "[RF板][RF] 低频通路固定滤波/抑制网络": 0.19285099242708584,
+      "[数字中频板][ADC] 数字检波与平均": 0.16790674055593582,
+      "[数字中频板][IF] 中频放大/衰减链": 0.16360143951604,
+      "[RF板][Mixer1]": 0.13965071865409664,
+      "[数字中频板][DSP] 数字增益/偏置校准": 0.10332722495749896,
+      "[RF板][RF] 输入连接/匹配/保护": 0.08866712295498201,
+      "[数字中频板][IF] RBW数字滤波器": 0.07749541871812421,
+      "[RF板][RF] 输入衰减器组": 0.03325017110811825,
+      "[RF板][RF] 高频通路固定滤波/抑制网络": 0.03325017110811825
+    },
+    "topk": [
+      {
+        "module": "[RF板][RF] 低频通路固定滤波/抑制网络",
+        "probability": 0.19285099242708584
+      },
+      {
+        "module": "[数字中频板][ADC] 数字检波与平均",
+        "probability": 0.16790674055593582
+      },
+      {
+        "module": "[数字中频板][IF] 中频放大/衰减链",
+        "probability": 0.16360143951604
+      }
+    ],
+    "disabled_modules": [
+      "高频段YTF滤波器",
+      "高频段混频器",
+      "前置放大器",
+      "衰减器"
+    ]
+  },
+  "evidence_detail": {
+    "viol_rate": 0.02195121951219512,
+    "envelope_violation": false,
+    "violation_max_db": 0.00833251044935146,
+    "violation_energy": 0.0,
+    "baseline_coverage": 0.9780487804878049
+  },
+  "config": {
+    "mode": "unified_entry",
+    "gating_status": "gated_ok",
+    "run_name": null,
+    "topk": 3
+  },
+  "uncertainty": {
+    "is_uncertain": false,
+    "reason": "",
+    "top_class": "幅度失准",
+    "runner_up": "频率失准",
+    "max_prob": 0.9838491641607456,
+    "second_prob": 0.015157276541814419,
+    "prob_gap": 0.9686918876189312,
+    "support_top_features": [],
+    "support_runnerup_features": [],
+    "conflict_features": [],
+    "suggested_actions": []
+  },
+  "module_validation": {
+    "sample_id": "sim_00007",
+    "gt_module": "ADC",
+    "gt_module_v2": "[数字中频板][ADC]",
+    "top1": "[RF板][RF] 低频通路固定滤波/抑制网络",
+    "top3": [
+      "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "[数字中频板][ADC] 数字检波与平均",
+      "[数字中频板][IF] 中频放大/衰减链"
+    ],
+    "top5": [
+      "[RF板][RF] 低频通路固定滤波/抑制网络",
+      "[数字中频板][ADC] 数字检波与平均",
+      "[数字中频板][IF] 中频放大/衰减链",
+      "[RF板][Mixer1]",
+      "[数字中频板][DSP] 数字增益/偏置校准"
+    ],
+    "gt_rank": -1,
+    "gt_prob": 0.0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false
+  },
+  "ground_truth": {
+    "type": "fault",
+    "system_class_en": "amp_error",
+    "system_class_cn": "幅度失准",
+    "module": "ADC",
+    "module_v2": "[数字中频板][ADC]",
+    "fault_params": {
+      "severity": "mid",
+      "tier_target": "in_spec_weak",
+      "type": "adc_bias",
+      "subtype": "amp_error_offset",
+      "offset_db": -0.19916648195405107,
+      "template_id": "T1"
+    }
+  }
+}

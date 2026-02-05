@@ -145,7 +145,7 @@ def main():
                         help='允许在 RF artifact 缺失时 fallback 到 BRB-only 推理')
     parser.add_argument('--rf_artifact', default=None,
                         help='RF 模型工件路径 (默认: artifacts/rf_system_classifier.joblib)')
-    parser.add_argument('--manifest', '-m', default=None,
+    parser.add_argument('--manifest', default=None,
                         help='评估清单路径 (若提供则仅诊断 manifest 中的样本)')
     
     args = parser.parse_args()

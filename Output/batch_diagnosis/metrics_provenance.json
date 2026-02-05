@@ -1,0 +1,18 @@
+{
+  "input_dir": "Output/batch_diagnosis",
+  "manifest_path": null,
+  "n_eval": 300,
+  "n_fault_eval": 300,
+  "sample_ids_first10": [
+    "sim_00000",
+    "sim_00001",
+    "sim_00002",
+    "sim_00003",
+    "sim_00004",
+    "sim_00005",
+    "sim_00006",
+    "sim_00007",
+    "sim_00008",
+    "sim_00009"
+  ]
+}
