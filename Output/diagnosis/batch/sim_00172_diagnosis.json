@@ -1,0 +1,232 @@
+{
+  "status": "success",
+  "meta": {
+    "sample_id": "sim_00172",
+    "input_file": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/raw_curves/sim_00172.csv",
+    "operating_condition": {
+      "inject_power_dbm": -10.0,
+      "freq_start_hz": 10000000.0,
+      "freq_end_hz": 8200000000.0,
+      "step_hz": 10000000.0,
+      "frontend": {
+        "low_band_only": true,
+        "ac_coupling": true,
+        "preamp": false
+      }
+    }
+  },
+  "data_points": 820,
+  "frequency_range": {
+    "min": 10000000.0,
+    "max": 8200000000.0
+  },
+  "features": {
+    "X1": -9.958162926829267,
+    "X2": 0.0006464897036734073,
+    "X3": 0.000288450070055638,
+    "X4": 0.029153957575894427,
+    "X5": 0.2186884791180965,
+    "X6": 0.0009459135524092787,
+    "X7": 0.1031000000000013,
+    "X8": 0.024274390243902433,
+    "X9": 0.0008499532423370522,
+    "X10": 0.013688066131922236,
+    "X11": 0.0,
+    "X12": 0.0,
+    "X13": 0.2353823438759366,
+    "X14": 0.009417948717948535,
+    "X15": 0.014859859307626094,
+    "X16": -5.359149425309095e-05,
+    "X17": 0.0,
+    "X18": 0.0,
+    "X19": 8.683915811177647e-05,
+    "X20": 0.3647517607168145,
+    "X21": 4.0,
+    "X22": 0.03311810171150621,
+    "X23": 0.00019267985365853545,
+    "X24": 0.05078442586106546,
+    "X25": 0.00019267985365853545,
+    "X26": 0.00018786657689270968,
+    "X27": 0.0001902002894057559,
+    "X28": -0.011428571428314029,
+    "X29": 0.14959298800410836,
+    "X30": 0.006306657413833031,
+    "X31": 0.00601441218954287,
+    "X32": -3.2052689132752414,
+    "X33": 0.6039894373956087,
+    "X34": 0.016158608337973532,
+    "X35": 0.00034507232916046113,
+    "X36": 0.7968599752047849,
+    "X37": 0.029153957575894427,
+    "offset_db": -0.024999999999999467,
+    "viol_rate_aligned": 0.0,
+    "viol_energy_aligned": 0.2353823438759366,
+    "global_offset_db": 8.881784197001252e-16,
+    "shape_rmse": 0.013880916888251134,
+    "ripple_hp": 0.005844634866617346,
+    "tail_asym": -0.0003000000000044599,
+    "compress_ratio": 0.2,
+    "compress_ratio_high": 0.2,
+    "freq_shift_score": 0.10166146371649798,
+    "offset_slope": 0.0003601306846011831,
+    "high_low_energy_ratio": 10.957871501773655,
+    "band_offset_db_1": -0.0045000000000001705,
+    "band_offset_db_2": 0.001300000000000523,
+    "band_offset_db_3": -0.0068000000000010274,
+    "band_offset_db_4": 0.0034999999999989484
+  },
+  "system": {
+    "probs": {
+      "正常": 0.987340574659031,
+      "幅度失准": 0.0033162161715727047,
+      "频率失准": 0.008598541087156901,
+      "参考电平失准": 0.0007446679835052949
+    },
+    "decision": "正常",
+    "confidence": 0.987340574659031,
+    "is_normal": true
+  },
+  "module": {
+    "topk": [
+      {
+        "module_id": "[电源板] 电源管理模块",
+        "gamma": 0.8963381540113479
+      },
+      {
+        "module_id": "[RF板][Mixer1]",
+        "gamma": 0.03198488184779972
+      },
+      {
+        "module_id": "[时钟板][参考域] 10MHz 基准 OCXO",
+        "gamma": 0.021580161246708248
+      }
+    ],
+    "gating": {
+      "disabled_modules": [
+        "高频段YTF滤波器",
+        "高频段混频器",
+        "前置放大器",
+        "衰减器"
+      ],
+      "topk_k": 3
+    }
+  },
+  "evidence": {
+    "global_offset_db": -0.024999999999999467,
+    "hf_std_db": 0.010036248174644618,
+    "p95_abs_dev_db": 0.028499999999997527,
+    "inside_env_frac": 1.0,
+    "peak_freq_mae_hz": 3927.5874130316943,
+    "peak_freq_outlier_frac": 0.0
+  },
+  "artifacts": {
+    "output_json": "Output/diagnosis/batch/sim_00172_diagnosis.json"
+  },
+  "system_diagnosis": {
+    "probabilities": {
+      "正常": 0.987340574659031,
+      "幅度失准": 0.0033162161715727047,
+      "频率失准": 0.008598541087156901,
+      "参考电平失准": 0.0007446679835052949
+    },
+    "predicted_class": "正常",
+    "max_prob": 0.987340574659031,
+    "is_normal": true
+  },
+  "module_diagnosis": {
+    "probabilities": {
+      "[电源板] 电源管理模块": 0.8963381540113479,
+      "[RF板][Mixer1]": 0.03198488184779972,
+      "[时钟板][参考域] 10MHz 基准 OCXO": 0.021580161246708248,
+      "[时钟板][参考分配]": 0.021580161246708248,
+      "[RF板][RF] 低频通路固定滤波/抑制网络": 0.019268001113132364,
+      "[LO/时钟板][LO1] 合成链": 0.009248640534303534,
+      "[RF板][RF] 输入衰减器组": 0.0,
+      "前置放大器": 0.0,
+      "[RF板][YTF]": 0.0,
+      "[RF板][Mixer2]": 0.0
+    },
+    "topk": [
+      {
+        "module": "[电源板] 电源管理模块",
+        "probability": 0.8963381540113479
+      },
+      {
+        "module": "[RF板][Mixer1]",
+        "probability": 0.03198488184779972
+      },
+      {
+        "module": "[时钟板][参考域] 10MHz 基准 OCXO",
+        "probability": 0.021580161246708248
+      }
+    ],
+    "disabled_modules": [
+      "高频段YTF滤波器",
+      "高频段混频器",
+      "前置放大器",
+      "衰减器"
+    ]
+  },
+  "evidence_detail": {
+    "viol_rate": 0.0,
+    "envelope_violation": false,
+    "violation_max_db": 0.0,
+    "violation_energy": 0.2353823438759366,
+    "baseline_coverage": 1.0
+  },
+  "config": {
+    "mode": "unified_entry",
+    "gating_status": "gated_ok",
+    "run_name": null,
+    "topk": 3
+  },
+  "uncertainty": {
+    "is_uncertain": false,
+    "reason": "",
+    "top_class": "正常",
+    "runner_up": "频率失准",
+    "max_prob": 0.987340574659031,
+    "second_prob": 0.008598541087156901,
+    "prob_gap": 0.9787420335718742,
+    "support_top_features": [],
+    "support_runnerup_features": [],
+    "conflict_features": [],
+    "suggested_actions": []
+  },
+  "module_validation": {
+    "sample_id": "sim_00172",
+    "gt_module": null,
+    "gt_module_v2": null,
+    "top1": "[电源板] 电源管理模块",
+    "top3": [
+      "[电源板] 电源管理模块",
+      "[RF板][Mixer1]",
+      "[时钟板][参考域] 10MHz 基准 OCXO"
+    ],
+    "top5": [
+      "[电源板] 电源管理模块",
+      "[RF板][Mixer1]",
+      "[时钟板][参考域] 10MHz 基准 OCXO",
+      "[时钟板][参考分配]",
+      "[RF板][RF] 低频通路固定滤波/抑制网络"
+    ],
+    "gt_rank": -1,
+    "gt_prob": 0.0,
+    "top1_hit": false,
+    "top3_hit": false,
+    "top5_hit": false
+  },
+  "ground_truth": {
+    "type": "normal",
+    "system_class_en": "normal",
+    "system_class_cn": "正常",
+    "module": null,
+    "module_v2": null,
+    "fault_params": {
+      "severity": "severe",
+      "tier_target": "in_spec_weak",
+      "type": "normal",
+      "normal_state": "normal_state_A"
+    }
+  }
+}

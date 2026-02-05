@@ -34,8 +34,57 @@ from tools.label_mapping import SYS_CLASS_TO_CN, CN_TO_SYS_CLASS
 # Gating prior configuration path
 GATING_PRIOR_CONFIG_PATH = Path(__file__).parent.parent / 'config' / 'gating_prior.json'
 
+# RF artifact paths
+RF_ARTIFACT_PATH = Path(__file__).parent.parent / 'artifacts' / 'rf_system_classifier.joblib'
+RF_META_PATH = Path(__file__).parent.parent / 'artifacts' / 'rf_meta.json'
+
 # Global gating prior config (loaded once)
 _GATING_PRIOR_CONFIG: Optional[Dict] = None
+
+# Global RF classifier cache
+_RF_CLASSIFIER_CACHE: Optional[Any] = None
+
+
+def load_rf_artifact(artifact_path: Optional[Path] = None) -> Any:
+    """
+    Load RF classifier from artifact file.
+    
+    Parameters
+    ----------
+    artifact_path : Path, optional
+        Path to RF joblib file. Defaults to artifacts/rf_system_classifier.joblib
+        
+    Returns
+    -------
+    sklearn.ensemble.RandomForestClassifier
+        Loaded classifier
+        
+    Raises
+    ------
+    FileNotFoundError
+        If artifact file does not exist
+    """
+    global _RF_CLASSIFIER_CACHE
+    
+    if artifact_path is None:
+        artifact_path = RF_ARTIFACT_PATH
+    else:
+        artifact_path = Path(artifact_path)
+    
+    # Return cached if same path
+    if _RF_CLASSIFIER_CACHE is not None:
+        return _RF_CLASSIFIER_CACHE
+    
+    if not artifact_path.exists():
+        raise FileNotFoundError(
+            f"RF artifact not found: {artifact_path}\n"
+            f"Please run: python tools/train_and_export_rf.py\n"
+            f"Or use --allow_fallback to allow BRB-only inference."
+        )
+    
+    import joblib
+    _RF_CLASSIFIER_CACHE = joblib.load(artifact_path)
+    return _RF_CLASSIFIER_CACHE
 
 
 def _load_gating_prior_config() -> Dict:
@@ -119,7 +168,21 @@ def infer_system_and_modules(
         "fused_probs": None,
         "gating_status": "disabled",
         "fallback_reason": None,
+        "gating_config_hash": None,
     }
+    
+    # Step 0: Auto-load RF classifier if not provided but gating requested
+    if use_gating and rf_classifier is None:
+        try:
+            rf_classifier = load_rf_artifact()
+        except FileNotFoundError as e:
+            if not allow_fallback:
+                raise ValueError(
+                    f"RF artifact not available and allow_fallback=False.\n"
+                    f"Either provide rf_classifier, run train_and_export_rf.py, "
+                    f"or set allow_fallback=True."
+                ) from e
+            debug_info["fallback_reason"] = "RF artifact not found"
     
     # Step 1: BRB system-level inference (always run)
     sys_result = system_level_infer(features, mode="sub_brb")
@@ -437,16 +500,23 @@ class OursAdapter(MethodAdapter):
             # Module probabilities
             mod_probs_dict = {m["name"]: m["prob"] for m in result["module_topk"]}
             
-            # Convert to array
-            for mod_id_str, prob in mod_probs_dict.items():
+            # Convert V2 module names to indices using MODULE_LABELS_V2
+            from BRB.module_brb import MODULE_LABELS_V2
+            
+            for mod_name, prob in mod_probs_dict.items():
                 try:
-                    if isinstance(mod_id_str, str):
-                        mod_id = int(''.join(filter(str.isdigit, mod_id_str)))
+                    # Find index in MODULE_LABELS_V2
+                    if mod_name in MODULE_LABELS_V2:
+                        mod_idx = MODULE_LABELS_V2.index(mod_name)
+                        if 0 <= mod_idx < len(MODULE_LABELS):
+                            mod_proba[i, mod_idx] = prob
                     else:
-                        mod_id = int(mod_id_str)
-                    
-                    if 1 <= mod_id <= len(MODULE_LABELS):
-                        mod_proba[i, mod_id - 1] = prob
+                        # Try partial matching
+                        for idx, v2_name in enumerate(MODULE_LABELS_V2):
+                            if mod_name in v2_name or v2_name in mod_name:
+                                if idx < len(MODULE_LABELS):
+                                    mod_proba[i, idx] = prob
+                                break
                 except (ValueError, IndexError):
                     continue
             

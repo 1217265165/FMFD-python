@@ -141,6 +141,10 @@ def main():
                         help='诊断审计输出目录 (默认: Output/diagnosis_audit)')
     parser.add_argument('--input_dir', default=None,
                         help='批量输入目录 (包含 sim_*.csv)')
+    parser.add_argument('--allow_fallback', action='store_true',
+                        help='允许在 RF artifact 缺失时 fallback 到 BRB-only 推理')
+    parser.add_argument('--rf_artifact', default=None,
+                        help='RF 模型工件路径 (默认: artifacts/rf_system_classifier.joblib)')
     
     args = parser.parse_args()
     if args.mode != "online_infer":
@@ -291,11 +295,12 @@ def main():
                 print(f"[INFO] 特征: {list(features.keys())}", file=sys.stderr)
 
             # 4. 执行推理 - 使用统一入口 infer_system_and_modules
+            # RF classifier will be auto-loaded from artifacts/ if available
             unified_result = infer_system_and_modules(
                 features,
                 use_gating=True,
-                rf_classifier=None,  # No RF classifier for CLI (fallback to BRB)
-                allow_fallback=True,
+                rf_classifier=None,  # Auto-load from artifacts/
+                allow_fallback=getattr(args, 'allow_fallback', True),  # Use flag or default True for backwards compat
             )
             
             # Extract results from unified entry
