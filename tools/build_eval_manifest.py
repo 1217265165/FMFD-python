@@ -204,23 +204,26 @@ def main():
     parser = argparse.ArgumentParser(description='Build unified evaluation manifest')
     parser.add_argument('--labels', default='Output/sim_spectrum/labels.json',
                         help='Path to labels.json')
-    parser.add_argument('--curves_dir', default='Output/sim_spectrum/raw_curves',
-                        help='Path to raw_curves directory')
+    parser.add_argument('--curves_dir', default='',
+                        help='Path to raw_curves directory (optional)')
     parser.add_argument('--features', default='Output/sim_spectrum/features_brb.csv',
                         help='Path to features CSV')
     parser.add_argument('--out', default='Output/debug/eval_manifest.json',
                         help='Output manifest path')
+    parser.add_argument('--mode', choices=['full400', 'fault300'], default='full400',
+                        help='Manifest mode: full400 (include normal) or fault300 (exclude normal)')
     
     args = parser.parse_args()
     
     labels_path = Path(args.labels)
-    curves_dir = Path(args.curves_dir) if args.curves_dir else None
+    curves_dir = Path(args.curves_dir) if args.curves_dir and Path(args.curves_dir).exists() else None
     features_path = Path(args.features) if args.features else None
     out_path = Path(args.out)
     
     print("=" * 60)
     print("P0.1: Build Unified Evaluation Manifest")
     print("=" * 60)
+    print(f"Mode: {args.mode}")
     
     # Check labels exist
     if not labels_path.exists():
@@ -234,6 +237,36 @@ def main():
         features_path=features_path if features_path and features_path.exists() else None,
     )
     
+    # Add mode info
+    include_normal = (args.mode == "full400")
+    manifest["mode"] = args.mode
+    manifest["include_normal"] = include_normal
+    
+    # Filter samples based on mode
+    if not include_normal:
+        # Filter out normal samples
+        original_count = len(manifest["sample_ids"])
+        filtered_samples = [s for s in manifest["samples"] if s.get("is_fault", True)]
+        manifest["samples"] = filtered_samples
+        manifest["sample_ids"] = [s["sample_id"] for s in filtered_samples]
+        manifest["n_samples"] = len(manifest["sample_ids"])
+        manifest["n_fault"] = manifest["n_samples"]  # All are faults now
+        
+        # Recompute hash
+        manifest_content = json.dumps({
+            "labels_hash": manifest["labels_hash"],
+            "sample_ids": manifest["sample_ids"],
+        }, sort_keys=True)
+        manifest["manifest_hash"] = compute_string_hash(manifest_content)
+        
+        # Update class distribution
+        manifest["class_distribution"] = {
+            k: v for k, v in manifest["class_distribution"].items()
+            if k not in ["normal", "正常"]
+        }
+        
+        print(f"[INFO] Filtered: {original_count} → {manifest['n_samples']} (excluded normal)")
+    
     # Save manifest
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, 'w', encoding='utf-8') as f:
@@ -242,9 +275,11 @@ def main():
     print(f"\nManifest saved to: {out_path}")
     print(f"\nManifest Summary:")
     print(f"  manifest_hash: {manifest['manifest_hash']}")
-    print(f"  n_samples: {manifest['n_samples']}")
+    print(f"  n_samples (N_eval): {manifest['n_samples']}")
+    print(f"  include_normal: {manifest['include_normal']}")
     print(f"  labels_hash: {manifest['labels_hash']}")
     print(f"  class_distribution: {manifest['class_distribution']}")
+    print(f"  sample_id_range: {manifest['sample_ids'][0]} ~ {manifest['sample_ids'][-1]}")
     
     if manifest['filter_reasons']:
         print(f"  filter_reasons: {manifest['filter_reasons']}")

@@ -304,7 +304,107 @@
     "sim_00296",
     "sim_00297",
     "sim_00298",
-    "sim_00299"
+    "sim_00299",
+    "sim_00300",
+    "sim_00301",
+    "sim_00302",
+    "sim_00303",
+    "sim_00304",
+    "sim_00305",
+    "sim_00306",
+    "sim_00307",
+    "sim_00308",
+    "sim_00309",
+    "sim_00310",
+    "sim_00311",
+    "sim_00312",
+    "sim_00313",
+    "sim_00314",
+    "sim_00315",
+    "sim_00316",
+    "sim_00317",
+    "sim_00318",
+    "sim_00319",
+    "sim_00320",
+    "sim_00321",
+    "sim_00322",
+    "sim_00323",
+    "sim_00324",
+    "sim_00325",
+    "sim_00326",
+    "sim_00327",
+    "sim_00328",
+    "sim_00329",
+    "sim_00330",
+    "sim_00331",
+    "sim_00332",
+    "sim_00333",
+    "sim_00334",
+    "sim_00335",
+    "sim_00336",
+    "sim_00337",
+    "sim_00338",
+    "sim_00339",
+    "sim_00340",
+    "sim_00341",
+    "sim_00342",
+    "sim_00343",
+    "sim_00344",
+    "sim_00345",
+    "sim_00346",
+    "sim_00347",
+    "sim_00348",
+    "sim_00349",
+    "sim_00350",
+    "sim_00351",
+    "sim_00352",
+    "sim_00353",
+    "sim_00354",
+    "sim_00355",
+    "sim_00356",
+    "sim_00357",
+    "sim_00358",
+    "sim_00359",
+    "sim_00360",
+    "sim_00361",
+    "sim_00362",
+    "sim_00363",
+    "sim_00364",
+    "sim_00365",
+    "sim_00366",
+    "sim_00367",
+    "sim_00368",
+    "sim_00369",
+    "sim_00370",
+    "sim_00371",
+    "sim_00372",
+    "sim_00373",
+    "sim_00374",
+    "sim_00375",
+    "sim_00376",
+    "sim_00377",
+    "sim_00378",
+    "sim_00379",
+    "sim_00380",
+    "sim_00381",
+    "sim_00382",
+    "sim_00383",
+    "sim_00384",
+    "sim_00385",
+    "sim_00386",
+    "sim_00387",
+    "sim_00388",
+    "sim_00389",
+    "sim_00390",
+    "sim_00391",
+    "sim_00392",
+    "sim_00393",
+    "sim_00394",
+    "sim_00395",
+    "sim_00396",
+    "sim_00397",
+    "sim_00398",
+    "sim_00399"
   ],
   "samples": [
     {
@@ -2406,18 +2506,719 @@
       "module_v2": "[校准链路][校准源]",
       "csv_path": "",
       "is_fault": true
+    },
+    {
+      "sample_id": "sim_00300",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00301",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00302",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00303",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00304",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00305",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00306",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00307",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00308",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00309",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00310",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00311",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00312",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00313",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00314",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00315",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00316",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00317",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00318",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00319",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00320",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00321",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00322",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00323",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00324",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00325",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00326",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00327",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00328",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00329",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00330",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00331",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00332",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00333",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00334",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00335",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00336",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00337",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00338",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00339",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00340",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00341",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00342",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00343",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00344",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00345",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00346",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00347",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00348",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00349",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00350",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00351",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00352",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00353",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00354",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00355",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00356",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00357",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00358",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00359",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00360",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00361",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00362",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00363",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00364",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00365",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00366",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00367",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00368",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00369",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00370",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00371",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00372",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00373",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00374",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00375",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00376",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00377",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00378",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00379",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00380",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00381",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00382",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00383",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00384",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00385",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00386",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00387",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00388",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00389",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00390",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00391",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00392",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00393",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00394",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00395",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00396",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00397",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00398",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
+    },
+    {
+      "sample_id": "sim_00399",
+      "fault_type": "normal",
+      "module_v2": "",
+      "csv_path": "",
+      "is_fault": false
     }
   ],
-  "n_samples": 300,
+  "n_samples": 400,
   "n_fault": 300,
   "filter_reasons": {},
   "filter_details": [],
-  "manifest_hash": "eba19cfc6a80b82f",
+  "manifest_hash": "9d78050420e2bb49",
   "class_distribution": {
     "amp_error": 100,
     "freq_error": 100,
-    "ref_error": 100
+    "ref_error": 100,
+    "normal": 100
   },
-  "mode": "fault300",
-  "include_normal": false
+  "mode": "full400",
+  "include_normal": true
 }
