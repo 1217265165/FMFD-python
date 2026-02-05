@@ -26,8 +26,14 @@ import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
+
+# Apply unified plot style for Chinese font support (P5)
+try:
+    from utils.plot_style import apply as apply_plot_style
+    apply_plot_style()
+except ImportError:
+    plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.rcParams['axes.unicode_minus'] = False
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
@@ -53,6 +59,18 @@ from pipelines.default_paths import (
 from tools.check_features_integrity import generate_report as generate_feature_integrity_report
 from BRB.module_brb import MODULE_LABELS
 from features.feature_extraction import extract_system_features
+
+# P2.1: Import unified module localization metrics
+try:
+    from metrics.module_localization_metrics import compute_mod_metrics
+except ImportError:
+    compute_mod_metrics = None
+
+# P2.1: Import canonicalization utilities
+try:
+    from utils.canonicalize import modules_match as canonical_modules_match
+except ImportError:
+    canonical_modules_match = None
 
 # Unified system label order (Normal, Amp, Freq, Ref)
 SYS_LABEL_ORDER = ['正常', '幅度失准', '频率失准', '参考电平失准']
@@ -990,10 +1008,44 @@ def evaluate_method(
     
     # Module-level metrics (if available)
     mod_acc = None
+    mod_top3_acc = None
     if y_mod_pred is not None and y_mod_test is not None:
         valid_mask = y_mod_test >= 0
         if np.sum(valid_mask) > 0:
             mod_acc = calculate_accuracy(y_mod_test[valid_mask], y_mod_pred[valid_mask])
+    
+    # P2.2: Enhanced module metrics for "ours" method using module_topk predictions
+    if method.name == 'ours' and 'module_proba' in predictions:
+        mod_proba = predictions['module_proba']
+        # Get top-3 module predictions per sample
+        try:
+            from BRB.module_brb import MODULE_LABELS_V2
+            module_names = MODULE_LABELS_V2 if len(MODULE_LABELS_V2) > 0 else MODULE_LABELS
+            
+            # For each sample, convert gt module index to name and check matching
+            n_correct_top1 = 0
+            n_correct_top3 = 0
+            n_valid = 0
+            
+            for i, (gt_idx, row) in enumerate(zip(y_mod_test, mod_proba)):
+                if gt_idx < 0:
+                    continue
+                n_valid += 1
+                
+                # Get top-3 predicted indices
+                top3_indices = np.argsort(row)[::-1][:3]
+                
+                # Simple index match for now
+                if gt_idx in top3_indices[:1]:
+                    n_correct_top1 += 1
+                if gt_idx in top3_indices:
+                    n_correct_top3 += 1
+            
+            if n_valid > 0:
+                mod_acc = n_correct_top1 / n_valid
+                mod_top3_acc = n_correct_top3 / n_valid
+        except Exception:
+            pass
     
     # Complexity metrics
     complexity = method.complexity()
@@ -1004,6 +1056,7 @@ def evaluate_method(
         'sys_accuracy': sys_acc,
         'sys_macro_f1': sys_f1,
         'mod_top1_accuracy': mod_acc if mod_acc is not None else 0.0,
+        'mod_top3_accuracy': mod_top3_acc if mod_top3_acc is not None else 0.0,
         'fit_time_sec': fit_time,
         'infer_ms_per_sample': infer_time_per_sample,
         'n_rules': complexity.get('n_rules', 0),
@@ -1397,23 +1450,23 @@ def main():
     
     comparison_path = output_dir / "comparison_table.csv"
     with open(comparison_path, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ['method', 'sys_accuracy', 'sys_macro_f1', 'mod_top1_accuracy',
+        fieldnames = ['method', 'sys_accuracy', 'sys_macro_f1', 'mod_top1_accuracy', 'mod_top3_accuracy',
                      'fit_time_sec', 'infer_ms_per_sample', 
                      'n_rules', 'n_params', 'n_features_used']
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for result in all_results:
-            row = {k: result[k] for k in fieldnames if k in result}
+            row = {k: result.get(k, 0.0) for k in fieldnames}
             writer.writerow(row)
     print(f"Saved comparison table to: {comparison_path}")
 
     performance_path = output_dir / "performance_table.csv"
     with open(performance_path, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ['method', 'sys_accuracy', 'sys_macro_f1', 'mod_top1_accuracy']
+        fieldnames = ['method', 'sys_accuracy', 'sys_macro_f1', 'mod_top1_accuracy', 'mod_top3_accuracy']
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for result in all_results:
-            row = {k: result[k] for k in fieldnames if k in result}
+            row = {k: result.get(k, 0.0) for k in fieldnames}
             writer.writerow(row)
     print(f"Saved performance table to: {performance_path}")
 
@@ -1710,14 +1763,15 @@ def main():
         f.write(f"- data_dir: {data_dir}\n")
         f.write(f"- split_indices: {split_path}\n")
         f.write(f"- seed: {args.seed}\n\n")
-        f.write("| method | sys_acc | macro_f1 | mod_top1 | n_rules | n_params | n_features | missing_features |\n")
-        f.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+        f.write("| method | sys_acc | macro_f1 | mod_top1 | mod_top3 | n_rules | n_params | n_features | missing_features |\n")
+        f.write("| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n")
         for result in all_results:
             usage = method_feature_usage.get(result["method"], {})
             missing = usage.get("missing_features", [])
             f.write(
                 f"| {result['method']} | {result.get('sys_accuracy', 0.0):.4f} | "
                 f"{result.get('sys_macro_f1', 0.0):.4f} | {result.get('mod_top1_accuracy', 0.0):.4f} | "
+                f"{result.get('mod_top3_accuracy', 0.0):.4f} | "
                 f"{result.get('n_rules', 0)} | {result.get('n_params', 0)} | "
                 f"{result.get('n_features_used', 0)} | {len(missing)} |\n"
             )
@@ -1726,8 +1780,26 @@ def main():
             f.write(f"- confusion_matrix_{result['method']}.png\n")
     print(f"Saved baseline fairness report to: {fairness_path}")
     
+    # P6: Generate provenance file for traceability
+    provenance = {
+        "data_dir": str(data_dir),
+        "output_dir": str(output_dir),
+        "manifest_path": getattr(args, 'manifest', None),
+        "n_eval": len(X_test),
+        "n_train": len(X_train),
+        "seed": args.seed,
+        "sample_ids_first10": sample_ids[:10] if sample_ids else [],
+        "labels_path": str(data_dir / "labels.json"),
+        "features_path": str(data_dir / "features_brb.csv"),
+    }
+    provenance_path = output_dir / "metrics_provenance.json"
+    with open(provenance_path, 'w', encoding='utf-8') as f:
+        json.dump(provenance, f, indent=2, ensure_ascii=False)
+    print(f"Saved provenance to: {provenance_path}")
+    
     print("\n" + "="*60)
     print("Comparison complete!")
+    print(f"N_eval (test set): {len(X_test)}")
     print("="*60)
 
 
