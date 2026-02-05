@@ -9,13 +9,16 @@ The two-stage approach:
 - Stage 2: BRB module inference provides module-level diagnosis with knowledge fusion
 
 This achieves ~90% system accuracy while providing interpretable module diagnosis.
+
+IMPORTANT: All inference paths must use `infer_system_and_modules()` as the unified entry point.
+Do NOT directly call `system_level_infer()` or `hierarchical_module_infer()` in any other file.
 """
 from __future__ import annotations
 
 import json
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Any
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -24,6 +27,320 @@ from methods.base import MethodAdapter
 from BRB.system_brb import system_level_infer, SystemBRBConfig
 from BRB.aggregator import set_calibration_override
 from BRB.module_brb import MODULE_LABELS, module_level_infer, module_level_infer_with_activation
+from BRB.gating_prior import GatingPriorFusion, CLASS_NAMES
+from tools.label_mapping import SYS_CLASS_TO_CN, CN_TO_SYS_CLASS
+
+
+# Gating prior configuration path
+GATING_PRIOR_CONFIG_PATH = Path(__file__).parent.parent / 'config' / 'gating_prior.json'
+
+# RF artifact paths
+RF_ARTIFACT_PATH = Path(__file__).parent.parent / 'artifacts' / 'rf_system_classifier.joblib'
+RF_META_PATH = Path(__file__).parent.parent / 'artifacts' / 'rf_meta.json'
+
+# Global gating prior config (loaded once)
+_GATING_PRIOR_CONFIG: Optional[Dict] = None
+
+# Global RF classifier cache
+_RF_CLASSIFIER_CACHE: Optional[Any] = None
+
+
+def load_rf_artifact(artifact_path: Optional[Path] = None) -> Any:
+    """
+    Load RF classifier from artifact file.
+    
+    Parameters
+    ----------
+    artifact_path : Path, optional
+        Path to RF joblib file. Defaults to artifacts/rf_system_classifier.joblib
+        
+    Returns
+    -------
+    sklearn.ensemble.RandomForestClassifier
+        Loaded classifier
+        
+    Raises
+    ------
+    FileNotFoundError
+        If artifact file does not exist
+    """
+    global _RF_CLASSIFIER_CACHE
+    
+    if artifact_path is None:
+        artifact_path = RF_ARTIFACT_PATH
+    else:
+        artifact_path = Path(artifact_path)
+    
+    # Return cached if same path
+    if _RF_CLASSIFIER_CACHE is not None:
+        return _RF_CLASSIFIER_CACHE
+    
+    if not artifact_path.exists():
+        raise FileNotFoundError(
+            f"RF artifact not found: {artifact_path}\n"
+            f"Please run: python tools/train_and_export_rf.py\n"
+            f"Or use --allow_fallback to allow BRB-only inference."
+        )
+    
+    import joblib
+    _RF_CLASSIFIER_CACHE = joblib.load(artifact_path)
+    return _RF_CLASSIFIER_CACHE
+
+
+def _load_gating_prior_config() -> Dict:
+    """Load gating prior configuration from config/gating_prior.json."""
+    global _GATING_PRIOR_CONFIG
+    if _GATING_PRIOR_CONFIG is not None:
+        return _GATING_PRIOR_CONFIG
+    
+    if GATING_PRIOR_CONFIG_PATH.exists():
+        try:
+            with open(GATING_PRIOR_CONFIG_PATH, 'r', encoding='utf-8') as f:
+                _GATING_PRIOR_CONFIG = json.load(f)
+                return _GATING_PRIOR_CONFIG
+        except Exception:
+            pass
+    
+    # Default config if file not found
+    _GATING_PRIOR_CONFIG = {
+        "method": "gated",
+        "linear_weight": 0.7,
+        "logit_weight": 0.6,
+        "gated": {
+            "threshold": 0.55,
+            "w_min": 0.3,
+            "w_max": 0.85,
+            "temperature": 1.0,
+        }
+    }
+    return _GATING_PRIOR_CONFIG
+
+
+def infer_system_and_modules(
+    features: Dict[str, float],
+    *,
+    use_gating: bool = True,
+    rf_classifier: Optional[Any] = None,
+    allow_fallback: bool = False,
+) -> Dict[str, Any]:
+    """
+    Unified inference entry point for system-level and module-level diagnosis.
+    
+    This is the ONLY function that should be called for inference. All scripts
+    (compare_methods.py, brb_diagnosis_cli.py, aggregate_batch_diagnosis.py,
+    eval_module_localization.py) MUST use this function.
+    
+    Parameters
+    ----------
+    features : Dict[str, float]
+        Feature dictionary containing X1-X22 or equivalent named features.
+    use_gating : bool, default=True
+        Whether to use RF gating prior fusion. If True, fuses RF and BRB outputs.
+    rf_classifier : Optional[RandomForestClassifier], default=None
+        Fitted RandomForest classifier for gating prior. If None and use_gating=True,
+        falls back to BRB-only inference.
+    allow_fallback : bool, default=False
+        If False, raises an error when gating prior is unavailable but use_gating=True.
+        If True, allows fallback to BRB-only inference.
+        
+    Returns
+    -------
+    Dict with keys:
+        - system_probs: Dict[str, float] mapping {class_name: probability}
+          where class_name in {"normal", "amp_error", "freq_error", "ref_error"}
+        - fault_type_pred: str - predicted fault type (English)
+        - module_topk: List[Dict] - top modules with {"name": str, "prob": float}
+        - debug: Dict containing:
+            - rf_probs: Optional[Dict] - RF prior probabilities
+            - brb_probs: Dict - BRB output probabilities
+            - fused_probs: Dict - fused probabilities (if gating used)
+            - gating_status: str - "gated_ok", "fallback_brb_only", or "disabled"
+            - fallback_reason: Optional[str] - reason for fallback
+    
+    Raises
+    ------
+    ValueError
+        If use_gating=True, rf_classifier is None, and allow_fallback=False.
+    """
+    debug_info: Dict[str, Any] = {
+        "rf_probs": None,
+        "brb_probs": None,
+        "fused_probs": None,
+        "gating_status": "disabled",
+        "fallback_reason": None,
+        "gating_config_hash": None,
+    }
+    
+    # Step 0: Auto-load RF classifier if not provided but gating requested
+    if use_gating and rf_classifier is None:
+        try:
+            rf_classifier = load_rf_artifact()
+        except FileNotFoundError as e:
+            if not allow_fallback:
+                raise ValueError(
+                    f"RF artifact not available and allow_fallback=False.\n"
+                    f"Either provide rf_classifier, run train_and_export_rf.py, "
+                    f"or set allow_fallback=True."
+                ) from e
+            debug_info["fallback_reason"] = "RF artifact not found"
+    
+    # Step 1: BRB system-level inference (always run)
+    sys_result = system_level_infer(features, mode="sub_brb")
+    brb_probs_cn = sys_result.get("probabilities", {})
+    
+    # Convert BRB probs from Chinese to English
+    brb_probs = {
+        "normal": brb_probs_cn.get("正常", 0.0),
+        "amp_error": brb_probs_cn.get("幅度失准", 0.0),
+        "freq_error": brb_probs_cn.get("频率失准", 0.0),
+        "ref_error": brb_probs_cn.get("参考电平失准", 0.0),
+    }
+    debug_info["brb_probs"] = brb_probs
+    
+    # Step 2: Gating prior fusion (if enabled)
+    final_probs = brb_probs.copy()
+    
+    if use_gating:
+        if rf_classifier is not None and hasattr(rf_classifier, 'predict_proba'):
+            try:
+                # Prepare feature vector for RF
+                feature_vector = _features_to_array(features)
+                rf_proba = rf_classifier.predict_proba(feature_vector.reshape(1, -1))[0]
+                
+                # Map RF probs to class names
+                rf_classes = rf_classifier.classes_
+                rf_probs = {}
+                for i, cls in enumerate(rf_classes):
+                    # Handle both int and string classes (including numpy integers)
+                    if isinstance(cls, (int, np.integer)):
+                        cls_name = CLASS_NAMES[int(cls)] if int(cls) < len(CLASS_NAMES) else "normal"
+                    else:
+                        cls_name = str(cls)
+                    rf_probs[cls_name] = float(rf_proba[i])
+                
+                # Ensure all classes present
+                for c in ["normal", "amp_error", "freq_error", "ref_error"]:
+                    rf_probs.setdefault(c, 0.0)
+                
+                debug_info["rf_probs"] = rf_probs
+                
+                # Fuse RF and BRB
+                gating_config = _load_gating_prior_config()
+                fusion = GatingPriorFusion(gating_config)
+                
+                rf_array = np.array([rf_probs["normal"], rf_probs["amp_error"],
+                                     rf_probs["freq_error"], rf_probs["ref_error"]])
+                brb_array = np.array([brb_probs["normal"], brb_probs["amp_error"],
+                                      brb_probs["freq_error"], brb_probs["ref_error"]])
+                
+                fused_array = fusion.fuse(rf_array, brb_array)
+                
+                final_probs = {
+                    "normal": float(fused_array[0]),
+                    "amp_error": float(fused_array[1]),
+                    "freq_error": float(fused_array[2]),
+                    "ref_error": float(fused_array[3]),
+                }
+                debug_info["fused_probs"] = final_probs
+                debug_info["gating_status"] = "gated_ok"
+                
+            except Exception as e:
+                if not allow_fallback:
+                    raise ValueError(
+                        f"Gating prior fusion failed and allow_fallback=False: {e}"
+                    )
+                debug_info["gating_status"] = "fallback_brb_only"
+                debug_info["fallback_reason"] = f"RF inference error: {str(e)}"
+                final_probs = brb_probs.copy()
+        else:
+            # No RF classifier available
+            if not allow_fallback:
+                raise ValueError(
+                    "use_gating=True but rf_classifier is None and allow_fallback=False. "
+                    "Either provide a fitted RF classifier or set allow_fallback=True."
+                )
+            debug_info["gating_status"] = "fallback_brb_only"
+            debug_info["fallback_reason"] = "RF classifier not provided"
+            final_probs = brb_probs.copy()
+    else:
+        debug_info["gating_status"] = "disabled"
+        final_probs = brb_probs.copy()
+    
+    # Step 3: Determine predicted fault type
+    fault_type_pred = max(final_probs, key=final_probs.get)
+    
+    # Step 4: Module-level inference
+    # Convert final_probs to Chinese for BRB module inference
+    sys_probs_cn = {
+        "正常": final_probs.get("normal", 0.0),
+        "幅度失准": final_probs.get("amp_error", 0.0),
+        "频率失准": final_probs.get("freq_error", 0.0),
+        "参考电平失准": final_probs.get("ref_error", 0.0),
+        "probabilities": {
+            "正常": final_probs.get("normal", 0.0),
+            "幅度失准": final_probs.get("amp_error", 0.0),
+            "频率失准": final_probs.get("freq_error", 0.0),
+            "参考电平失准": final_probs.get("ref_error", 0.0),
+        },
+        "max_prob": max(final_probs.values()),
+    }
+    
+    module_probs = module_level_infer_with_activation(features, sys_probs_cn)
+    
+    # Get top-K modules
+    sorted_modules = sorted(module_probs.items(), key=lambda x: x[1], reverse=True)
+    module_topk = [
+        {"name": name, "prob": float(prob)}
+        for name, prob in sorted_modules[:10]
+    ]
+    
+    return {
+        "system_probs": final_probs,
+        "fault_type_pred": fault_type_pred,
+        "module_topk": module_topk,
+        "debug": debug_info,
+    }
+
+
+def _features_to_array(features: Dict[str, float]) -> np.ndarray:
+    """Convert feature dictionary to numpy array for RF classifier."""
+    # Use X1-X22 ordering
+    arr = np.zeros(22)
+    for i in range(22):
+        key = f"X{i+1}"
+        if key in features:
+            arr[i] = float(features[key])
+        else:
+            # Try aliases
+            aliases = {
+                1: ["bias", "amplitude_offset"],
+                2: ["ripple_var", "inband_flatness"],
+                3: ["res_slope", "hf_attenuation_slope"],
+                4: ["df", "freq_scale_nonlinearity"],
+                5: ["scale_consistency", "amp_scale_consistency"],
+                6: ["ripple_variance"],
+                7: ["gain_nonlinearity", "step_score"],
+                8: ["lo_leakage"],
+                9: ["tuning_linearity_residual"],
+                10: ["band_amplitude_consistency"],
+                11: ["env_overrun_rate", "viol_rate"],
+                12: ["env_overrun_max"],
+                13: ["env_violation_energy"],
+                14: ["band_residual_low"],
+                15: ["band_residual_high_std"],
+                16: ["corr_shift_bins"],
+                17: ["warp_scale"],
+                18: ["warp_bias"],
+                19: ["slope_low"],
+                20: ["kurtosis_detrended"],
+                21: ["peak_count_residual"],
+                22: ["ripple_dom_freq_energy"],
+            }
+            for alias in aliases.get(i+1, []):
+                if alias in features:
+                    arr[i] = float(features[alias])
+                    break
+    return arr
 
 
 def _load_calibration() -> Dict:
@@ -136,6 +453,8 @@ class OursAdapter(MethodAdapter):
         
         Stage 1: RandomForest for system-level classification (high accuracy)
         Stage 2: BRB for module-level diagnosis (interpretable)
+        
+        Now uses the unified entry infer_system_and_modules() for consistency.
         """
         n_test = len(X_test)
         n_sys_classes = 4  # Normal, Amp, Freq, Ref
@@ -151,61 +470,53 @@ class OursAdapter(MethodAdapter):
 
         start_time = time.time()
         
-        # Stage 1: System-level classification using RandomForest
-        if self.is_fitted:
-            sys_pred = self.classifier.predict(X_test)
-            sys_proba = self.classifier.predict_proba(X_test)
-        else:
-            # Fallback to BRB if not fitted
-            inference_mode = 'sub_brb' if self.use_sub_brb else 'er'
-            for i in range(n_test):
-                features = self._array_to_dict(X_test[i])
-                sys_result = system_level_infer(features, self.config, mode=inference_mode)
-                probs = sys_result.get('probabilities', {})
-                
-                total_prob = sum(probs.values()) if probs else 0.0
-                if total_prob > 0.01:
-                    sys_proba[i, 0] = probs.get('正常', 0.0)
-                    sys_proba[i, 1] = probs.get('幅度失准', 0.0)
-                    sys_proba[i, 2] = probs.get('频率失准', 0.0)
-                    sys_proba[i, 3] = probs.get('参考电平失准', 0.0)
-                    row_sum = np.sum(sys_proba[i])
-                    if row_sum > 0:
-                        sys_proba[i] /= row_sum
-                else:
-                    sys_proba[i] = np.ones(n_sys_classes) / n_sys_classes
-                sys_pred[i] = np.argmax(sys_proba[i])
-        
-        # Stage 2: Module-level diagnosis using BRB
+        # Process each sample using unified entry
         for i in range(n_test):
             features = self._array_to_dict(X_test[i])
             
-            # Create sys_result dict for module inference
-            sys_labels = ['正常', '幅度失准', '频率失准', '参考电平失准']
-            sys_result = {
-                'predicted_class': sys_labels[int(sys_pred[i])],
-                'max_prob': float(np.max(sys_proba[i])),
-                'probabilities': {
-                    '正常': float(sys_proba[i, 0]),
-                    '幅度失准': float(sys_proba[i, 1]),
-                    '频率失准': float(sys_proba[i, 2]),
-                    '参考电平失准': float(sys_proba[i, 3]),
-                }
-            }
+            # Use unified entry with RF classifier if fitted
+            result = infer_system_and_modules(
+                features,
+                use_gating=True,
+                rf_classifier=self.classifier if self.is_fitted else None,
+                allow_fallback=True,
+            )
             
-            # Module-level inference using BRB
-            mod_probs_dict = module_level_infer_with_activation(features, sys_result, only_activate_relevant=True)
+            # Extract system probabilities (order: normal, amp_error, freq_error, ref_error)
+            sys_probs = result["system_probs"]
+            sys_proba[i, 0] = sys_probs.get("normal", 0.0)
+            sys_proba[i, 1] = sys_probs.get("amp_error", 0.0)
+            sys_proba[i, 2] = sys_probs.get("freq_error", 0.0)
+            sys_proba[i, 3] = sys_probs.get("ref_error", 0.0)
             
-            # Convert to array
-            for mod_id_str, prob in mod_probs_dict.items():
+            # Normalize
+            row_sum = np.sum(sys_proba[i])
+            if row_sum > 0:
+                sys_proba[i] /= row_sum
+            else:
+                sys_proba[i] = np.ones(n_sys_classes) / n_sys_classes
+            sys_pred[i] = np.argmax(sys_proba[i])
+            
+            # Module probabilities
+            mod_probs_dict = {m["name"]: m["prob"] for m in result["module_topk"]}
+            
+            # Convert V2 module names to indices using MODULE_LABELS_V2
+            from BRB.module_brb import MODULE_LABELS_V2
+            
+            for mod_name, prob in mod_probs_dict.items():
                 try:
-                    if isinstance(mod_id_str, str):
-                        mod_id = int(''.join(filter(str.isdigit, mod_id_str)))
+                    # Find index in MODULE_LABELS_V2
+                    if mod_name in MODULE_LABELS_V2:
+                        mod_idx = MODULE_LABELS_V2.index(mod_name)
+                        if 0 <= mod_idx < len(MODULE_LABELS):
+                            mod_proba[i, mod_idx] = prob
                     else:
-                        mod_id = int(mod_id_str)
-                    
-                    if 1 <= mod_id <= len(MODULE_LABELS):
-                        mod_proba[i, mod_id - 1] = prob
+                        # Try partial matching
+                        for idx, v2_name in enumerate(MODULE_LABELS_V2):
+                            if mod_name in v2_name or v2_name in mod_name:
+                                if idx < len(MODULE_LABELS):
+                                    mod_proba[i, idx] = prob
+                                break
                 except (ValueError, IndexError):
                     continue
             

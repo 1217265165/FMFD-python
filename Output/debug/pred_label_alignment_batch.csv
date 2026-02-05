@@ -1,0 +1,201 @@
+sample_id,true_fault_type,pred_fault_type,true_module_v2,pred_module_top1,pred_module_top3,hit_sys,hit_top1,hit_top3,gating_status
+sim_00000,amp_error,normal,[数字中频板][检波/对数],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[校准链路][校准源]', '[校准链路][校准路径开关/耦合]']",False,False,False,gated_ok
+sim_00001,amp_error,amp_error,[数字中频板][ADC],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,True,True,gated_ok
+sim_00002,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00003,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00004,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00005,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00006,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00007,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00008,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00009,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00010,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00011,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00012,amp_error,amp_error,[数字中频板][ADC],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,True,True,gated_ok
+sim_00013,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00014,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00015,amp_error,amp_error,[数字中频板][ADC],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,True,True,gated_ok
+sim_00016,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00017,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00018,amp_error,normal,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[电源板] 电源管理模块']",False,False,False,gated_ok
+sim_00019,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00020,amp_error,amp_error,[数字中频板][检波/对数],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00021,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00022,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00023,amp_error,freq_error,[数字中频板][检波/对数],[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",False,False,False,gated_ok
+sim_00024,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00025,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00026,amp_error,amp_error,数字放大器,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00027,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00028,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00029,amp_error,amp_error,[数字中频板][ADC],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,True,True,gated_ok
+sim_00030,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00031,amp_error,normal,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[电源板] 电源管理模块']",False,False,False,gated_ok
+sim_00032,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00033,amp_error,ref_error,[数字中频板][检波/对数],[校准链路][校准源],"['[校准链路][校准源]', '[电源板] 电源管理模块', '[校准链路][校准路径开关/耦合]']",False,False,False,gated_ok
+sim_00034,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00035,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00036,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00037,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00038,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00039,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00040,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00041,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00042,amp_error,amp_error,数字放大器,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00043,amp_error,amp_error,[RF板][Mixer1],[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00044,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00045,amp_error,normal,[数字中频板][检波/对数],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[校准链路][校准源]', '[校准链路][校准路径开关/耦合]']",False,False,False,gated_ok
+sim_00046,amp_error,amp_error,[RF板][RF] 输入连接/匹配/保护,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00047,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00048,amp_error,normal,[数字中频板][ADC],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",False,False,True,gated_ok
+sim_00049,amp_error,amp_error,[RF板][RF] 低频通路固定滤波/抑制网络,[数字中频板][ADC] 数字检波与平均,"['[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链', '[数字中频板][DSP] 数字增益/偏置校准']",True,False,False,gated_ok
+sim_00050,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00051,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00052,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[电源板] 电源管理模块', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00053,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00054,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",False,False,False,gated_ok
+sim_00055,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00056,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00057,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",False,False,False,gated_ok
+sim_00058,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00059,freq_error,normal,[LO/时钟板][LO1] 合成链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00060,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00061,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00062,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00063,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00064,freq_error,normal,[LO/时钟板][LO1] 合成链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00065,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00066,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00067,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00068,freq_error,normal,[LO/时钟板][LO1] 合成链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00069,freq_error,normal,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[电源板] 电源管理模块', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00070,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00071,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",False,False,False,gated_ok
+sim_00072,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",False,False,False,gated_ok
+sim_00073,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00074,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00075,freq_error,normal,[LO/时钟板][LO1] 合成链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00076,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00077,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00078,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00079,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00080,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00081,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00082,freq_error,normal,[RF板][LO1] LO1 注入链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00083,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00084,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00085,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00086,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00087,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00088,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00089,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00090,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00091,freq_error,normal,[LO/时钟板][LO1] 合成链,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00092,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00093,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00094,freq_error,freq_error,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00095,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00096,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00097,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[电源板] 电源管理模块', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00098,freq_error,freq_error,[RF板][LO1] LO1 注入链,[RF板][Mixer1],"['[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO', '[时钟板][参考分配]']",True,False,False,gated_ok
+sim_00099,freq_error,normal,[LO/时钟板][LO1] 合成链,[RF板][Mixer1],"['[RF板][Mixer1]', '[电源板] 电源管理模块', '[时钟板][参考域] 10MHz 基准 OCXO']",False,False,False,gated_ok
+sim_00100,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00101,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00102,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00103,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00104,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00105,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00106,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00107,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00108,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00109,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00110,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00111,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00112,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00113,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00114,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00115,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00116,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00117,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00118,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00119,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00120,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00121,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00122,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00123,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00124,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00125,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00126,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00127,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00128,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00129,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00130,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00131,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00132,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00133,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00134,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00135,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00136,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00137,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00138,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00139,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00140,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00141,ref_error,normal,[校准链路][校准表/存储],[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[校准链路][校准源]', '[校准链路][校准路径开关/耦合]']",False,False,False,gated_ok
+sim_00142,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00143,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00144,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00145,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00146,ref_error,ref_error,[校准链路][校准源],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,True,True,gated_ok
+sim_00147,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00148,ref_error,ref_error,[校准链路][校准路径开关/耦合],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00149,ref_error,ref_error,[校准链路][校准表/存储],[校准链路][校准源],"['[校准链路][校准源]', '[校准链路][校准路径开关/耦合]', '[校准链路][校准表/存储]']",True,False,True,gated_ok
+sim_00150,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00151,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00152,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00153,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00154,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00155,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00156,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[校准链路][校准源]', '[校准链路][校准路径开关/耦合]']",True,False,False,gated_ok
+sim_00157,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00158,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00159,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00160,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00161,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00162,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00163,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00164,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",True,False,False,gated_ok
+sim_00165,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",True,False,False,gated_ok
+sim_00166,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00167,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00168,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00169,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00170,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00171,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00172,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00173,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00174,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00175,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00176,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00177,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00178,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00179,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00180,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00181,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00182,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00183,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00184,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00185,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00186,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00187,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00188,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00189,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00190,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00191,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00192,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00193,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",True,False,False,gated_ok
+sim_00194,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00195,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00196,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00197,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[RF板][Mixer1]', '[时钟板][参考域] 10MHz 基准 OCXO']",True,False,False,gated_ok
+sim_00198,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[校准链路][校准源]', '[校准链路][校准路径开关/耦合]']",True,False,False,gated_ok
+sim_00199,normal,normal,,[电源板] 电源管理模块,"['[电源板] 电源管理模块', '[数字中频板][ADC] 数字检波与平均', '[数字中频板][IF] 中频放大/衰减链']",True,False,False,gated_ok
