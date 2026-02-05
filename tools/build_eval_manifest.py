@@ -121,6 +121,7 @@ def build_manifest(
     
     # Build final sample list with filter reasons
     sample_ids = []
+    sample_details = []  # P1.1: Extended sample info
     filter_reasons = Counter()
     filter_details = []
     
@@ -144,11 +145,40 @@ def build_manifest(
             filter_details.append({"sample_id": sample_id, "reason": "no_fault_type"})
             continue
         
-        # Valid sample
+        # Valid sample - collect detailed info (P1.1)
         sample_ids.append(sample_id)
+        
+        # Canonical fault type
+        from utils.canonicalize import canonical_fault_type, canonical_module_v2
+        canonical_ft = canonical_fault_type(fault_type)
+        
+        # Module info
+        module_v1 = label.get("module_cause", "")
+        module_v2 = label.get("module_v2", "")
+        if module_v2:
+            canonical_mod = canonical_module_v2(module_v2)
+        elif module_v1:
+            canonical_mod = canonical_module_v2(module_v1)
+        else:
+            canonical_mod = ""
+        
+        # CSV path
+        csv_path = ""
+        if curves_dir and curve_ids:
+            csv_path = str(curves_dir / f"{sample_id}.csv")
+        
+        sample_details.append({
+            "sample_id": sample_id,
+            "fault_type": canonical_ft,
+            "module_v2": canonical_mod,
+            "csv_path": csv_path,
+            "is_fault": canonical_ft != "normal",
+        })
     
     manifest["sample_ids"] = sample_ids
+    manifest["samples"] = sample_details  # P1.1: Detailed sample list
     manifest["n_samples"] = len(sample_ids)
+    manifest["n_fault"] = sum(1 for s in sample_details if s.get("is_fault", False))
     manifest["filter_reasons"] = dict(filter_reasons)
     manifest["filter_details"] = filter_details[:20]  # Keep first 20 for debugging
     

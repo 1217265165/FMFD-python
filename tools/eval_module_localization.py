@@ -396,11 +396,45 @@ def generate_report(results: Dict, output_dir: str = None) -> str:
     return report
 
 
+def load_manifest(manifest_path: str) -> Optional[Dict]:
+    """Load evaluation manifest if provided."""
+    if not manifest_path:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        print(f"[警告] Manifest 文件不存在: {manifest_path}")
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[警告] 无法加载 manifest: {e}")
+        return None
+
+
 def main():
     """主函数"""
+    import argparse
+    parser = argparse.ArgumentParser(description='模块级定位自动化验证工具')
+    parser.add_argument('--manifest', '-m', default=None,
+                        help='评估清单路径 (若提供则仅评估 manifest 中的样本)')
+    parser.add_argument('--labels', '-l', default=None,
+                        help='labels.json 路径 (若无 manifest)')
+    parser.add_argument('--output_dir', '-o', default=None,
+                        help='输出目录')
+    args = parser.parse_args()
+    
     print("=" * 60)
     print("P2: 模块级定位自动化验证工具")
     print("=" * 60)
+    
+    # Load manifest if provided
+    manifest = load_manifest(args.manifest)
+    manifest_sample_ids = None
+    if manifest:
+        manifest_sample_ids = set(manifest.get("sample_ids", []))
+        print(f"Manifest: {args.manifest}")
+        print(f"Manifest 样本数: {len(manifest_sample_ids)}")
     
     # 加载评估集
     eval_set = load_eval_set()
@@ -408,23 +442,37 @@ def main():
     
     if not samples:
         print("警告: 评估集为空，尝试从 labels.json 加载...")
-        labels_path = ROOT / "Output" / "sim_spectrum" / "labels.json"
+        labels_path = Path(args.labels) if args.labels else ROOT / "Output" / "sim_spectrum" / "labels.json"
         if labels_path.exists():
             with open(labels_path, 'r', encoding='utf-8') as f:
                 labels = json.load(f)
-            samples = labels.get("samples", [])
+            if isinstance(labels, dict):
+                if "samples" in labels:
+                    samples = labels["samples"]
+                else:
+                    samples = [{"sample_id": k, **v} for k, v in labels.items()]
+            else:
+                samples = labels
     
-    print(f"加载样本数: {len(samples)}")
+    # Filter by manifest if provided
+    if manifest_sample_ids and samples:
+        filtered_samples = [s for s in samples if s.get("sample_id") in manifest_sample_ids]
+        print(f"Manifest 过滤后: {len(filtered_samples)} / {len(samples)}")
+        samples = filtered_samples
+    
+    print(f"加载样本数 (N_eval): {len(samples)}")
     
     # 执行评估
     results = evaluate_module_localization(samples)
     
     # 生成报告
-    report = generate_report(results)
+    output_dir = args.output_dir if args.output_dir else None
+    report = generate_report(results, output_dir)
     
     print("\n" + "=" * 60)
     print("评估结果摘要")
     print("=" * 60)
+    print(f"N_eval: {results['total']}")
     print(f"mod_top1: {results['mod_top1']:.1%}")
     print(f"mod_top3: {results['mod_top3']:.1%}")
     

@@ -267,6 +267,22 @@ def generate_report(stats: Dict, output_path: str) -> None:
     print(f"[INFO] Markdown 报告已保存: {md_path}")
 
 
+def load_manifest(manifest_path: str) -> Optional[Dict]:
+    """Load evaluation manifest if provided."""
+    if not manifest_path:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        print(f"[警告] Manifest 文件不存在: {manifest_path}")
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[警告] 无法加载 manifest: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='批量诊断结果汇总工具',
@@ -275,6 +291,7 @@ def main():
 示例:
   python tools/aggregate_batch_diagnosis.py --input_dir Output/batch_diagnosis
   python tools/aggregate_batch_diagnosis.py --input_dir Output/batch_diagnosis --output Output/batch_diagnosis/module_localization_report.json
+  python tools/aggregate_batch_diagnosis.py --manifest Output/debug/eval_manifest.json --input_dir Output/batch_diagnosis
         """
     )
     
@@ -282,6 +299,8 @@ def main():
                         help='批量诊断输出目录 (包含 *_diagnosis.json 文件)')
     parser.add_argument('--output', '-o', default=None,
                         help='输出报告路径 (默认: <input_dir>/module_localization_report.json)')
+    parser.add_argument('--manifest', '-m', default=None,
+                        help='评估清单路径 (若提供则仅评估 manifest 中的样本)')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='显示详细输出')
     
@@ -296,9 +315,27 @@ def main():
     print(f"输入目录: {args.input_dir}")
     print(f"输出文件: {args.output}")
     
+    # Load manifest if provided
+    manifest = load_manifest(args.manifest)
+    manifest_sample_ids = None
+    if manifest:
+        manifest_sample_ids = set(manifest.get("sample_ids", []))
+        print(f"Manifest: {args.manifest}")
+        print(f"Manifest 样本数: {len(manifest_sample_ids)}")
+    
     # 加载诊断结果
     results = load_diagnosis_results(args.input_dir)
     print(f"加载诊断文件数: {len(results)}")
+    
+    # Filter by manifest if provided
+    if manifest_sample_ids:
+        filtered_results = []
+        for r in results:
+            sample_id = r.get("meta", {}).get("sample_id", "")
+            if sample_id in manifest_sample_ids:
+                filtered_results.append(r)
+        print(f"Manifest 过滤后: {len(filtered_results)} / {len(results)}")
+        results = filtered_results
     
     if not results:
         print("[错误] 没有找到诊断结果文件")
@@ -310,11 +347,27 @@ def main():
     # 生成报告
     generate_report(stats, args.output)
     
+    # Generate provenance file (P6)
+    provenance = {
+        "input_dir": str(args.input_dir),
+        "manifest_path": args.manifest,
+        "n_eval": stats['total'],
+        "n_fault_eval": stats['total'],  # All samples here are fault samples
+        "sample_ids_first10": [
+            r.get("meta", {}).get("sample_id", "") 
+            for r in results[:10]
+        ],
+    }
+    provenance_path = Path(args.output).parent / "metrics_provenance.json"
+    with open(provenance_path, 'w', encoding='utf-8') as f:
+        json.dump(provenance, f, indent=2, ensure_ascii=False)
+    print(f"[INFO] Provenance 已保存: {provenance_path}")
+    
     # 打印摘要
     print("\n" + "=" * 60)
     print("评估结果摘要")
     print("=" * 60)
-    print(f"样本总数: {stats['total']}")
+    print(f"样本总数 (N_eval): {stats['total']}")
     print(f"系统级准确率: {stats['sys_acc']:.1%}")
     print(f"mod_top1: {stats['mod_top1']:.1%}")
     print(f"mod_top3: {stats['mod_top3']:.1%}")

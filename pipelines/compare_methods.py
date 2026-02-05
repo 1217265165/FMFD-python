@@ -1063,6 +1063,8 @@ def main():
     parser.add_argument('--val_size', type=float, default=SPLIT[1], help='Validation set ratio')
     parser.add_argument('--small_sample', action='store_true', 
                        help='Run small-sample adaptability experiments')
+    parser.add_argument('--manifest', '-m', default=None,
+                       help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
     args = parser.parse_args()
     
     # Setup
@@ -1115,6 +1117,29 @@ def main():
     else:
         audit_info['leakage_detected'] = False
         audit_info['leakage_columns'] = leak_columns
+    
+    # P0.2: Filter by manifest if provided
+    manifest_sample_ids = None
+    if args.manifest:
+        manifest_path = Path(args.manifest) if Path(args.manifest).is_absolute() else PROJECT_ROOT / args.manifest
+        if manifest_path.exists():
+            with open(manifest_path, 'r', encoding='utf-8') as f:
+                manifest_data = json.load(f)
+            manifest_sample_ids = set(manifest_data.get("sample_ids", []))
+            print(f"[INFO] Manifest loaded: {manifest_path}")
+            print(f"[INFO] Manifest sample count: {len(manifest_sample_ids)}")
+            
+            # Filter samples by manifest
+            if manifest_sample_ids:
+                mask = np.array([sid in manifest_sample_ids for sid in sample_ids])
+                X = X[mask]
+                y_sys = y_sys[mask]
+                if y_mod is not None:
+                    y_mod = y_mod[mask]
+                sample_ids = [sid for sid, m in zip(sample_ids, mask) if m]
+                print(f"[INFO] After manifest filter: {len(sample_ids)} samples")
+        else:
+            print(f"[WARN] Manifest file not found: {manifest_path}")
     
     n_sys_classes = len(SYS_LABEL_ORDER)
     
