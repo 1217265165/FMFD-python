@@ -1942,7 +1942,8 @@ def run_simulation(args: argparse.Namespace):
     _plot_peak_track_audit(out_dir, freq, peak_freqs, labels)
     _plot_normal_vs_real(out_dir, freq, rrs, traces, curves, labels)
     _plot_overlay_by_module(out_dir, freq, curves, labels)
-    _plot_template_gallery(out_dir, freq, curves, labels)
+    # V-D.6: 模板系统已在 V-D.3 废弃，禁用模板画廊绘制
+    # _plot_template_gallery(out_dir, freq, curves, labels)
     _plot_peakfreq_behavior(out_dir, freq, peak_freqs, labels)
     _plot_amp_vs_ref_separability(out_dir, feature_rows, labels)
     _plot_grid_with_manifest(out_dir, freq, curves, labels)

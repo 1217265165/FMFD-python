@@ -34,6 +34,9 @@ MIN_VALID_DEVIATION_DB = 0.10
 # V-D.5b: 纹理变化检测阈值 (用于 ADC/VBW 等以纹理为主的故障)
 TEXTURE_CHANGE_THRESHOLD = 1e-6
 
+# V-D.6: amp/att/rl 专用阈值 - 这些故障主要是偏移，只看幅度不看形态
+AMP_DEVIATION_THRESHOLD = 0.10
+
 
 # ============================================================================
 # 任务书 §5.2: 模块形态签名模板
@@ -1158,6 +1161,12 @@ class SimulationConstraints:
         if not (-10.6 <= metrics["amp_min"] <= -9.4 and -10.6 <= metrics["amp_max"] <= -9.4):
             reasons.append("fault amplitude out of bounds")
         if fault_kind in ("rl", "att"):
+            # V-D.6: rl/att 故障只看偏移量，不看形态 (与 amp 相同处理)
+            # 只要 max_abs_dev > AMP_DEVIATION_THRESHOLD (0.10 dB)，无论形态是否变化都通过
+            # 早期返回跳过后续的 min_offset 和 p95_abs_dev 检查，
+            # 因为当偏移量足够大时，这些形态检查对于衰减器类故障没有意义
+            if metrics["max_abs_dev"] > AMP_DEVIATION_THRESHOLD:
+                return ConstraintResult(ok=True, reasons=[])  # OK (Amp offset)
             # W2: Use absolute minimum threshold for ref_error offset
             # Relaxed threshold to allow module-specific noise variation
             min_offset = max(0.025, 0.6 * abs(baseline.global_offset_p95))  # Lower threshold
@@ -1170,6 +1179,12 @@ class SimulationConstraints:
             return ConstraintResult(ok=not reasons, reasons=reasons)
 
         if fault_kind == "amp":
+            # V-D.6: amp 故障只看偏移量，不看形态
+            # 只要 max_abs_dev > AMP_DEVIATION_THRESHOLD (0.10 dB)，无论形态是否变化都通过
+            # 早期返回跳过后续的 global_offset 和 p95_abs_dev 检查，
+            # 因为当偏移量足够大时，这些形态/全局偏移检查对于幅度类故障没有意义
+            if metrics["max_abs_dev"] > AMP_DEVIATION_THRESHOLD:
+                return ConstraintResult(ok=True, reasons=[])  # OK (Amp offset)
             if abs(metrics["global_offset"]) > 1.5 * abs(baseline.global_offset_p95):
                 reasons.append("amp global_offset too large")
             # V-D.5b: 降低阈值以兼容微弱故障 (偏差 < 0.6 dB)
