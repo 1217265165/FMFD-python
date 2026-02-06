@@ -842,3 +842,112 @@ def hierarchical_module_infer(
         filtered_probs = {m: uniform_prob for m in filtered_probs}
     
     return filtered_probs
+
+
+def hierarchical_module_infer_soft_gating(
+    final_probs: Dict[str, float],
+    features: Dict[str, float],
+    delta: float = 0.1,
+    use_board_prior: bool = True,
+) -> Dict:
+    """
+    P3.1: Soft-gating multi-hypothesis module inference.
+    
+    When the top-2 fault type probabilities are close (diff < delta),
+    run both hypotheses and return weighted fusion of module probabilities.
+    
+    Parameters
+    ----------
+    final_probs : dict
+        System-level fault type probabilities {fault_type: prob}
+    features : dict
+        Feature dictionary
+    delta : float
+        Threshold for activating second hypothesis. Default 0.1.
+    use_board_prior : bool
+        Whether to use board-level priors
+        
+    Returns
+    -------
+    dict
+        {
+            "fused_topk": List[{"name": str, "prob": float}],
+            "used_fault_hypotheses": List[Tuple[str, float]],
+            "per_hypothesis_topk": Dict[str, List],
+            "single_hypothesis": bool
+        }
+    """
+    # Minimum probability threshold for fault hypotheses
+    MIN_FAULT_PROBABILITY = 0.01
+    
+    # Sort fault types by probability (descending)
+    sorted_faults = sorted(final_probs.items(), key=lambda x: x[1], reverse=True)
+    
+    # Filter out "normal" from hypotheses for module inference
+    fault_hypotheses = [(ft, p) for ft, p in sorted_faults if ft != "normal" and p > MIN_FAULT_PROBABILITY]
+    
+    if not fault_hypotheses:
+        # No fault hypotheses, return uniform distribution
+        all_modules = []
+        for board_modules in BOARD_MODULES.values():
+            all_modules.extend(board_modules)
+        uniform_prob = 1.0 / len(all_modules) if all_modules else 0.0
+        topk = [{"name": m, "prob": uniform_prob} for m in all_modules[:5]]
+        return {
+            "fused_topk": topk,
+            "used_fault_hypotheses": [],
+            "per_hypothesis_topk": {},
+            "single_hypothesis": True,
+        }
+    
+    top1_ft, top1_prob = fault_hypotheses[0]
+    
+    # Check if we should activate second hypothesis
+    use_top2 = False
+    top2_ft, top2_prob = None, 0.0
+    if len(fault_hypotheses) >= 2:
+        top2_ft, top2_prob = fault_hypotheses[1]
+        if (top1_prob - top2_prob) < delta:
+            use_top2 = True
+    
+    # Get module probabilities for each hypothesis
+    per_hypothesis_topk = {}
+    per_hypothesis_probs = {}
+    
+    # Top-1 hypothesis
+    probs_1 = hierarchical_module_infer(top1_ft, features, use_board_prior)
+    per_hypothesis_probs[top1_ft] = probs_1
+    sorted_1 = sorted(probs_1.items(), key=lambda x: x[1], reverse=True)
+    per_hypothesis_topk[top1_ft] = [{"name": m, "prob": p} for m, p in sorted_1[:5]]
+    
+    if use_top2 and top2_ft:
+        # Top-2 hypothesis
+        probs_2 = hierarchical_module_infer(top2_ft, features, use_board_prior)
+        per_hypothesis_probs[top2_ft] = probs_2
+        sorted_2 = sorted(probs_2.items(), key=lambda x: x[1], reverse=True)
+        per_hypothesis_topk[top2_ft] = [{"name": m, "prob": p} for m, p in sorted_2[:5]]
+        
+        # Weighted fusion: score(module) = P(t1) * score_t1(module) + P(t2) * score_t2(module)
+        all_modules = set(probs_1.keys()) | set(probs_2.keys())
+        total_weight = top1_prob + top2_prob
+        fused_probs = {}
+        for m in all_modules:
+            p1 = probs_1.get(m, 0.0)
+            p2 = probs_2.get(m, 0.0)
+            fused_probs[m] = (top1_prob * p1 + top2_prob * p2) / total_weight if total_weight > 0 else 0.0
+        
+        used_hypotheses = [(top1_ft, top1_prob), (top2_ft, top2_prob)]
+    else:
+        fused_probs = probs_1
+        used_hypotheses = [(top1_ft, top1_prob)]
+    
+    # Sort and get top-K
+    sorted_fused = sorted(fused_probs.items(), key=lambda x: x[1], reverse=True)
+    fused_topk = [{"name": m, "prob": p} for m, p in sorted_fused[:10]]
+    
+    return {
+        "fused_topk": fused_topk,
+        "used_fault_hypotheses": used_hypotheses,
+        "per_hypothesis_topk": per_hypothesis_topk,
+        "single_hypothesis": not use_top2,
+    }

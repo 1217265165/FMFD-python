@@ -20,6 +20,13 @@ from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Optional
 
+# Add root to path for imports
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+# P2: Import unified module matching from utils.canonicalize
+from utils.canonicalize import modules_match as unified_modules_match
+
 
 def load_diagnosis_results(input_dir: str) -> List[Dict]:
     """加载所有诊断结果文件"""
@@ -98,39 +105,9 @@ def evaluate_module_localization(results: List[Dict]) -> Dict:
         pred_top1 = module_topk[0]["module"] if module_topk else ""
         pred_top3 = [m["module"] for m in module_topk[:3]]
         
-        # 模块匹配函数
-        def modules_match(pred: str, gt: str) -> bool:
-            """检查两个模块名是否匹配"""
-            if not pred or not gt:
-                return False
-            if pred == gt:
-                return True
-            
-            # 关键词匹配
-            keywords = [
-                ("中频放大", "中频放大"),
-                ("检波", "检波"),
-                ("ADC", "ADC"),
-                ("低频通路", "低频通路"),
-                ("Mixer1", "Mixer1"),
-                ("混频", "混频"),
-                ("输入连接", "输入连接"),
-                ("匹配", "匹配"),
-                ("RBW", "RBW"),
-                ("数字放大", "数字放大"),
-                ("数字增益", "数字"),
-                ("LO1", "LO1"),
-                ("时钟", "时钟"),
-                ("振荡器", "振荡器"),
-            ]
-            for kw1, kw2 in keywords:
-                if kw1 in pred and kw2 in gt:
-                    return True
-            
-            return False
-        
-        top1_hit = modules_match(pred_top1, gt_module)
-        top3_hit = any(modules_match(m, gt_module) for m in pred_top3)
+        # P2: Use unified modules_match from utils.canonicalize
+        top1_hit = unified_modules_match(pred_top1, gt_module)
+        top3_hit = any(unified_modules_match(m, gt_module) for m in pred_top3)
         
         # 也检查 module_validation 字段（如果有）
         validation = result.get("module_validation", {})
@@ -267,6 +244,22 @@ def generate_report(stats: Dict, output_path: str) -> None:
     print(f"[INFO] Markdown 报告已保存: {md_path}")
 
 
+def load_manifest(manifest_path: str) -> Optional[Dict]:
+    """Load evaluation manifest if provided."""
+    if not manifest_path:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        print(f"[警告] Manifest 文件不存在: {manifest_path}")
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[警告] 无法加载 manifest: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='批量诊断结果汇总工具',
@@ -275,6 +268,7 @@ def main():
 示例:
   python tools/aggregate_batch_diagnosis.py --input_dir Output/batch_diagnosis
   python tools/aggregate_batch_diagnosis.py --input_dir Output/batch_diagnosis --output Output/batch_diagnosis/module_localization_report.json
+  python tools/aggregate_batch_diagnosis.py --manifest Output/debug/eval_manifest.json --input_dir Output/batch_diagnosis
         """
     )
     
@@ -282,6 +276,8 @@ def main():
                         help='批量诊断输出目录 (包含 *_diagnosis.json 文件)')
     parser.add_argument('--output', '-o', default=None,
                         help='输出报告路径 (默认: <input_dir>/module_localization_report.json)')
+    parser.add_argument('--manifest', '-m', default=None,
+                        help='评估清单路径 (若提供则仅评估 manifest 中的样本)')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='显示详细输出')
     
@@ -296,9 +292,27 @@ def main():
     print(f"输入目录: {args.input_dir}")
     print(f"输出文件: {args.output}")
     
+    # Load manifest if provided
+    manifest = load_manifest(args.manifest)
+    manifest_sample_ids = None
+    if manifest:
+        manifest_sample_ids = set(manifest.get("sample_ids", []))
+        print(f"Manifest: {args.manifest}")
+        print(f"Manifest 样本数: {len(manifest_sample_ids)}")
+    
     # 加载诊断结果
     results = load_diagnosis_results(args.input_dir)
     print(f"加载诊断文件数: {len(results)}")
+    
+    # Filter by manifest if provided
+    if manifest_sample_ids:
+        filtered_results = []
+        for r in results:
+            sample_id = r.get("meta", {}).get("sample_id", "")
+            if sample_id in manifest_sample_ids:
+                filtered_results.append(r)
+        print(f"Manifest 过滤后: {len(filtered_results)} / {len(results)}")
+        results = filtered_results
     
     if not results:
         print("[错误] 没有找到诊断结果文件")
@@ -310,11 +324,27 @@ def main():
     # 生成报告
     generate_report(stats, args.output)
     
+    # Generate provenance file (P6)
+    provenance = {
+        "input_dir": str(args.input_dir),
+        "manifest_path": args.manifest,
+        "n_eval": stats['total'],
+        "n_fault_eval": stats['total'],  # All samples here are fault samples
+        "sample_ids_first10": [
+            r.get("meta", {}).get("sample_id", "") 
+            for r in results[:10]
+        ],
+    }
+    provenance_path = Path(args.output).parent / "metrics_provenance.json"
+    with open(provenance_path, 'w', encoding='utf-8') as f:
+        json.dump(provenance, f, indent=2, ensure_ascii=False)
+    print(f"[INFO] Provenance 已保存: {provenance_path}")
+    
     # 打印摘要
     print("\n" + "=" * 60)
     print("评估结果摘要")
     print("=" * 60)
-    print(f"样本总数: {stats['total']}")
+    print(f"样本总数 (N_eval): {stats['total']}")
     print(f"系统级准确率: {stats['sys_acc']:.1%}")
     print(f"mod_top1: {stats['mod_top1']:.1%}")
     print(f"mod_top3: {stats['mod_top3']:.1%}")

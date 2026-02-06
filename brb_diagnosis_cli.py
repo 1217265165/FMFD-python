@@ -145,11 +145,13 @@ def main():
                         help='允许在 RF artifact 缺失时 fallback 到 BRB-only 推理')
     parser.add_argument('--rf_artifact', default=None,
                         help='RF 模型工件路径 (默认: artifacts/rf_system_classifier.joblib)')
+    parser.add_argument('--manifest', default=None,
+                        help='评估清单路径 (若提供则仅诊断 manifest 中的样本)')
     
     args = parser.parse_args()
     if args.mode != "online_infer":
-        if not args.input and not args.input_dir:
-            parser.error("--input or --input_dir is required unless --mode online_infer")
+        if not args.input and not args.input_dir and not args.manifest:
+            parser.error("--input, --input_dir, or --manifest is required unless --mode online_infer")
 
     def _latest_sim_input(root: Path) -> Optional[Path]:
         sim_dir = root / "Output" / "sim_spectrum" / "raw_curves"
@@ -194,10 +196,44 @@ def main():
         
         # 1. 读取输入数据
         input_paths: List[Path] = []
-        if args.input_dir:
-            input_dir = Path(args.input_dir)
-            if input_dir.exists():
-                input_paths = sorted(input_dir.glob("*.csv"))
+        
+        # Load manifest if provided (P0.3)
+        manifest_sample_ids = None
+        if args.manifest:
+            manifest_path = Path(args.manifest)
+            if manifest_path.exists():
+                try:
+                    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    manifest_sample_ids = set(manifest_data.get("sample_ids", []))
+                    print(f"[INFO] Manifest loaded: {manifest_path}", file=sys.stderr)
+                    print(f"[INFO] Manifest sample count: {len(manifest_sample_ids)}", file=sys.stderr)
+                    
+                    # If manifest has csv_path info, use that
+                    manifest_samples = manifest_data.get("samples", [])
+                    for sample in manifest_samples:
+                        csv_path = sample.get("csv_path", "")
+                        if csv_path and Path(csv_path).exists():
+                            input_paths.append(Path(csv_path))
+                    
+                    # Also check input_dir for samples in manifest
+                    if args.input_dir and not input_paths:
+                        input_dir = Path(args.input_dir)
+                        if input_dir.exists():
+                            for csv_file in sorted(input_dir.glob("*.csv")):
+                                sample_id = csv_file.stem
+                                if sample_id in manifest_sample_ids:
+                                    input_paths.append(csv_file)
+                except Exception as e:
+                    print(f"[警告] 无法加载 manifest: {e}", file=sys.stderr)
+        
+        if not input_paths:
+            if args.input_dir:
+                input_dir = Path(args.input_dir)
+                if input_dir.exists():
+                    input_paths = sorted(input_dir.glob("*.csv"))
+                    # Filter by manifest if available
+                    if manifest_sample_ids:
+                        input_paths = [p for p in input_paths if p.stem in manifest_sample_ids]
         if args.input:
             input_paths.append(Path(args.input))
         if args.mode == "online_infer" and not input_paths:
@@ -209,6 +245,8 @@ def main():
         if not input_paths:
             print(f"[错误] 输入文件不存在: {args.input} / {args.input_dir}", file=sys.stderr)
             sys.exit(1)
+        
+        print(f"[INFO] 将处理 {len(input_paths)} 个样本", file=sys.stderr)
         
         labels_data = None
         if args.labels:

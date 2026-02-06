@@ -33,6 +33,10 @@ from BRB.module_brb import (
     MODULE_LABELS_V2
 )
 
+# P2: Import unified module metrics
+from metrics.module_localization_metrics import compute_mod_topk, compute_mod_metrics
+from utils.canonicalize import modules_match as unified_modules_match
+
 
 def load_eval_set(eval_set_path: str = None) -> Dict:
     """加载固定评估集"""
@@ -183,83 +187,18 @@ def evaluate_module_localization(
         # 也标准化 gt_module_v2 本身
         gt_v2_normalized = normalize_module_name(gt_module_v2, mapping)
         
-        # 计算命中 - 使用更灵活的匹配
-        def modules_match(pred: str, gt: str) -> bool:
-            """检查两个模块名是否匹配"""
-            if not pred or not gt:
-                return False
-            if pred == gt:
-                return True
-            
-            # 提取关键词进行匹配
-            def extract_key(s):
-                """从模块名提取关键部分"""
-                if ']' in s:
-                    # 处理 [板][模块] 格式
-                    parts = [p for p in s.split(']') if p.strip()]
-                    if parts:
-                        last = parts[-1].strip()
-                        # 如果最后部分以 [ 开头，去掉 [
-                        if last.startswith('['):
-                            last = last[1:]
-                        return last
-                return s
-            
-            pred_key = extract_key(pred)
-            gt_key = extract_key(gt)
-            
-            # 关键词完全匹配
-            if pred_key == gt_key:
-                return True
-            # 关键词包含匹配
-            if pred_key and gt_key:
-                if pred_key in gt_key or gt_key in pred_key:
-                    return True
-            
-            # 全文关键词匹配（不依赖 key 提取）
-            # 中频放大器 <-> 中频放大/衰减链
-            if "中频放大" in pred and "中频放大" in gt:
-                return True
-            # 数字检波 <-> ADC/检波 <-> 检波/对数
-            if "检波" in pred and "检波" in gt:
-                return True
-            if "ADC" in pred and "ADC" in gt:
-                return True
-            # 低频通路 <-> 低频通路固定滤波
-            if "低频通路" in pred and "低频通路" in gt:
-                return True
-            # Mixer1 匹配
-            if "Mixer1" in pred and "Mixer1" in gt:
-                return True
-            if "混频" in pred and "混频" in gt:
-                return True
-            # 输入连接/匹配 相关
-            if "输入连接" in pred and "输入连接" in gt:
-                return True
-            if "匹配" in pred and "匹配" in gt and "RF" in pred and "RF" in gt:
-                return True
-            # RBW 匹配
-            if "RBW" in pred and "RBW" in gt:
-                return True
-            # 数字放大 <-> DSP/数字增益
-            if "数字放大" in pred and "数字放大" in gt:
-                return True
-            if "数字增益" in pred and "数字放大" in gt:
-                return True
-            if "数字放大" in pred and "数字增益" in gt:
-                return True
-                
-            return False
+        # P2: Use unified modules_match from utils.canonicalize
+        # (replaced local implementation with unified_modules_match imported above)
         
         top1_hit = (
-            modules_match(top1_module, gt_normalized) or 
-            modules_match(top1_module, gt_module_v2) or
-            modules_match(top1_module, gt_v2_normalized)
+            unified_modules_match(top1_module, gt_normalized) or 
+            unified_modules_match(top1_module, gt_module_v2) or
+            unified_modules_match(top1_module, gt_v2_normalized)
         )
         top3_hit = any(
-            modules_match(m, gt_normalized) or 
-            modules_match(m, gt_module_v2) or
-            modules_match(m, gt_v2_normalized)
+            unified_modules_match(m, gt_normalized) or 
+            unified_modules_match(m, gt_module_v2) or
+            unified_modules_match(m, gt_v2_normalized)
             for m in top3_modules
         )
         
@@ -396,11 +335,45 @@ def generate_report(results: Dict, output_dir: str = None) -> str:
     return report
 
 
+def load_manifest(manifest_path: str) -> Optional[Dict]:
+    """Load evaluation manifest if provided."""
+    if not manifest_path:
+        return None
+    path = Path(manifest_path)
+    if not path.exists():
+        print(f"[警告] Manifest 文件不存在: {manifest_path}")
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[警告] 无法加载 manifest: {e}")
+        return None
+
+
 def main():
     """主函数"""
+    import argparse
+    parser = argparse.ArgumentParser(description='模块级定位自动化验证工具')
+    parser.add_argument('--manifest', '-m', default=None,
+                        help='评估清单路径 (若提供则仅评估 manifest 中的样本)')
+    parser.add_argument('--labels', '-l', default=None,
+                        help='labels.json 路径 (若无 manifest)')
+    parser.add_argument('--output_dir', '-o', default=None,
+                        help='输出目录')
+    args = parser.parse_args()
+    
     print("=" * 60)
     print("P2: 模块级定位自动化验证工具")
     print("=" * 60)
+    
+    # Load manifest if provided
+    manifest = load_manifest(args.manifest)
+    manifest_sample_ids = None
+    if manifest:
+        manifest_sample_ids = set(manifest.get("sample_ids", []))
+        print(f"Manifest: {args.manifest}")
+        print(f"Manifest 样本数: {len(manifest_sample_ids)}")
     
     # 加载评估集
     eval_set = load_eval_set()
@@ -408,23 +381,37 @@ def main():
     
     if not samples:
         print("警告: 评估集为空，尝试从 labels.json 加载...")
-        labels_path = ROOT / "Output" / "sim_spectrum" / "labels.json"
+        labels_path = Path(args.labels) if args.labels else ROOT / "Output" / "sim_spectrum" / "labels.json"
         if labels_path.exists():
             with open(labels_path, 'r', encoding='utf-8') as f:
                 labels = json.load(f)
-            samples = labels.get("samples", [])
+            if isinstance(labels, dict):
+                if "samples" in labels:
+                    samples = labels["samples"]
+                else:
+                    samples = [{"sample_id": k, **v} for k, v in labels.items()]
+            else:
+                samples = labels
     
-    print(f"加载样本数: {len(samples)}")
+    # Filter by manifest if provided
+    if manifest_sample_ids and samples:
+        filtered_samples = [s for s in samples if s.get("sample_id") in manifest_sample_ids]
+        print(f"Manifest 过滤后: {len(filtered_samples)} / {len(samples)}")
+        samples = filtered_samples
+    
+    print(f"加载样本数 (N_eval): {len(samples)}")
     
     # 执行评估
     results = evaluate_module_localization(samples)
     
     # 生成报告
-    report = generate_report(results)
+    output_dir = args.output_dir if args.output_dir else None
+    report = generate_report(results, output_dir)
     
     print("\n" + "=" * 60)
     print("评估结果摘要")
     print("=" * 60)
+    print(f"N_eval: {results['total']}")
     print(f"mod_top1: {results['mod_top1']:.1%}")
     print(f"mod_top3: {results['mod_top3']:.1%}")
     

@@ -285,14 +285,28 @@ def infer_system_and_modules(
         "max_prob": max(final_probs.values()),
     }
     
-    module_probs = module_level_infer_with_activation(features, sys_probs_cn)
-    
-    # Get top-K modules
-    sorted_modules = sorted(module_probs.items(), key=lambda x: x[1], reverse=True)
-    module_topk = [
-        {"name": name, "prob": float(prob)}
-        for name, prob in sorted_modules[:10]
-    ]
+    # P3.1: Use soft-gating for module inference (multi-hypothesis)
+    try:
+        from BRB.module_brb import hierarchical_module_infer_soft_gating
+        soft_result = hierarchical_module_infer_soft_gating(
+            final_probs,
+            features,
+            delta=0.1,  # Activate top-2 if diff < 0.1
+            use_board_prior=True,
+        )
+        module_topk = soft_result["fused_topk"]
+        debug_info["soft_gating"] = {
+            "used_hypotheses": soft_result["used_fault_hypotheses"],
+            "single_hypothesis": soft_result["single_hypothesis"],
+        }
+    except Exception:
+        # Fallback to original method
+        module_probs = module_level_infer_with_activation(features, sys_probs_cn)
+        sorted_modules = sorted(module_probs.items(), key=lambda x: x[1], reverse=True)
+        module_topk = [
+            {"name": name, "prob": float(prob)}
+            for name, prob in sorted_modules[:10]
+        ]
     
     return {
         "system_probs": final_probs,
