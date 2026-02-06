@@ -120,6 +120,8 @@ class CurveGenerator:
         
         物理机理：隔直电容老化导致低频截止点右移，低频响应下降。
         
+        V-D.4 校准：最大衰减控制在 0.3-0.5 dB，保持"圆弧状滚降"形态。
+        
         Parameters
         ----------
         curve : np.ndarray
@@ -138,18 +140,19 @@ class CurveGenerator:
         if n < 10:
             return curve.copy()
         
-        # 计算截止点（受严重度影响）
-        cutoff_idx = int(n * cutoff_ratio * (1 + 2 * severity))
-        cutoff_idx = min(cutoff_idx, n // 3)  # 最多影响 1/3 带宽
+        # V-D.4: 校准后的截止点范围（影响 5%-15% 带宽）
+        cutoff_idx = int(n * cutoff_ratio * (0.5 + 1.0 * severity))
+        cutoff_idx = min(cutoff_idx, n // 6)  # 最多影响 1/6 带宽
         
-        # 创建高通滤波器响应
         result = curve.copy()
         if cutoff_idx > 0:
-            # 低频塌陷：使用指数衰减
-            decay_factor = 3 + 5 * severity  # dB per decade
-            freq_axis = np.linspace(0.01, 1, cutoff_idx)
-            attenuation = decay_factor * (1 - freq_axis) * severity
-            result[:cutoff_idx] = curve[:cutoff_idx] - attenuation
+            # V-D.4: 使用圆弧滚降（1 - cos）形态，最大衰减 0.3-0.5 dB
+            # 形态特征：左端最低，向右平滑过渡到零
+            max_attenuation = 0.3 + 0.2 * severity  # 0.3-0.5 dB
+            freq_axis = np.linspace(0, np.pi / 2, cutoff_idx)
+            # 使用 (1 - cos) 生成圆弧状滚降
+            rolloff = max_attenuation * (1 - np.cos(freq_axis[::-1]))
+            result[:cutoff_idx] = curve[:cutoff_idx] - rolloff
         
         return result
     
@@ -163,6 +166,8 @@ class CurveGenerator:
         输入连接/匹配退化：周期性纹波（阻抗失配）。
         
         物理机理：阻抗失配导致驻波，表现为周期性纹波。
+        
+        V-D.4 校准：纹波 Vpp 控制在 0.2-0.4 dB，保持清晰周期性。
         
         Parameters
         ----------
@@ -180,20 +185,21 @@ class CurveGenerator:
         """
         n = len(curve)
         
-        # 纹波幅度与严重度成正比
-        amplitude = 0.5 + 2.0 * severity  # 0.5-2.5 dB
+        # V-D.4: Vpp = 0.2-0.4 dB，所以 amplitude (半幅) = 0.1-0.2 dB
+        amplitude = 0.10 + 0.10 * severity  # 0.10-0.20 dB 半幅
         
-        # 随机化周期
-        period = ripple_period * (0.5 + self.rng.random())
+        # 随机化周期（保持在合理范围）
+        period = ripple_period * (0.7 + 0.6 * self.rng.random())
         
-        # 生成正弦纹波
+        # 生成清晰正弦纹波（关键形态特征）
         x = np.arange(n)
-        ripple = amplitude * np.sin(2 * np.pi * x / period)
+        phase = self.rng.random() * 2 * np.pi
+        ripple = amplitude * np.sin(2 * np.pi * x / period + phase)
         
-        # 添加小幅度高频纹波
-        if severity > 0.3:
-            high_freq_ripple = (amplitude * 0.3) * np.sin(2 * np.pi * x / (period / 3))
-            ripple += high_freq_ripple
+        # V-D.4: 添加微小二次谐波增强形态识别
+        if severity > 0.4:
+            harmonic2 = (amplitude * 0.15) * np.sin(4 * np.pi * x / period + phase)
+            ripple += harmonic2
         
         return curve + ripple
     
@@ -201,12 +207,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        shift_range: float = 2.0
+        shift_range: float = 0.3
     ) -> np.ndarray:
         """
         衰减器/增益退化：整体偏移。
         
         物理机理：增益或衰减值偏离标称值，曲线整体上移或下移。
+        
+        V-D.4 校准：最大偏移量控制在 0.3 dB。
         
         Parameters
         ----------
@@ -222,7 +230,7 @@ class CurveGenerator:
         np.ndarray
             退化后的曲线
         """
-        # 偏移量随机化（有方向）
+        # V-D.4: 偏移量控制在 ±0.15-0.30 dB
         direction = 1 if self.rng.random() > 0.5 else -1
         shift = direction * shift_range * severity * (0.5 + 0.5 * self.rng.random())
         
@@ -238,6 +246,8 @@ class CurveGenerator:
         滤波器退化：频段插损增大。
         
         物理机理：滤波器老化导致通带平坦度下降，插入损耗增加。
+        
+        V-D.4 校准：最大插损控制在 0.4-0.6 dB。
         
         Parameters
         ----------
@@ -256,20 +266,21 @@ class CurveGenerator:
         n = len(curve)
         result = curve.copy()
         
-        # 确定影响区域
+        # 确定影响区域（缩小范围）
         if band_type == "low":
             start_idx = 0
-            end_idx = n // 3
+            end_idx = n // 5  # V-D.4: 只影响 1/5 带宽
         else:
-            start_idx = 2 * n // 3
+            start_idx = 4 * n // 5
             end_idx = n
         
-        # 生成平滑的衰减曲线
+        # V-D.4: 最大衰减 0.4-0.6 dB
         affected_len = end_idx - start_idx
         if affected_len > 0:
             # 使用半余弦窗生成平滑衰减
             window = np.cos(np.linspace(0, np.pi / 2, affected_len))
-            attenuation = (1 + 3 * severity) * (1 - window)  # 1-4 dB
+            max_attenuation = 0.4 + 0.2 * severity  # 0.4-0.6 dB
+            attenuation = max_attenuation * (1 - window)
             result[start_idx:end_idx] = curve[start_idx:end_idx] - attenuation
         
         return result
@@ -278,12 +289,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        max_slope: float = 0.01
+        max_slope: float = 0.001
     ) -> np.ndarray:
         """
         混频器退化：线性斜率变化。
         
         物理机理：混频器增益随频率线性变化。
+        
+        V-D.4 校准：最大端点偏差控制在 ±0.3 dB。
         
         Parameters
         ----------
@@ -292,7 +305,7 @@ class CurveGenerator:
         severity : float
             退化严重度 (0-1)
         max_slope : float
-            最大斜率 (dB/点)
+            最大斜率系数
             
         Returns
         -------
@@ -301,12 +314,12 @@ class CurveGenerator:
         """
         n = len(curve)
         
-        # 斜率随机化（有方向）
+        # V-D.4: 斜率使端点偏差控制在 ±0.15-0.30 dB
         direction = 1 if self.rng.random() > 0.5 else -1
-        slope = direction * max_slope * severity * n
+        max_deviation = 0.15 + 0.15 * severity  # 0.15-0.30 dB at endpoints
         
-        # 生成线性斜坡
-        ramp = np.linspace(-slope / 2, slope / 2, n)
+        # 生成线性斜坡，中点为零
+        ramp = np.linspace(-max_deviation, max_deviation, n) * direction
         
         return curve + ramp
     
@@ -317,11 +330,12 @@ class CurveGenerator:
         bit_depth: int = 12
     ) -> np.ndarray:
         """
-        ADC量化退化：真实量化阶梯 + DNL/INL 误差。
+        ADC量化退化：非高斯量化纹理 + DNL/INL 误差。
         
         物理机理：ADC 位数限制导致量化台阶（取整），DNL 误差导致周期性纹理。
         
-        V-D.3 增强：使用真实取整逻辑模拟量化阶梯，而非简单加噪。
+        V-D.4 校准：纹理幅度控制在 0.1-0.2 dB，重点在"非高斯性"形态特征。
+        形态特征：周期性 DNL 梳齿效应，可被 X37 (差分方差) 和 X35 (形态特征) 识别。
         
         Parameters
         ----------
@@ -337,38 +351,35 @@ class CurveGenerator:
         np.ndarray
             退化后的曲线
         """
-        # 有效位数随严重度降低
-        effective_bits = bit_depth - int(4 * severity)  # 最多损失 4 位
-        effective_bits = max(4, effective_bits)
-        steps = 2 ** effective_bits
+        n = len(curve)
+        result = curve.copy()
         
-        # 真实量化逻辑：dB → 线性 → 量化 → dB
-        # 首先归一化到 0-1 范围
-        curve_min = np.min(curve)
-        curve_max = np.max(curve)
-        curve_range = curve_max - curve_min
-        if curve_range < 1e-6:
-            curve_range = 1.0
+        # V-D.4: 幅度限制在 0.1-0.2 dB
+        max_noise_amp = 0.10 + 0.10 * severity  # 0.10-0.20 dB
         
-        # 归一化
-        curve_norm = (curve - curve_min) / curve_range
+        # ADC 量化误差分配比例 (基于 ADC 物理特性):
+        # - DNL (60%): 主要形态特征，周期性梳齿效应，可被 X37 差分方差检测
+        # - INL (30%): 低频包络漂移，表现为非线性累积误差
+        # - Jitter (10%): 采样抖动，使用均匀分布确保非高斯性
+        DNL_RATIO = 0.6
+        INL_RATIO = 0.3
+        JITTER_RATIO = 0.2  # 略大于 10% 以增强可检测性
         
-        # 量化取整 (核心物理行为)
-        curve_quantized = np.round(curve_norm * steps) / steps
+        # 核心特征 1：周期性 DNL 误差（非高斯性的关键）
+        # DNL 周期与 ADC 码字相关，产生梳齿效应
+        dnl_period = max(4, 8 + int(8 * (1 - severity)))  # 8-16 点周期
+        dnl = max_noise_amp * DNL_RATIO * sawtooth(2 * np.pi * np.arange(n) / dnl_period)
+        result = result + dnl
         
-        # 还原尺度
-        result = curve_quantized * curve_range + curve_min
+        # 核心特征 2：INL 积累误差（低频包络）
+        # INL 表现为缓慢的非线性漂移
+        inl_period = n / (2 + self.rng.random() * 2)
+        inl = max_noise_amp * INL_RATIO * np.sin(2 * np.pi * np.arange(n) / inl_period)
+        result = result + inl
         
-        # 添加 DNL 误差（周期性锯齿 - 模拟 ADC 非线性）
-        if severity > 0.3:
-            dnl_period = max(2, 2 ** (effective_bits // 3))
-            dnl_amp = (curve_range / steps) * severity * 2  # DNL 幅度与 LSB 成比例
-            dnl = dnl_amp * sawtooth(2 * np.pi * np.arange(len(curve)) / dnl_period)
-            result = result + dnl
-        
-        # 添加少量高频抖动（模拟采样抖动）
-        jitter_amp = (curve_range / steps) * 0.5 * severity
-        jitter = self.rng.uniform(-jitter_amp, jitter_amp, len(curve))
+        # 核心特征 3：微量量化抖动（确保非高斯分布）
+        # 使用均匀分布而非高斯分布
+        jitter = self.rng.uniform(-max_noise_amp * JITTER_RATIO, max_noise_amp * JITTER_RATIO, n)
         result = result + jitter
         
         return result
@@ -377,12 +388,15 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        drop_width_ratio: float = 0.1
+        drop_width_ratio: float = 0.05
     ) -> np.ndarray:
         """
-        LO失锁退化：黑洞频段（信号置零）。
+        LO临界失锁退化：相位噪声恶化/底噪抬升。
         
-        物理机理：LO 锁定失败导致特定频段无输出。
+        物理机理：LO 处于临界失锁状态，导致特定频段相位噪声恶化，
+        表现为底噪抬升和密集毛刺，而非完全信号丢失（黑洞）。
+        
+        V-D.4 校准：底噪抬升 0.3-0.5 dB，加入密集毛刺纹理。
         
         Parameters
         ----------
@@ -391,7 +405,7 @@ class CurveGenerator:
         severity : float
             退化严重度 (0-1)
         drop_width_ratio : float
-            黑洞宽度比例
+            受影响频段宽度比例
             
         Returns
         -------
@@ -401,31 +415,36 @@ class CurveGenerator:
         n = len(curve)
         result = curve.copy()
         
-        # 黑洞宽度与严重度成正比
-        drop_width = int(n * drop_width_ratio * (0.5 + severity))
-        drop_width = max(10, min(drop_width, n // 4))
+        # V-D.4: 受影响区域宽度
+        affected_width = int(n * drop_width_ratio * (0.5 + 0.5 * severity))
+        affected_width = max(20, min(affected_width, n // 5))
         
-        # 随机选择黑洞位置
-        max_start = n - drop_width
+        # 随机选择受影响区域位置
+        max_start = n - affected_width
         if max_start > 0:
             start_idx = self.rng.integers(0, max_start)
+            end_idx = start_idx + affected_width
             
-            # 计算噪底（取曲线最低值附近）
-            noise_floor = np.percentile(curve, 5) - 10 * severity
+            # V-D.4: 底噪抬升 0.3-0.5 dB（使用负值因为是信号衰减）
+            noise_floor_rise = 0.3 + 0.2 * severity  # 0.3-0.5 dB
             
-            # 使用平滑过渡而非硬切换
-            transition_len = min(20, drop_width // 4)
-            for i in range(drop_width):
-                if i < transition_len:
-                    factor = i / transition_len
-                elif i > drop_width - transition_len:
-                    factor = (drop_width - i) / transition_len
-                else:
-                    factor = 1.0
-                
-                idx = start_idx + i
-                if idx < n:
-                    result[idx] = curve[idx] * (1 - factor) + noise_floor * factor
+            # 使用平滑窗口避免硬边界
+            window = np.hanning(affected_width)
+            
+            # 应用底噪抬升
+            result[start_idx:end_idx] = curve[start_idx:end_idx] - noise_floor_rise * window
+            
+            # V-D.4: 添加密集毛刺（相位噪声特征）
+            spike_density = 0.1 + 0.1 * severity  # 10-20% 的点有毛刺
+            num_spikes = int(affected_width * spike_density)
+            if num_spikes > 0:
+                spike_positions = self.rng.choice(
+                    affected_width, size=num_spikes, replace=False
+                )
+                spike_amp = 0.1 + 0.1 * severity  # 0.1-0.2 dB 毛刺
+                for pos in spike_positions:
+                    direction = 1 if self.rng.random() > 0.5 else -1
+                    result[start_idx + pos] += direction * spike_amp * self.rng.random()
         
         return result
     
@@ -433,12 +452,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        jitter_rms: float = 0.5
+        jitter_rms: float = 0.08
     ) -> np.ndarray:
         """
         采样时钟抖动退化：抖动噪声。
         
         物理机理：采样时钟抖动导致频域展宽和噪声增加。
+        
+        V-D.4 校准：噪声幅度控制在 0.1-0.15 dB，使用裁剪防止极端值。
         
         Parameters
         ----------
@@ -456,16 +477,19 @@ class CurveGenerator:
         """
         n = len(curve)
         
-        # 抖动噪声幅度
-        noise_amp = jitter_rms * (0.5 + 2 * severity)
+        # V-D.4: 抖动噪声幅度控制在 0.08-0.15 dB RMS
+        noise_amp = jitter_rms * (1 + 0.8 * severity)  # 0.08-0.15 dB
         
-        # 高斯白噪声
+        # 高斯白噪声 + 裁剪防止极端值
         noise = self.rng.normal(0, noise_amp, n)
+        max_noise = 0.25  # 硬限制最大噪声
+        noise = np.clip(noise, -max_noise, max_noise)
         
-        # 高频分量（时钟抖动表现为高频噪声）
-        if severity > 0.3:
-            high_freq = noise_amp * 0.5 * np.sin(
-                2 * np.pi * np.arange(n) / (5 + self.rng.random() * 10)
+        # 添加微弱高频分量（时钟抖动特征）
+        if severity > 0.4:
+            high_freq_period = 5 + self.rng.random() * 10
+            high_freq = noise_amp * 0.3 * np.sin(
+                2 * np.pi * np.arange(n) / high_freq_period
             )
             noise += high_freq
         
@@ -475,12 +499,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        jitter_points: int = 5
+        jitter_points: int = 2
     ) -> np.ndarray:
         """
-        参考时钟退化：峰值频率抖动。
+        参考时钟退化：频率轴微抖。
         
-        物理机理：参考时钟不稳定导致频率读数抖动。
+        物理机理：参考时钟不稳定导致频率读数轻微抖动。
+        
+        V-D.4 校准：抖动范围控制在 1-2 点，幅度变化 < 0.3 dB。
         
         Parameters
         ----------
@@ -499,12 +525,10 @@ class CurveGenerator:
         n = len(curve)
         result = curve.copy()
         
-        # 频率轴抖动（点数）
-        jitter = int(jitter_points * severity * (0.5 + self.rng.random()))
-        if jitter < 1:
-            return result
+        # V-D.4: 频率轴抖动控制在 1-2 点
+        jitter = max(1, int(jitter_points * severity))
         
-        # 随机位移每个点（模拟频率抖动）- 向量化实现
+        # 随机位移每个点（模拟频率抖动）
         shifts = self.rng.integers(-jitter, jitter + 1, n)
         indices = np.clip(np.arange(n) + shifts, 0, n - 1)
         result = curve[indices]
@@ -515,12 +539,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        max_shift: float = 1.5
+        max_shift: float = 0.25
     ) -> np.ndarray:
         """
         中频链路退化：平滑偏移。
         
         物理机理：增益/偏置漂移导致曲线平滑偏移。
+        
+        V-D.4 校准：最大偏移控制在 0.25-0.5 dB。
         
         Parameters
         ----------
@@ -538,11 +564,14 @@ class CurveGenerator:
         """
         n = len(curve)
         
+        # V-D.4: 平滑偏移控制在 0.25-0.5 dB
+        actual_max_shift = max_shift * (1 + severity)  # 0.25-0.50 dB
+        
         # 生成平滑的偏移曲线（低频正弦）
         period = n * (2 + 3 * self.rng.random())
         phase = self.rng.random() * 2 * np.pi
         
-        shift = max_shift * severity * np.sin(
+        shift = actual_max_shift * np.sin(
             2 * np.pi * np.arange(n) / period + phase
         )
         
@@ -552,12 +581,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        step_size: float = 1.0
+        step_size: float = 0.2
     ) -> np.ndarray:
         """
         开关/切换退化：阶跃不连续。
         
         物理机理：信号路径切换时的阻抗不匹配或接触问题。
+        
+        V-D.4 校准：阶跃大小控制在 0.2-0.4 dB。
         
         Parameters
         ----------
@@ -580,17 +611,17 @@ class CurveGenerator:
         if n < 20:
             return result
         
-        # 随机选择阶跃位置
-        num_steps = 1 + int(2 * severity)
-        max_steps = max(1, n // 10)  # 确保至少可选 1 个位置
+        # V-D.4: 阶跃数量控制
+        num_steps = 1 + int(severity)  # 1-2 个阶跃
+        max_steps = max(1, n // 10)
         step_positions = self.rng.choice(n, size=min(num_steps, max_steps), replace=False)
         step_positions.sort()
         
-        # 应用阶跃
+        # V-D.4: 应用阶跃，每个阶跃 0.1-0.4 dB
         cumulative_step = 0
         for pos in step_positions:
             direction = 1 if self.rng.random() > 0.5 else -1
-            step = direction * step_size * severity * (0.5 + 0.5 * self.rng.random())
+            step = direction * step_size * (1 + severity) * (0.5 + 0.5 * self.rng.random())
             cumulative_step += step
             result[pos:] += step
         
@@ -600,12 +631,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        num_spikes: int = 3
+        num_spikes: int = 2
     ) -> np.ndarray:
         """
         峰值搜索退化：孤立尖峰。
         
         物理机理：峰值检测逻辑错误导致虚假峰值。
+        
+        V-D.4 校准：尖峰高度控制在 0.2-0.4 dB。
         
         Parameters
         ----------
@@ -627,21 +660,18 @@ class CurveGenerator:
         
         result = curve.copy()
         
-        # 尖峰数量与严重度成正比
+        # V-D.4: 尖峰数量控制
         actual_spikes = max(1, int(num_spikes * severity))
-        actual_spikes = min(actual_spikes, n)  # 确保不超过曲线长度
+        actual_spikes = min(actual_spikes, n)
         
         # 随机选择尖峰位置
         spike_positions = self.rng.choice(n, size=actual_spikes, replace=False)
         
-        # 添加尖峰
-        curve_range = np.ptp(curve)
-        if curve_range < 1e-6:
-            curve_range = 1.0
+        # V-D.4: 尖峰高度控制在 0.2-0.4 dB
+        spike_height = 0.2 + 0.2 * severity  # 0.2-0.4 dB
         for pos in spike_positions:
-            spike_height = curve_range * 0.3 * (0.5 + severity)
             direction = 1 if self.rng.random() > 0.3 else -1
-            result[pos] += direction * spike_height
+            result[pos] += direction * spike_height * (0.5 + 0.5 * self.rng.random())
         
         return result
     
@@ -649,12 +679,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        noise_scale: float = 0.5
+        noise_scale: float = 0.1
     ) -> np.ndarray:
         """
         电源退化：高差分方差（噪声增加）。
         
         物理机理：电源纹波或稳定性问题导致噪声增加。
+        
+        V-D.4 校准：噪声幅度控制在 0.08-0.12 dB，使用裁剪防止极端值。
         
         Parameters
         ----------
@@ -672,14 +704,15 @@ class CurveGenerator:
         """
         n = len(curve)
         
-        # 高斯噪声
-        noise_amp = noise_scale * (0.5 + 2 * severity)
+        # V-D.4: 高斯噪声幅度控制在 0.08-0.12 dB RMS
+        noise_amp = noise_scale * (0.8 + 0.4 * severity)  # 0.08-0.12 dB
         noise = self.rng.normal(0, noise_amp, n)
+        # 裁剪防止极端值
+        noise = np.clip(noise, -0.25, 0.25)
         
-        # 添加低频调制（电源纹波）
-        # ripple_freq 是纹波周期数，period = n / ripple_freq
+        # 添加低频调制（电源纹波特征）
         ripple_freq = 50 + self.rng.random() * 50  # 50-100 周期数
-        period = max(10, n / ripple_freq)  # 确保周期至少为 10 点
+        period = max(10, n / ripple_freq)
         ripple = noise_amp * 0.3 * np.sin(2 * np.pi * np.arange(n) / period)
         
         return curve + noise + ripple
@@ -688,12 +721,14 @@ class CurveGenerator:
         self, 
         curve: np.ndarray, 
         severity: float = 0.5,
-        threshold: float = -10
+        threshold: float = -1
     ) -> np.ndarray:
         """
-        增益压缩退化：平顶效应。
+        增益压缩退化：微平顶效应。
         
-        物理机理：放大器饱和导致高电平信号被压缩。
+        物理机理：放大器轻微饱和导致高电平信号被微压缩。
+        
+        V-D.4 校准：压缩量控制在 0.2-0.4 dB。
         
         Parameters
         ----------
@@ -711,19 +746,22 @@ class CurveGenerator:
         """
         result = curve.copy()
         
-        # 计算压缩阈值
+        # V-D.4: 计算压缩阈值，使压缩量控制在 0.2-0.4 dB
         max_val = np.max(curve)
-        compression_threshold = max_val + threshold + (1 - severity) * 5
+        compression_threshold = max_val + threshold
         
-        # 压缩比例因子
-        compression_scale = 3 + 5 * (1 - severity)
+        # V-D.4: 最大压缩量控制在 0.2-0.4 dB
+        max_compression = 0.2 + 0.2 * severity
         
-        # 应用软压缩（tanh）
+        # 应用软压缩：使用 tanh 压缩，限制输出在 max_compression 范围内
         above_threshold = curve > compression_threshold
         if np.any(above_threshold):
             excess = curve[above_threshold] - compression_threshold
-            compressed = compression_threshold + np.tanh(excess / compression_scale) * compression_scale
-            result[above_threshold] = compressed
+            # 压缩后的增量 = tanh(excess / scale) * max_compression
+            # 这确保无论 excess 多大，压缩量都不会超过 max_compression
+            scale = max_compression  # 控制压缩曲线的形状
+            compressed_excess = np.tanh(excess / max(scale, 0.1)) * max_compression
+            result[above_threshold] = compression_threshold + compressed_excess
         
         return result
     
