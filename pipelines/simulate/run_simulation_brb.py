@@ -75,6 +75,12 @@ from pipelines.simulate.fault_models import (
     module_templates,
     select_template,
 )
+# V-D.2: 导入物理核曲线生成器
+from pipelines.simulate.curve_generator import (
+    CurveGenerator,
+    load_module_taxonomy,
+    get_curve_generator,
+)
 from pipelines.simulate.sim_constraints import SimulationConstraints, load_baseline_stats
 from pipelines.default_paths import (
     PROJECT_ROOT,
@@ -1254,6 +1260,27 @@ def simulate_curve(
         }
         module_type_for_noise = fault_kind_to_module.get(fault_kind, "校准源")
         
+        # V-D.2: 将 fault_kind 映射到 CurveGenerator 的模块键 (标准键名)
+        # 注意：lpf 使用 ac_coupling (高通滤波器效应模拟低频塌陷)
+        FAULT_KIND_TO_MODULE_KEY = {
+            "amp": "step_attenuator",
+            "freq": "ocxo_ref",
+            "rl": "cal_source",
+            "att": "step_attenuator",
+            "lpf": "ac_coupling",  # 使用高通效应模拟 LPF 边缘效应
+            "mixer": "mixer1",
+            "adc": "adc_module",
+            "vbw": "dsp_detector",
+            "power": "power_management",
+            "clock": "ref_distribution",
+            "lo": "lo1_synth",
+            "ytf": "lpf_high_band",
+        }
+        
+        # V-D.2: 频率 warp 参数常量
+        FREQ_WARP_BIAS_MIN = -0.001
+        FREQ_WARP_BIAS_MAX = 0.001
+        
         # 使用模块特定的噪声模型生成故障基础
         curve, reasons = constraints.generate_fault_base(
             rng, 
@@ -1270,6 +1297,14 @@ def simulate_curve(
         else:
             texture_scale = rng.uniform(0.2, 0.5)
         curve = rrs + base_texture * texture_scale
+        
+        # V-D.2: 获取物理核曲线生成器（复用同一实例以提高性能）
+        module_key = FAULT_KIND_TO_MODULE_KEY.get(fault_kind, "step_attenuator")
+        curve_generator = CurveGenerator(seed=int(rng.integers(0, 2**31)))
+        severity_float = {"light": 0.3, "mid": 0.5, "severe": 0.8}.get(severity, 0.5)
+        
+        # 预创建 rrs 副本以避免多次复制
+        rrs_copy = rrs.copy()
 
         if fault_kind == "amp":
             label_sys = "幅度失准"
@@ -1279,6 +1314,8 @@ def simulate_curve(
                 p=[0.4, 0.3, 0.3],
             )
             fault_params["subtype"] = subtype
+            # V-D.2: 使用物理核替换简单数学
+            curve = curve_generator.apply_degradation(curve, module_key, severity_float)
             if subtype == "amp_error_offset":
                 template_id = "T1"
             elif subtype == "amp_error_band":
@@ -1286,27 +1323,28 @@ def simulate_curve(
             else:
                 template_id = "T3"
         elif fault_kind == "freq":
-            curve, freq_params = inject_freq_miscal(
-                frequency, curve, rng=rng, return_params=True, severity=severity
-            )
+            # V-D.2: 使用 peak_jitter 替代 inject_freq_miscal
+            curve = curve_generator.apply_degradation(curve, "ocxo_ref", severity_float)
             warp_scale = 1.0 + rng.uniform(0.00008, 0.0005) * (1 if rng.random() < 0.5 else -1)
             x_axis = np.linspace(0.0, 1.0, len(curve))
-            shift_bins = float(freq_params.get("shift_bins", 0.0))
-            warp_bias = shift_bins / max(len(curve), 1)
+            warp_bias = rng.uniform(FREQ_WARP_BIAS_MIN, FREQ_WARP_BIAS_MAX)
             x_warp = np.clip(x_axis * warp_scale + warp_bias, 0.0, 1.0)
             curve = np.interp(x_axis, x_warp, curve)
             label_sys = "频率失准"
             label_mod = forced_module_label or _choose_module_for_system("freq_error", rng)
-            fault_params.update(freq_params)
             fault_params["warp_scale"] = float(warp_scale)
             fault_params["warp_bias"] = float(warp_bias)
             fault_params["type"] = "freq_miscal"
+            fault_params["module_key"] = "ocxo_ref"
             template_id = "T8"
         elif fault_kind in ("rl", "att"):
             label_sys = "参考电平失准"
             label_mod = forced_module_label or _choose_ref_module(rng)
+            # V-D.2: 使用物理核
+            curve = curve_generator.apply_degradation(curve, "cal_source", severity_float)
             fault_params.update({"type": "ref_miscal"})
             fault_params["subtype"] = "ref_error_offset"
+            fault_params["module_key"] = "cal_source"
             template_id = "T1"
         # NOTE: preamp case is REMOVED - it's disabled in single-band mode
         elif fault_kind == "lpf":
@@ -1315,33 +1353,41 @@ def simulate_curve(
             fault_params["type"] = "lpf_shift"
             fault_params["subtype"] = "amp_error_band"
             template_id = _select_template(label_mod, rng)
-            curve = inject_lpf_shift(frequency, rrs, rng=rng, severity=severity)
+            # V-D.2: 使用 high_pass_filter_effect 替代 inject_lpf_shift
+            curve = curve_generator.apply_degradation(rrs_copy, "ac_coupling", severity_float)
+            fault_params["module_key"] = "ac_coupling"
         elif fault_kind == "mixer":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "低频段第一混频器"
             fault_params["type"] = "mixer_ripple"
             fault_params["subtype"] = "amp_error_ripple"
             template_id = _select_template(label_mod, rng)
-            curve = inject_mixer1_slope(frequency, rrs, rng=rng, severity=severity)
+            # V-D.2: 使用 linear_slope 替代 inject_mixer1_slope
+            curve = curve_generator.apply_degradation(rrs_copy, "mixer1", severity_float)
+            fault_params["module_key"] = "mixer1"
         elif fault_kind == "ytf":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "高频段YTF滤波器"
             fault_params["type"] = "ytf_variation"
             template_id = _select_template(label_mod, rng)
+            # V-D.2: 使用物理核
+            curve = curve_generator.apply_degradation(rrs_copy, "lpf_high_band", severity_float)
+            fault_params["module_key"] = "lpf_high_band"
         elif fault_kind == "clock":
-            curve, freq_params = inject_freq_miscal(
-                frequency, curve, rng=rng, return_params=True, severity=severity
-            )
+            # V-D.2: 使用 ref_distribution 替代 inject_freq_miscal
+            curve = curve_generator.apply_degradation(curve, "ref_distribution", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "时钟合成与同步网络"
-            fault_params.update(freq_params)
             fault_params["type"] = "clock_drift"
+            fault_params["module_key"] = "ref_distribution"
             template_id = "T8"
         elif fault_kind == "lo":
-            curve = inject_lo_path_error(frequency, curve, band_ranges, rng=rng, severity=severity)
+            # V-D.2: 使用 signal_drop 替代 inject_lo_path_error
+            curve = curve_generator.apply_degradation(curve, "lo1_synth", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "本振混频组件"
             fault_params["type"] = "lo_path_error"
+            fault_params["module_key"] = "lo1_synth"
             template_id = "T8"
         elif fault_kind == "adc":
             label_sys = "幅度失准"
@@ -1349,23 +1395,27 @@ def simulate_curve(
             fault_params["type"] = "adc_bias"
             fault_params["subtype"] = "amp_error_offset"
             template_id = _select_template(label_mod, rng)
-            curve = inject_adc_sawtooth(frequency, rrs, rng=rng, severity=severity)
+            # V-D.2: 使用 quantization_noise 替代 inject_adc_sawtooth
+            curve = curve_generator.apply_degradation(rrs_copy, "adc_module", severity_float)
+            fault_params["module_key"] = "adc_module"
         elif fault_kind == "vbw":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "数字检波器"
             fault_params["type"] = "vbw_smoothing"
             fault_params["subtype"] = "amp_error_offset"
             template_id = _select_template(label_mod, rng)
+            # V-D.2: 使用物理核
+            curve = curve_generator.apply_degradation(rrs_copy, "dsp_detector", severity_float)
+            fault_params["module_key"] = "dsp_detector"
         elif fault_kind == "power":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "电源模块"
             fault_params["type"] = "power_noise"
             fault_params["subtype"] = "amp_error_ripple"
             template_id = _select_template(label_mod, rng)
-            sigma = normal_stats.get("sigma_smooth")
-            if sigma is None or len(sigma) != len(rrs):
-                sigma = np.full_like(rrs, np.std(rrs - np.mean(rrs)) + 1e-6)
-            curve = inject_power_noise_rrs(rrs, sigma, rng=rng, severity=severity)
+            # V-D.2: 使用 high_diff_variance 替代 inject_power_noise_rrs
+            curve = curve_generator.apply_degradation(rrs_copy, "power_management", severity_float)
+            fault_params["module_key"] = "power_management"
 
         if template_id is None and label_mod != "none":
             template_id = _select_template(label_mod, rng)
