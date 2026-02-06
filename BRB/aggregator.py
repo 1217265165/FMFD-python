@@ -18,6 +18,8 @@ Enhanced with:
 - Stage-0 normal anchor detection
 - Calibration.json loading
 - BRB-MU style reliability weighting (v5)
+
+V-D.1 Update: Now uses layered engine from _legacy if old files are not available.
 """
 
 from __future__ import annotations
@@ -28,9 +30,53 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from .system_brb_amp import amp_brb_infer
-from .system_brb_freq import freq_brb_infer
-from .system_brb_ref import ref_brb_infer
+# Try importing old sub-BRB modules; fall back to layered engine if not available
+try:
+    from .system_brb_amp import amp_brb_infer
+    from .system_brb_freq import freq_brb_infer
+    from .system_brb_ref import ref_brb_infer
+    _LEGACY_BRB_AVAILABLE = True
+except ImportError:
+    _LEGACY_BRB_AVAILABLE = False
+    # Fallback functions that use the new layered engine
+    def amp_brb_infer(features, alpha=2.0):
+        """Fallback: simulate amp_brb_infer using layered engine features."""
+        from .engines.layered_engine import LayeredBRBEngine
+        engine = LayeredBRBEngine(alpha=alpha)
+        result = engine.infer_full(features)
+        return {
+            'probability': result.get('amp_error', 0.0),
+            'activation': result.get('amp_error', 0.0),
+            'confidence': abs(result.get('amp_error', 0.0) - 0.5) * 2,
+            'scores': {},
+            'feature_contributions': {},
+        }
+    
+    def freq_brb_infer(features, alpha=2.0):
+        """Fallback: simulate freq_brb_infer using layered engine features."""
+        from .engines.layered_engine import LayeredBRBEngine
+        engine = LayeredBRBEngine(alpha=alpha)
+        result = engine.infer_full(features)
+        return {
+            'probability': result.get('freq_error', 0.0),
+            'activation': result.get('freq_error', 0.0),
+            'confidence': abs(result.get('freq_error', 0.0) - 0.5) * 2,
+            'scores': {},
+            'feature_contributions': {},
+        }
+    
+    def ref_brb_infer(features, alpha=2.0):
+        """Fallback: simulate ref_brb_infer using layered engine features."""
+        from .engines.layered_engine import LayeredBRBEngine
+        engine = LayeredBRBEngine(alpha=alpha)
+        result = engine.infer_full(features)
+        return {
+            'probability': result.get('ref_error', 0.0),
+            'activation': result.get('ref_error', 0.0),
+            'confidence': abs(result.get('ref_error', 0.0) - 0.5) * 2,
+            'scores': {},
+            'feature_contributions': {},
+        }
 
 
 # v7 Constants for reliability mechanism

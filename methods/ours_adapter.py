@@ -30,6 +30,15 @@ from BRB.module_brb import MODULE_LABELS, module_level_infer, module_level_infer
 from BRB.gating_prior import GatingPriorFusion, CLASS_NAMES
 from tools.label_mapping import SYS_CLASS_TO_CN, CN_TO_SYS_CLASS
 
+# Import new layered engine (optional, for V-D.1 architecture)
+try:
+    from BRB.engines.layered_engine import LayeredBRBEngine, get_layered_engine
+    from BRB.routing.soft_router import SoftModuleRouter, get_soft_router
+    from BRB.expert_system import FMFDExpertSystem, get_expert_system
+    _LAYERED_ENGINE_AVAILABLE = True
+except ImportError:
+    _LAYERED_ENGINE_AVAILABLE = False
+
 
 # Gating prior configuration path
 GATING_PRIOR_CONFIG_PATH = Path(__file__).parent.parent / 'config' / 'gating_prior.json'
@@ -313,6 +322,55 @@ def infer_system_and_modules(
         "fault_type_pred": fault_type_pred,
         "module_topk": module_topk,
         "debug": debug_info,
+    }
+
+
+def infer_with_layered_engine(
+    features: Dict[str, float],
+) -> Dict[str, Any]:
+    """
+    使用分层引擎进行推理 (V-D.1 新架构)。
+    
+    这是新架构的推理入口，使用 LayeredBRBEngine 和 SoftModuleRouter。
+    
+    Parameters
+    ----------
+    features : Dict[str, float]
+        特征字典，包含 X1-X37。
+        
+    Returns
+    -------
+    Dict
+        与 infer_system_and_modules 相同格式的结果。
+    """
+    if not _LAYERED_ENGINE_AVAILABLE:
+        raise ImportError(
+            "Layered engine not available. "
+            "Ensure BRB/engines/layered_engine.py and BRB/routing/soft_router.py exist."
+        )
+    
+    # 获取专家系统实例
+    expert = get_expert_system()
+    
+    # 从特征进行诊断
+    result = expert.diagnose_from_features(features)
+    
+    # 转换为统一格式
+    module_topk = [
+        {"name": name, "prob": float(prob)}
+        for name, prob in result.top_modules
+    ]
+    
+    return {
+        "system_probs": result.system_probs,
+        "fault_type_pred": result.system_fault_type,
+        "module_topk": module_topk,
+        "debug": {
+            "engine": "layered",
+            "layer_trace": result.layer_trace,
+            "routing_trace": result.routing_trace,
+            "gating_status": "layered_engine",
+        },
     }
 
 
