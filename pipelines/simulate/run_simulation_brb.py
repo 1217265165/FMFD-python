@@ -1316,12 +1316,13 @@ def simulate_curve(
                 p=[0.4, 0.3, 0.3],
             )
             fault_params["subtype"] = subtype
-            # V-D.2: 使用物理核替换简单数学
-            curve = curve_generator.apply_degradation(curve, module_key, severity_float)
+            # V-D.2/V-D.5: 使用物理核替换简单数学（始终基于 rrs_copy）
+            curve = curve_generator.apply_degradation(rrs_copy, module_key, severity_float)
+            fault_params["module_key"] = module_key
             # V-D.3: 禁用模板系统
         elif fault_kind == "freq":
-            # V-D.2: 使用 peak_jitter 替代 inject_freq_miscal
-            curve = curve_generator.apply_degradation(curve, "ocxo_ref", severity_float)
+            # V-D.2/V-D.5: 使用 peak_jitter 替代 inject_freq_miscal（基于 rrs_copy）
+            curve = curve_generator.apply_degradation(rrs_copy, "ocxo_ref", severity_float)
             warp_scale = 1.0 + rng.uniform(0.00008, 0.0005) * (1 if rng.random() < 0.5 else -1)
             x_axis = np.linspace(0.0, 1.0, len(curve))
             warp_bias = rng.uniform(FREQ_WARP_BIAS_MIN, FREQ_WARP_BIAS_MAX)
@@ -1337,8 +1338,8 @@ def simulate_curve(
         elif fault_kind in ("rl", "att"):
             label_sys = "参考电平失准"
             label_mod = forced_module_label or _choose_ref_module(rng)
-            # V-D.2: 使用物理核
-            curve = curve_generator.apply_degradation(curve, "cal_source", severity_float)
+            # V-D.2/V-D.5: 使用物理核（基于 rrs_copy）
+            curve = curve_generator.apply_degradation(rrs_copy, "cal_source", severity_float)
             fault_params.update({"type": "ref_miscal"})
             fault_params["subtype"] = "ref_error_offset"
             fault_params["module_key"] = "cal_source"
@@ -1371,16 +1372,16 @@ def simulate_curve(
             curve = curve_generator.apply_degradation(rrs_copy, "lpf_high_band", severity_float)
             fault_params["module_key"] = "lpf_high_band"
         elif fault_kind == "clock":
-            # V-D.2: 使用 ref_distribution 替代 inject_freq_miscal
-            curve = curve_generator.apply_degradation(curve, "ref_distribution", severity_float)
+            # V-D.2/V-D.5: 使用 ref_distribution 替代 inject_freq_miscal（基于 rrs_copy）
+            curve = curve_generator.apply_degradation(rrs_copy, "ref_distribution", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "时钟合成与同步网络"
             fault_params["type"] = "clock_drift"
             fault_params["module_key"] = "ref_distribution"
             # V-D.3: 禁用模板系统
         elif fault_kind == "lo":
-            # V-D.2: 使用 signal_drop 替代 inject_lo_path_error
-            curve = curve_generator.apply_degradation(curve, "lo1_synth", severity_float)
+            # V-D.2/V-D.5: 使用 signal_drop 替代 inject_lo_path_error（基于 rrs_copy）
+            curve = curve_generator.apply_degradation(rrs_copy, "lo1_synth", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "本振混频组件"
             fault_params["type"] = "lo_path_error"
