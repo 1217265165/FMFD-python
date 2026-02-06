@@ -1305,7 +1305,8 @@ def simulate_curve(
         curve_generator = CurveGenerator(seed=int(rng.integers(0, 2**31)))
         severity_float = {"light": 0.3, "mid": 0.5, "severe": 0.8}.get(severity, 0.5)
         
-        # 预创建 rrs 副本以避免多次复制
+        # V-D.5: 预创建 rrs 副本，所有 apply_degradation 调用现在都使用 rrs_copy 作为基线
+        # 这确保了物理退化函数生成的曲线始终围绕 RRS 中心，偏差控制在 ±0.6 dB 内
         rrs_copy = rrs.copy()
 
         if fault_kind == "amp":
@@ -1316,12 +1317,11 @@ def simulate_curve(
                 p=[0.4, 0.3, 0.3],
             )
             fault_params["subtype"] = subtype
-            # V-D.2/V-D.5: 使用物理核替换简单数学（始终基于 rrs_copy）
+            # V-D.2: 使用物理核替换简单数学
             curve = curve_generator.apply_degradation(rrs_copy, module_key, severity_float)
             fault_params["module_key"] = module_key
-            # V-D.3: 禁用模板系统
         elif fault_kind == "freq":
-            # V-D.2/V-D.5: 使用 peak_jitter 替代 inject_freq_miscal（基于 rrs_copy）
+            # V-D.2: 使用 peak_jitter 替代 inject_freq_miscal
             curve = curve_generator.apply_degradation(rrs_copy, "ocxo_ref", severity_float)
             warp_scale = 1.0 + rng.uniform(0.00008, 0.0005) * (1 if rng.random() < 0.5 else -1)
             x_axis = np.linspace(0.0, 1.0, len(curve))
@@ -1334,24 +1334,21 @@ def simulate_curve(
             fault_params["warp_bias"] = float(warp_bias)
             fault_params["type"] = "freq_miscal"
             fault_params["module_key"] = "ocxo_ref"
-            # V-D.3: 禁用模板系统
         elif fault_kind in ("rl", "att"):
             label_sys = "参考电平失准"
             label_mod = forced_module_label or _choose_ref_module(rng)
-            # V-D.2/V-D.5: 使用物理核（基于 rrs_copy）
+            # V-D.2: 使用物理核
             curve = curve_generator.apply_degradation(rrs_copy, "cal_source", severity_float)
             fault_params.update({"type": "ref_miscal"})
             fault_params["subtype"] = "ref_error_offset"
             fault_params["module_key"] = "cal_source"
-            # V-D.3: 禁用模板系统
         # NOTE: preamp case is REMOVED - it's disabled in single-band mode
         elif fault_kind == "lpf":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "低频段前置低通滤波器"
             fault_params["type"] = "lpf_shift"
             fault_params["subtype"] = "amp_error_band"
-            # V-D.3: 禁用模板系统
-            # V-D.2: 使用 band_insertion_loss 模拟 LPF 截止频率漂移 (正确物理行为)
+            # V-D.2: 使用 band_insertion_loss 模拟 LPF 截止频率漂移
             curve = curve_generator.apply_degradation(rrs_copy, "lpf_low_band", severity_float)
             fault_params["module_key"] = "lpf_low_band"
         elif fault_kind == "mixer":
@@ -1359,7 +1356,6 @@ def simulate_curve(
             label_mod = forced_module_label or "低频段第一混频器"
             fault_params["type"] = "mixer_ripple"
             fault_params["subtype"] = "amp_error_ripple"
-            # V-D.3: 禁用模板系统
             # V-D.2: 使用 linear_slope 替代 inject_mixer1_slope
             curve = curve_generator.apply_degradation(rrs_copy, "mixer1", severity_float)
             fault_params["module_key"] = "mixer1"
@@ -1367,32 +1363,27 @@ def simulate_curve(
             label_sys = "幅度失准"
             label_mod = forced_module_label or "高频段YTF滤波器"
             fault_params["type"] = "ytf_variation"
-            # V-D.3: 禁用模板系统
-            # V-D.2: 使用物理核
             curve = curve_generator.apply_degradation(rrs_copy, "lpf_high_band", severity_float)
             fault_params["module_key"] = "lpf_high_band"
         elif fault_kind == "clock":
-            # V-D.2/V-D.5: 使用 ref_distribution 替代 inject_freq_miscal（基于 rrs_copy）
+            # V-D.2: 使用 ref_distribution 替代 inject_freq_miscal
             curve = curve_generator.apply_degradation(rrs_copy, "ref_distribution", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "时钟合成与同步网络"
             fault_params["type"] = "clock_drift"
             fault_params["module_key"] = "ref_distribution"
-            # V-D.3: 禁用模板系统
         elif fault_kind == "lo":
-            # V-D.2/V-D.5: 使用 signal_drop 替代 inject_lo_path_error（基于 rrs_copy）
+            # V-D.2: 使用 signal_drop 替代 inject_lo_path_error
             curve = curve_generator.apply_degradation(rrs_copy, "lo1_synth", severity_float)
             label_sys = "频率失准"
             label_mod = forced_module_label or "本振混频组件"
             fault_params["type"] = "lo_path_error"
             fault_params["module_key"] = "lo1_synth"
-            # V-D.3: 禁用模板系统
         elif fault_kind == "adc":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "ADC"
             fault_params["type"] = "adc_bias"
             fault_params["subtype"] = "amp_error_offset"
-            # V-D.3: 禁用模板系统
             # V-D.2: 使用 quantization_noise 替代 inject_adc_sawtooth
             curve = curve_generator.apply_degradation(rrs_copy, "adc_module", severity_float)
             fault_params["module_key"] = "adc_module"
@@ -1401,8 +1392,6 @@ def simulate_curve(
             label_mod = forced_module_label or "数字检波器"
             fault_params["type"] = "vbw_smoothing"
             fault_params["subtype"] = "amp_error_offset"
-            # V-D.3: 禁用模板系统
-            # V-D.2: 使用物理核
             curve = curve_generator.apply_degradation(rrs_copy, "dsp_detector", severity_float)
             fault_params["module_key"] = "dsp_detector"
         elif fault_kind == "power":
@@ -1410,14 +1399,10 @@ def simulate_curve(
             label_mod = forced_module_label or "电源模块"
             fault_params["type"] = "power_noise"
             fault_params["subtype"] = "amp_error_ripple"
-            # V-D.3: 禁用模板系统
-            # V-D.2: 使用 high_diff_variance 替代 inject_power_noise_rrs
             curve = curve_generator.apply_degradation(rrs_copy, "power_management", severity_float)
             fault_params["module_key"] = "power_management"
 
-        # V-D.3: 完全禁用旧模板系统
-        # 旧逻辑已移除: apply_template(), template_id 分配, 模板参数更新
-        # 物理特征现在完全由 CurveGenerator 控制
+        # 注意：V-D.3 已完全禁用旧模板系统 (apply_template, template_id)
         
         # 频率类故障的峰值追踪逻辑（保留物理相关性）
         peak_track_type = "none"  # 默认无峰值追踪
