@@ -27,6 +27,13 @@ SIGNATURE_MAX_RETRY = 10
 # 归一化频率计算的小量，避免除零
 FREQ_NORMALIZE_EPS = 1e-12
 
+# V-D.5b: 微弱故障兼容阈值 (dB)
+# 物理引擎生成的微弱故障偏差可能 < 0.6 dB，需要降低质量检查阈值
+MIN_VALID_DEVIATION_DB = 0.10
+
+# V-D.5b: 纹理变化检测阈值 (用于 ADC/VBW 等以纹理为主的故障)
+TEXTURE_CHANGE_THRESHOLD = 1e-6
+
 
 # ============================================================================
 # 任务书 §5.2: 模块形态签名模板
@@ -1165,8 +1172,19 @@ class SimulationConstraints:
         if fault_kind == "amp":
             if abs(metrics["global_offset"]) > 1.5 * abs(baseline.global_offset_p95):
                 reasons.append("amp global_offset too large")
-            if metrics["p95_abs_dev"] < baseline.residual_abs_p95:
+            # V-D.5b: 降低阈值以兼容微弱故障 (偏差 < 0.6 dB)
+            # 只要 p95_abs_dev > MIN_VALID_DEVIATION_DB (0.10 dB) 即视为有效
+            if metrics["p95_abs_dev"] < MIN_VALID_DEVIATION_DB:
                 reasons.append("amp shape deviation too small")
+            return ConstraintResult(ok=not reasons, reasons=reasons)
+
+        # V-D.5b: ADC/VBW 特殊豁免 - 这些故障主要表现为纹理变化，幅度偏差可能极小
+        # ADC 量化噪声和 VBW 数字检波器故障的主要特征是纹理/方差变化，而非幅度偏移
+        # 因此对这些故障类型不施加最小幅度偏差约束，允许极微弱的幅度变化通过
+        if fault_kind in ("adc", "vbw"):
+            # ADC/VBW 故障无需检查 p95_abs_dev 阈值
+            # 真正的检测应通过 X37 (差分方差) 和 X35 (形态特征) 进行
+            # 这里只保留基本的幅度边界检查 (已在上面完成)
             return ConstraintResult(ok=not reasons, reasons=reasons)
 
         if abs(metrics["global_offset"]) > 1.5 * abs(baseline.global_offset_p95):

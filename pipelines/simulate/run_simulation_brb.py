@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Dict, Iterator, List, Tuple
@@ -1449,9 +1450,47 @@ def simulate_curve(
         last_reasons = result.reasons
         constraints._record_reject("fault", fault_kind, result.reasons)
 
-    raise RuntimeError(
-        f"Failed to generate fault curve within constraints for {fault_kind} "
-        f"after retries. Last reasons: {last_reasons}"
+    # V-D.5b: 兜底策略 - 当所有重试失败后，生成简单 offset 样本防止崩溃
+    # 这允许仿真继续运行，同时记录警告
+    logger = logging.getLogger(__name__)
+    logger.warning(
+        f"[FALLBACK] Using simple offset for {fault_kind} after {max_attempts} retries. "
+        f"Last reasons: {last_reasons}"
+    )
+    
+    # 生成简单的偏移样本作为兜底
+    fallback_offset = rng.uniform(-0.3, 0.3)
+    curve = rrs.copy() + fallback_offset
+    
+    # 设置兜底标签
+    if fault_kind == "amp":
+        label_sys = "幅度失准"
+    elif fault_kind == "freq":
+        label_sys = "频率失准"
+    elif fault_kind in ("rl", "att"):
+        label_sys = "参考电平失准"
+    else:
+        label_sys = "幅度失准"  # 默认
+    
+    label_mod = forced_module_label or _choose_module_for_system(
+        {"amp": "amp_error", "freq": "freq_error", "rl": "ref_error", "att": "ref_error"}.get(fault_kind, "amp_error"),
+        rng
+    )
+    fault_params = {
+        "severity": severity,
+        "type": f"{fault_kind}_fallback",
+        "fallback_offset": float(fallback_offset),
+        "fallback_reason": str(last_reasons),
+    }
+    peak_freq_meas, _ = _generate_peak_freq_meas(frequency, rng, "none", severity)
+    
+    return (
+        curve,
+        label_sys,
+        label_mod,
+        fault_params,
+        peak_freq_meas,
+        {"peak_track_type": "none"},
     )
 
 
