@@ -1261,13 +1261,15 @@ def simulate_curve(
         module_type_for_noise = fault_kind_to_module.get(fault_kind, "校准源")
         
         # V-D.2: 将 fault_kind 映射到 CurveGenerator 的模块键 (标准键名)
-        # 注意：lpf 使用 ac_coupling (高通滤波器效应模拟低频塌陷)
+        # 物理正确性说明：
+        # - lpf (低通滤波器): 使用 lpf_low_band (band_insertion_loss 模拟截止频率漂移)
+        # - ac_coupling (AC耦合电容): 使用高通滤波效应 (低频塌陷)
         FAULT_KIND_TO_MODULE_KEY = {
             "amp": "step_attenuator",
             "freq": "ocxo_ref",
             "rl": "cal_source",
             "att": "step_attenuator",
-            "lpf": "ac_coupling",  # 使用高通效应模拟 LPF 边缘效应
+            "lpf": "lpf_low_band",  # ✅ 修正：低通滤波器使用 band_insertion_loss
             "mixer": "mixer1",
             "adc": "adc_module",
             "vbw": "dsp_detector",
@@ -1353,9 +1355,9 @@ def simulate_curve(
             fault_params["type"] = "lpf_shift"
             fault_params["subtype"] = "amp_error_band"
             template_id = _select_template(label_mod, rng)
-            # V-D.2: 使用 high_pass_filter_effect 替代 inject_lpf_shift
-            curve = curve_generator.apply_degradation(rrs_copy, "ac_coupling", severity_float)
-            fault_params["module_key"] = "ac_coupling"
+            # V-D.2: 使用 band_insertion_loss 模拟 LPF 截止频率漂移 (正确物理行为)
+            curve = curve_generator.apply_degradation(rrs_copy, "lpf_low_band", severity_float)
+            fault_params["module_key"] = "lpf_low_band"
         elif fault_kind == "mixer":
             label_sys = "幅度失准"
             label_mod = forced_module_label or "低频段第一混频器"
