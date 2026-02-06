@@ -317,14 +317,16 @@ class CurveGenerator:
         bit_depth: int = 12
     ) -> np.ndarray:
         """
-        ADC量化退化：梳齿纹理/颗粒感。
+        ADC量化退化：真实量化阶梯 + DNL/INL 误差。
         
-        物理机理：ADC 位数不足或 DNL 问题导致量化噪声。
+        物理机理：ADC 位数限制导致量化台阶（取整），DNL 误差导致周期性纹理。
+        
+        V-D.3 增强：使用真实取整逻辑模拟量化阶梯，而非简单加噪。
         
         Parameters
         ----------
         curve : np.ndarray
-            原始频响曲线
+            原始频响曲线 (dB)
         severity : float
             退化严重度 (0-1)
         bit_depth : int
@@ -335,28 +337,41 @@ class CurveGenerator:
         np.ndarray
             退化后的曲线
         """
-        # 计算量化步长（LSB）
-        curve_range = np.ptp(curve)
-        if curve_range < 1e-6:
-            curve_range = 1.0
-        
         # 有效位数随严重度降低
         effective_bits = bit_depth - int(4 * severity)  # 最多损失 4 位
         effective_bits = max(4, effective_bits)
+        steps = 2 ** effective_bits
         
-        lsb = curve_range / (2 ** effective_bits)
+        # 真实量化逻辑：dB → 线性 → 量化 → dB
+        # 首先归一化到 0-1 范围
+        curve_min = np.min(curve)
+        curve_max = np.max(curve)
+        curve_range = curve_max - curve_min
+        if curve_range < 1e-6:
+            curve_range = 1.0
         
-        # 添加量化噪声（均匀分布，约 0.5 LSB rms）
-        quant_noise = self.rng.uniform(-lsb / 2, lsb / 2, len(curve))
+        # 归一化
+        curve_norm = (curve - curve_min) / curve_range
         
-        # 添加 DNL 误差（周期性）
+        # 量化取整 (核心物理行为)
+        curve_quantized = np.round(curve_norm * steps) / steps
+        
+        # 还原尺度
+        result = curve_quantized * curve_range + curve_min
+        
+        # 添加 DNL 误差（周期性锯齿 - 模拟 ADC 非线性）
         if severity > 0.3:
-            dnl_period = 2 ** (effective_bits // 2)
-            dnl_amp = lsb * severity
+            dnl_period = max(2, 2 ** (effective_bits // 3))
+            dnl_amp = (curve_range / steps) * severity * 2  # DNL 幅度与 LSB 成比例
             dnl = dnl_amp * sawtooth(2 * np.pi * np.arange(len(curve)) / dnl_period)
-            quant_noise += dnl
+            result = result + dnl
         
-        return curve + quant_noise
+        # 添加少量高频抖动（模拟采样抖动）
+        jitter_amp = (curve_range / steps) * 0.5 * severity
+        jitter = self.rng.uniform(-jitter_amp, jitter_amp, len(curve))
+        result = result + jitter
+        
+        return result
     
     def apply_signal_drop(
         self, 
