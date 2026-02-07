@@ -641,7 +641,9 @@ class OursAdapter(MethodAdapter):
             
             for mod_name, prob in mod_probs_dict.items():
                 try:
-                    # Direct V2→V1 mapping (distribute equally to all V1 aliases)
+                    # V2→V1 mapping: assign same prob to all V1 aliases of a V2 module
+                    # (intentionally NOT dividing — evaluation uses V1 indices so all
+                    # aliases must have the full probability to enable correct matching)
                     if mod_name in v2_to_v1_indices:
                         for v1_idx in v2_to_v1_indices[mod_name]:
                             mod_proba[i, v1_idx] = prob

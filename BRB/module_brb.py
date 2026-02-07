@@ -382,6 +382,7 @@ def module_level_infer(
 
     # Per-rule feature-based activations for module discrimination
     # Different features activate different module groups
+    # _nf normalizes feature x to [0, 1] range using (lo, hi) thresholds
     def _nf(x, lo, hi):
         return normalize_feature(x, lo, hi)
     
@@ -698,7 +699,7 @@ BOARD_MODULES = {
 # 子图 → 板级映射
 SUBGRAPH_TO_BOARDS = {
     "LO_Clock_Network": ["LO/时钟板"],
-    "RF_IF_ADC_Network": ["RF板", "数字中频板", "电源板"],
+    "RF_IF_ADC_Network": ["RF板", "数字中频板", "电源板"],  # 电源板: ~10% of amp_error in training data
     "Calibration_Network": ["校准链路"]
 }
 
