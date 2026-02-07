@@ -112,8 +112,8 @@ def _load_gating_prior_config() -> Dict:
     
     # Default config if file not found
     _GATING_PRIOR_CONFIG = {
-        "method": "gated",
-        "linear_weight": 0.7,
+        "method": "linear",
+        "linear_weight": 0.8,
         "logit_weight": 0.6,
         "gated": {
             "threshold": 0.55,
@@ -130,6 +130,7 @@ def infer_system_and_modules(
     *,
     use_gating: bool = True,
     rf_classifier: Optional[Any] = None,
+    rf_feature_vector: Optional[np.ndarray] = None,
     allow_fallback: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -148,6 +149,11 @@ def infer_system_and_modules(
     rf_classifier : Optional[RandomForestClassifier], default=None
         Fitted RandomForest classifier for gating prior. If None and use_gating=True,
         falls back to BRB-only inference.
+    rf_feature_vector : Optional[np.ndarray], default=None
+        Pre-built feature vector for the RF classifier.  When provided, this is
+        used directly instead of reconstructing from ``features`` via
+        ``_features_to_array()``, avoiding feature-count mismatches when the RF
+        was trained on more features than X1-X22.
     allow_fallback : bool, default=False
         If False, raises an error when gating prior is unavailable but use_gating=True.
         If True, allows fallback to BRB-only inference.
@@ -213,7 +219,10 @@ def infer_system_and_modules(
         if rf_classifier is not None and hasattr(rf_classifier, 'predict_proba'):
             try:
                 # Prepare feature vector for RF
-                feature_vector = _features_to_array(features)
+                if rf_feature_vector is not None:
+                    feature_vector = rf_feature_vector
+                else:
+                    feature_vector = _features_to_array(features)
                 rf_proba = rf_classifier.predict_proba(feature_vector.reshape(1, -1))[0]
                 
                 # Map RF probs to class names
@@ -591,10 +600,13 @@ class OursAdapter(MethodAdapter):
             # [CRITICAL] Always go through the fusion pipeline.
             # RF serves as gating prior, BRB provides interpretable inference.
             # Result = Fuse(P_rf, P_brb), never raw RF output.
+            # Pass the original feature vector so the RF sees the same dimensions
+            # it was trained on (may be >22 features).
             result = infer_system_and_modules(
                 features,
                 use_gating=True,
                 rf_classifier=self.classifier,
+                rf_feature_vector=X_test[i],
                 allow_fallback=True,
             )
             
