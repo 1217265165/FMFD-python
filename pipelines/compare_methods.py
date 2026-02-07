@@ -1067,10 +1067,19 @@ def evaluate_method(
                 # Get top-3 predicted indices
                 top3_indices = np.argsort(row)[::-1][:3]
                 
-                # Simple index match for now
-                if gt_idx in top3_indices[:1]:
+                # V2-aware matching: two V1 indices mapping to the same V2
+                # module should be considered equivalent (e.g., ADC=14 and
+                # 数字检波器=17 both map to [数字中频板][ADC])
+                from tools.label_mapping import module_v2_from_v1
+                gt_v1_name = MODULE_LABELS[gt_idx] if gt_idx < len(MODULE_LABELS) else ""
+                gt_v2 = module_v2_from_v1(gt_v1_name)
+                
+                pred_v2_top1 = module_v2_from_v1(MODULE_LABELS[top3_indices[0]]) if top3_indices[0] < len(MODULE_LABELS) else ""
+                pred_v2_top3 = [module_v2_from_v1(MODULE_LABELS[j]) if j < len(MODULE_LABELS) else "" for j in top3_indices]
+                
+                if gt_v2 == pred_v2_top1:
                     n_correct_top1 += 1
-                if gt_idx in top3_indices:
+                if gt_v2 in pred_v2_top3:
                     n_correct_top3 += 1
             
             if n_valid > 0:

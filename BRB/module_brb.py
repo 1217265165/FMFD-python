@@ -785,15 +785,168 @@ def hierarchical_module_infer(
         },
     }
     
-    filtered_probs = FAULT_MODULE_PRIORS.get(fault_type, {})
-    
-    # 添加板级先验加权（与训练数据分布对齐）
-    # 归一化
+    filtered_probs = dict(FAULT_MODULE_PRIORS.get(fault_type, {}))
+
+    # Feature-based adjustment: use discriminative features to shift priors
+    # Calibrated from training data feature distributions per V2 module
+    _nf = normalize_feature
+    if fault_type == "amp_error":
+        # Key discriminating features (from data analysis):
+        # X13: Filter=1.68 >> ADC=0.66 >> Power=0.38, Mixer/IF/DSP=0
+        # X36: Power=0.40 << ADC=0.79 < Mixer=0.81 < Filter=0.86
+        # X7:  Power=0.17 > ADC=0.13 > Filter=0.11, Mixer/IF/DSP=0.08
+        # X35: Power=0.003 >> ADC=0.001, others=0.0003
+        # shape_rmse: IF/DSP=0, Filter=0.018, Power=0.033, Mixer=0.039, ADC=0.055
+        x7 = features.get("X7", features.get("step_score", 0.08))
+        x13 = features.get("X13", 0.0)
+        x35 = features.get("X35", 0.0003)
+        x36 = features.get("X36", 0.81)
+        rmse = features.get("shape_rmse", 0.0)
+
+        # Decision-tree-like scoring for each V2 module
+        adj = {}
+
+        # Power: very low X36 (<0.6) AND high X35 (>0.002) AND high X7 (>0.12)
+        power_score = 1.0
+        if x36 < 0.65:
+            power_score += 4.0
+        if x35 > 0.002:
+            power_score += 3.0
+        if x7 > 0.12:
+            power_score += 1.0
+        adj["[电源板] 电源管理模块"] = power_score
+
+        # Filter: very high X13 (>0.5) AND high X36 (>0.83)
+        filter_score = 1.0
+        if x13 > 0.8:
+            filter_score += 5.0
+        elif x13 > 0.3:
+            filter_score += 2.5
+        if x36 > 0.83:
+            filter_score += 1.0
+        adj["[RF板][RF] 低频通路固定滤波/抑制网络"] = filter_score
+
+        # ADC: moderate X7 (>0.09), moderate shape_rmse (>0.03), X13 moderate
+        adc_score = 1.0
+        if x7 > 0.09 and x36 > 0.65:
+            adc_score += 2.0
+        if rmse > 0.04:
+            adc_score += 2.0
+        if x35 > 0.0005 and x35 < 0.002:
+            adc_score += 1.0
+        adj["[数字中频板][ADC] 数字检波与平均"] = adc_score
+
+        # Mixer1: X7≈0.08, X13=0, X35≈0.0003, X36≈0.81 (all "default")
+        mixer_score = 1.0
+        if x7 < 0.085 and x13 < 0.1 and rmse > 0.0:
+            mixer_score += 3.0  # default-like features but nonzero rmse
+        if x36 > 0.80 and x36 < 0.83 and x35 < 0.0004:
+            mixer_score += 1.5
+        adj["[RF板][Mixer1]"] = mixer_score
+
+        # IF/DSP: ALL features at exact default (shape_rmse=0, X13=0, X7=0.08)
+        if_score = 1.0
+        if rmse < 0.001 and x13 < 0.001 and abs(x7 - 0.08) < 0.002:
+            if_score += 4.0  # only IF/DSP have all-zero features
+        adj["[数字中频板][IF] 中频放大/衰减链"] = if_score
+        adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0)
+
+    elif fault_type == "freq_error":
+        # Discriminating features (from training data V2 analysis):
+        # Mixer1: X13=0.98 (high!), X14=0.001 (very low), X7=0.08
+        # 参考分配: X13=0.45, X14=0.007, X7=0.074, X35=0.00024
+        # LO1: X13=0.45, X14=0.007, X7=0.063, X36=0.886
+        # OCXO: X13=0.47, X14=0.007, X7=0.059, X36=0.897
+        x13 = features.get("X13", 0.45)
+        x14 = features.get("X14", 0.007)
+        x7 = features.get("X7", 0.07)
+        x36 = features.get("X36", 0.85)
+        x35 = features.get("X35", 0.0002)
+
+        adj = {}
+        # Mixer1: very high X13 (>0.6) and low X14 (<0.003)
+        mixer_s = 1.0
+        if x13 > 0.7:
+            mixer_s += 5.0
+        elif x13 > 0.5:
+            mixer_s += 2.0
+        if x14 < 0.003:
+            mixer_s += 2.0
+        adj["[RF板][Mixer1]"] = mixer_s
+
+        # 参考分配: higher X35 (0.00024 vs 0.00017), lower X36 (0.847)
+        ref_dist_s = 1.0
+        if x35 > 0.0002:
+            ref_dist_s += 2.0
+        if x36 < 0.86:
+            ref_dist_s += 1.5
+        if x7 > 0.07:
+            ref_dist_s += 1.0
+        adj["[时钟板][参考分配]"] = ref_dist_s
+
+        # LO1: moderate X36 (0.886), low X7 (0.063)
+        lo1_s = 1.0
+        if x36 > 0.87 and x36 < 0.91:
+            lo1_s += 2.0
+        if x7 < 0.065:
+            lo1_s += 1.5
+        adj["[LO/时钟板][LO1] 合成链"] = lo1_s
+
+        # OCXO: highest X36 (0.897), lowest X7 (0.059)
+        ocxo_s = 1.0
+        if x36 > 0.89:
+            ocxo_s += 2.0
+        if x7 < 0.062:
+            ocxo_s += 2.0
+        adj["[时钟板][参考域] 10MHz 基准 OCXO"] = ocxo_s
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0)
+
+    elif fault_type == "ref_error":
+        # Ref modules barely distinguishable (RF ceiling ~35%)
+        # Best discriminator: offset_slope sign (校准源: +0.017, 开关: -0.018)
+        # and band_offset_db_1 sign (校准源: -0.07, 开关: +0.08)
+        slope = features.get("offset_slope", features.get("res_slope", 0.0))
+        band1 = features.get("band_offset_db_1", 0.0)
+        x14 = features.get("X14", 0.1)
+
+        adj = {}
+        # 校准源: positive slope, negative band1, lower X14 (0.110)
+        cal_s = 1.0
+        if slope > 0.005:
+            cal_s += 1.5
+        if band1 < -0.03:
+            cal_s += 1.0
+        if x14 < 0.12:
+            cal_s += 0.5
+        adj["[校准链路][校准源]"] = cal_s
+
+        # 校准表/存储: higher X14 (0.158), X11 moderate (0.46)
+        stor_s = 1.0
+        if x14 > 0.14:
+            stor_s += 1.5
+        adj["[校准链路][校准表/存储]"] = stor_s
+
+        # 校准路径开关/耦合: negative slope, positive band1
+        sw_s = 1.0
+        if slope < -0.005:
+            sw_s += 1.5
+        if band1 > 0.03:
+            sw_s += 1.0
+        adj["[校准链路][校准路径开关/耦合]"] = sw_s
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0)
+
+    # Normalize
     total = sum(filtered_probs.values())
     if total > 0:
         filtered_probs = {m: p / total for m, p in filtered_probs.items()}
     else:
-        # 均匀分布
         uniform_prob = 1.0 / len(filtered_probs) if filtered_probs else 0.0
         filtered_probs = {m: uniform_prob for m in filtered_probs}
     
