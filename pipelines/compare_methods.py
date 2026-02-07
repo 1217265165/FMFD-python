@@ -1129,6 +1129,11 @@ def main():
                        help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
     args = parser.parse_args()
     
+    # Smart path correction: prevent user from pointing to raw_curves subdirectory
+    if args.data_dir.endswith('raw_curves'):
+        args.data_dir = str(Path(args.data_dir).parent)
+        print(f"[INFO] Auto-corrected Data Directory: {args.data_dir}")
+    
     # Setup
     set_global_seed(args.seed)
     data_dir = Path(args.data_dir) if Path(args.data_dir).is_absolute() else PROJECT_ROOT / args.data_dir
