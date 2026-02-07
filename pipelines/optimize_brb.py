@@ -1,22 +1,24 @@
 """
 基于现有 system_brb/module_brb 的轻量优化器，不依赖 brb_engine / brb_rules.yaml。
-- 优化目标：模块层 8 条规则的权重（module_brb 原始权重被可调参数替换）。
+- 优化目标：模块层 7 条规则的权重（module_brb 原始权重被可调参数替换）。
 - 系统层仍使用 system_brb.py 中的固定规则，权重不优化。
 - 支持无监督（熵 + 置信度）和有监督（label_mod 监督）。
 
-使用示例（无监督）:
-    python optimize_brb.py --data feats.csv --maxiter 60
+使用示例（使用 sim_spectrum 数据）:
+    python optimize_brb.py --data_dir Output/sim_spectrum --maxiter 60
+    python optimize_brb.py --data_dir Output/sim_spectrum --supervised --maxiter 80
 
-使用示例（有监督）:
+使用示例（旧格式 CSV）:
     python optimize_brb.py --data feats.csv --label_col label_mod --supervised --maxiter 80
 """
 
 import argparse
 import csv
 import importlib.util
+import json
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -32,74 +34,79 @@ if str(REPO_ROOT) not in sys.path:
 from sklearn.metrics import log_loss, accuracy_score
 
 from BRB.system_brb import system_level_infer
+from BRB.module_brb import MODULE_LABELS
 
 # ------- 与 module_brb 一致的 labels 列表 -------
-LABELS = [
-    "衰减器",
-    "前置放大器",
-    "低频段前置低通滤波器",
-    "低频段第一混频器",
-    "高频段YTF滤波器",
-    "高频段混频器",
-    "时钟振荡器",
-    "时钟合成与同步网络",
-    "本振源（谐波发生器）",
-    "本振混频组件",
-    "校准源",
-    "存储器",
-    "校准信号开关",
-    "中频放大器",
-    "ADC",
-    "数字RBW",
-    "数字放大器",
-    "数字检波器",
-    "VBW滤波器",
-    "电源模块",
-]
+LABELS = list(MODULE_LABELS)
 
-# ------- 复制自 module_brb，但 rule weight 改为可调 --------
-def module_level_infer_param(features, sys_probs, rule_weights):
-    """
-    rule_weights: 长度 8，对应原 module_brb 中 8 条 BRBRule 的 weight
-    """
-    def normalize_feature(x, low, high):
-        if x <= low: return 0.0
-        if x >= high: return 1.0
-        return (x - low) / (high - low)
+# Module label v2 mapping for labels.json format
+_MODULE_V1_LOOKUP: Dict[str, str] = {}
+try:
+    from BRB.module_brb import MODULE_LABELS_V2, _MODULE_V1_TO_V2
+    for v1, v2 in _MODULE_V1_TO_V2.items():
+        _MODULE_V1_LOOKUP[v2] = v1
+    for v1 in MODULE_LABELS:
+        _MODULE_V1_LOOKUP[v1] = v1
+except ImportError:
+    pass
 
+
+def _normalize_feature(x, low, high):
+    if x <= low:
+        return 0.0
+    if x >= high:
+        return 1.0
+    return (x - low) / (high - low)
+
+
+def _aggregate_module_score(features):
+    """Compute module-level anomaly score from features (matches module_brb logic)."""
     md_step_raw = max(
-        features["step_score"],
+        features.get("step_score", 0.0),
         features.get("switch_step_err_max", 0.0),
         features.get("nonswitch_step_max", 0.0),
+        features.get("X7", 0.0),
     )
-    md_step   = normalize_feature(md_step_raw, 0.2, 1.5)
-    md_slope  = normalize_feature(abs(features["res_slope"]), 1e-12, 1e-10)
-    md_ripple = normalize_feature(features["ripple_var"], 0.001, 0.02)
-    md_df     = normalize_feature(abs(features["df"]), 1e6, 5e7)
-    md_viol   = normalize_feature(features["viol_rate"], 0.02, 0.2)
+    md_step = _normalize_feature(md_step_raw, 0.2, 1.5)
+    md_slope = _normalize_feature(abs(features.get("res_slope", 0.0)), 1e-12, 1e-10)
+    md_ripple = _normalize_feature(features.get("ripple_var", features.get("X6", 0.0)), 0.001, 0.02)
+    md_df = _normalize_feature(abs(features.get("df", 0.0)), 1e6, 5e7)
+    md_viol = _normalize_feature(features.get("viol_rate", features.get("X11", 0.0)), 0.02, 0.2)
     md_gain_bias = max(
-        normalize_feature(abs(features["bias"]), 0.1, 1.0),
-        normalize_feature(abs(features["gain"] - 1.0), 0.02, 0.2),
+        _normalize_feature(abs(features.get("bias", 0.0)), 0.1, 1.0),
+        _normalize_feature(abs(features.get("gain", 1.0) - 1.0), 0.02, 0.2),
     )
-    md = np.mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias])
+    return float(np.mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias]))
 
-    # 规则的 belief 与原 module_brb 相同，仅 weight 可调
+
+# ------- 可调参数的模块推理 --------
+def module_level_infer_param(features, sys_probs, rule_weights):
+    """
+    rule_weights: 长度 7，对应 module_brb 中 7 条 BRBRule 的 weight 系数
+    """
+    probs = sys_probs.get("probabilities", sys_probs)
+    ref_prior = probs.get("参考电平失准", 0.3)
+    amp_prior = probs.get("幅度失准", 0.3)
+    freq_prior = probs.get("频率失准", 0.3)
+
+    md = _aggregate_module_score(features)
+
     rules = [
-        (rule_weights[0] * sys_probs.get("参考电平失准", 0.3),
+        (rule_weights[0] * ref_prior,
          {"衰减器": 0.60, "校准源": 0.08, "存储器": 0.06, "校准信号开关": 0.16}),
-        (rule_weights[1] * sys_probs.get("幅度失准", 0.3),
-         {"前置放大器": 0.40, "中频放大器": 0.25, "数字放大器": 0.20, "衰减器": 0.10, "ADC": 0.05}),
-        (rule_weights[2] * sys_probs.get("频率失准", 0.3),
+        (rule_weights[1] * amp_prior,
+         {"中频放大器": 0.35, "数字放大器": 0.30, "衰减器": 0.20, "ADC": 0.15}),
+        (rule_weights[2] * freq_prior,
          {"时钟振荡器": 0.35, "时钟合成与同步网络": 0.35, "本振源（谐波发生器）": 0.15, "本振混频组件": 0.15}),
-        (rule_weights[3], {"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
-        (rule_weights[4], {"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
-        (rule_weights[5], {"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
+        (rule_weights[3] * freq_prior, {"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
+        (rule_weights[4] * freq_prior, {"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
+        (rule_weights[5] * amp_prior, {"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
         (rule_weights[6], {"电源模块": 1.0}),
     ]
 
     acts = []
     for w, bel in rules:
-        act = w * md  # 这里沿用 SimpleBRB 的“匹配度相乘”思路，简化为 w*md
+        act = w * md
         acts.append((act, bel))
     total = sum(a for a, _ in acts) + 1e-9
     out = {lab: 0.0 for lab in LABELS}
@@ -111,12 +118,13 @@ def module_level_infer_param(features, sys_probs, rule_weights):
         out[lab] = out[lab] / s
     return out
 
+
 # ------- 目标函数 -------
 def unsupervised_objective(weights, feats_rows, w_entropy=0.6, w_conf=0.4):
     probs = []
     for row in feats_rows:
         f = dict(row)
-        sys_p = system_level_infer(f)  # 使用固定系统层
+        sys_p = system_level_infer(f)
         mod_p = module_level_infer_param(f, sys_p, weights)
         probs.append([mod_p[lab] for lab in LABELS])
     probs = np.array(probs)
@@ -126,50 +134,44 @@ def unsupervised_objective(weights, feats_rows, w_entropy=0.6, w_conf=0.4):
     mean_top1 = float(np.nanmean(np.max(probs, axis=1)))
     return w_entropy * mean_ent + w_conf * (1.0 - mean_top1)
 
-def supervised_objective(weights, feats_rows, label_col):
+
+def supervised_objective(weights, feats_rows, label_indices):
+    """Supervised objective using module label indices."""
     probs = []
-    labels = []
     for row in feats_rows:
         f = dict(row)
         sys_p = system_level_infer(f)
         mod_p = module_level_infer_param(f, sys_p, weights)
         probs.append([mod_p[lab] for lab in LABELS])
-        labels.append(row[label_col])
     probs = np.array(probs)
-    y = np.array(labels)
-    # 仅保留标签在 LABELS 中的样本
-    mask = np.array([lab in LABELS for lab in y])
-    if not mask.any():
-        return 1e6
-    probs = probs[mask]
-    y = y[mask]
-    idx_map = {m: i for i, m in enumerate(LABELS)}
-    y_idx = np.array([idx_map[v] for v in y])
+    y_idx = np.array(label_indices)
     try:
         loss = log_loss(y_idx, probs, labels=list(range(len(LABELS))))
     except Exception:
         loss = 1.0 - accuracy_score(y_idx, np.argmax(probs, axis=1))
     return float(loss)
 
+
 # ------- CMA-ES 优化主流程 -------
-def optimize(feats_rows, supervised=False, label_col=None, maxiter=80, popsize=None, seed=42, sigma0=0.3):
-    # 初始权重 8 个，全为 0.5（可根据你原始权重设置 0.8/0.6/0.7/0.5/0.5/0.4/0.3/0.2）
-    x0 = np.array([0.8,0.6,0.7,0.5,0.5,0.4,0.3,0.2], dtype=float)
-    opts = {"seed": seed}
+def optimize(feats_rows, label_indices=None, maxiter=80, popsize=None, seed=42, sigma0=0.3):
+    # Initial weights: [ref, amp, freq, hf_filter, lf_filter, digital, power]
+    x0 = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15], dtype=float)
+    opts = {"seed": seed, "verbose": 1, "maxiter": maxiter}
     if popsize:
         opts["popsize"] = popsize
     es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
 
     best_x, best_obj = None, float("inf")
+    history = []
     it = 0
-    while not es.stop() and it < maxiter:
+    while not es.stop():
         sols = es.ask()
         objs = []
         for x in sols:
-            w = np.clip(x, 0.01, 3.0)  # 约束权重范围，避免负数
+            w = np.clip(x, 0.01, 3.0)
             try:
-                if supervised and label_col:
-                    obj = supervised_objective(w, feats_rows, label_col)
+                if label_indices is not None:
+                    obj = supervised_objective(w, feats_rows, label_indices)
                 else:
                     obj = unsupervised_objective(w, feats_rows)
             except Exception:
@@ -179,17 +181,20 @@ def optimize(feats_rows, supervised=False, label_col=None, maxiter=80, popsize=N
                 best_obj, best_x = obj, w.copy()
         es.tell(sols, objs)
         es.disp()
+        history.append({"generation": it, "best_obj": best_obj,
+                         "mean_obj": float(np.mean(objs))})
         it += 1
 
     if best_x is None:
         best_x = np.clip(es.result.xbest, 0.01, 3.0)
         best_obj = float(es.result.fbest)
 
-    print(f"[INFO] best_obj={best_obj:.6f}, best_weights={best_x}")
-    return best_x, best_obj
+    print(f"\n[INFO] best_obj={best_obj:.6f}, best_weights={best_x}")
+    return best_x, best_obj, history
+
 
 def _load_csv_rows(path: Path) -> List[Dict[str, object]]:
-    with path.open("r", encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         rows: List[Dict[str, object]] = []
         for row in reader:
@@ -206,54 +211,195 @@ def _load_csv_rows(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
+def _resolve_module_label(label_entry: dict) -> Optional[str]:
+    """Resolve module label from labels.json entry to MODULE_LABELS v1 name."""
+    mod = label_entry.get("module") or ""
+    if mod in LABELS:
+        return mod
+    mod_v2 = label_entry.get("module_v2") or ""
+    if mod_v2 in _MODULE_V1_LOOKUP:
+        return _MODULE_V1_LOOKUP[mod_v2]
+    if mod:
+        for v1_name in LABELS:
+            if v1_name in mod or mod in v1_name:
+                return v1_name
+    return None
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default=None, help="特征 CSV，列需含 gain,bias,comp,df,step_score,viol_rate,res_slope,ripple_var,switch_step_err_max,nonswitch_step_max")
-    ap.add_argument("--run_dir", default=None, help="输出目录 (包含 artifacts/features_detect.csv)")
-    ap.add_argument("--label_col", default=None, help="有监督时的标签列（模块中文名，见 LABELS）")
-    ap.add_argument("--supervised", action="store_true", help="开启有监督优化")
-    ap.add_argument("--maxiter", type=int, default=80)
-    ap.add_argument("--popsize", type=int, default=None)
+    ap = argparse.ArgumentParser(
+        description="CMA-ES optimization for BRB module rule weights")
+    ap.add_argument("--data_dir", default=None,
+                    help="数据目录 (包含 features_brb.csv 和 labels.json)")
+    ap.add_argument("--data", default=None, help="特征 CSV (旧格式)")
+    ap.add_argument("--output_dir", default=None, help="输出目录")
+    ap.add_argument("--label_col", default=None,
+                    help="有监督时的标签列名 (旧格式 CSV)")
+    ap.add_argument("--supervised", action="store_true",
+                    help="开启有监督优化")
+    ap.add_argument("--generations", "--maxiter", type=int, default=80,
+                    dest="maxiter")
+    ap.add_argument("--population", "--popsize", type=int, default=None,
+                    dest="popsize")
+    ap.add_argument("--n_jobs", type=int, default=1,
+                    help="并行度 (当前未使用)")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--sigma0", type=float, default=0.3)
     args = ap.parse_args()
 
     if cma is None:
-        print("[WARN] cma not installed; skipping optimization and saving default weights.")
-        best_w = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.3, 0.2], dtype=float)
-        out_path = "optimized_module_rule_weights.txt"
-        np.savetxt(out_path, best_w, fmt="%.6f")
-        print(f"[INFO] 默认权重已保存到 {out_path}")
+        print("[WARN] cma not installed. Install with: pip install cma")
+        print("[WARN] Saving default weights as fallback.")
+        best_w = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
+                          dtype=float)
+        out_dir = Path(args.output_dir) if args.output_dir else Path(".")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        result = {
+            "module_rule_weights": best_w.tolist(),
+            "objective": None,
+            "note": "Default weights (cma not installed)",
+        }
+        out_path = out_dir / "best_params.json"
+        out_path.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[INFO] Default params saved to {out_path}")
         return
 
-    if args.run_dir:
-        run_dir = Path(args.run_dir)
-        data_path = run_dir / "artifacts" / "features_detect.csv"
-    else:
-        data_path = Path(args.data) if args.data else None
-    if data_path is None or not data_path.exists():
-        raise FileNotFoundError("缺少特征 CSV，请传入 --data 或 --run_dir")
-    feats_rows = _load_csv_rows(data_path)
-    # 过滤掉不含必需特征的行
-    required = ["gain","bias","comp","df","step_score","viol_rate","res_slope","ripple_var","switch_step_err_max","nonswitch_step_max"]
-    for col in required:
-        if not feats_rows or col not in feats_rows[0]:
-            raise ValueError(f"缺少特征列: {col}")
+    # Load data
+    feats_rows: List[Dict] = []
+    label_indices: Optional[List[int]] = None
 
-    best_w, best_obj = optimize(
+    if args.data_dir:
+        data_dir = Path(args.data_dir)
+        features_path = data_dir / "features_brb.csv"
+        labels_path = data_dir / "labels.json"
+
+        if not features_path.exists():
+            raise FileNotFoundError(
+                f"features_brb.csv not found in {data_dir}")
+        if not labels_path.exists():
+            raise FileNotFoundError(
+                f"labels.json not found in {data_dir}")
+
+        feats_rows = _load_csv_rows(features_path)
+        labels_dict = json.loads(labels_path.read_text(encoding="utf-8"))
+
+        sample_feats: Dict[str, Dict] = {}
+        for row in feats_rows:
+            sid = row.get("sample_id", "")
+            if isinstance(sid, float):
+                sid = str(int(sid))
+            sample_feats[str(sid)] = row
+
+        if args.supervised:
+            idx_map = {m: i for i, m in enumerate(LABELS)}
+            filtered_rows: List[Dict] = []
+            filtered_indices: List[int] = []
+            for sid, label_entry in labels_dict.items():
+                if str(sid) not in sample_feats:
+                    continue
+                mod_name = _resolve_module_label(label_entry)
+                if mod_name is None or mod_name not in idx_map:
+                    continue
+                sys_class = label_entry.get("system_fault_class", "normal")
+                if sys_class == "normal":
+                    continue
+                filtered_rows.append(sample_feats[str(sid)])
+                filtered_indices.append(idx_map[mod_name])
+
+            if filtered_rows:
+                feats_rows = filtered_rows
+                label_indices = filtered_indices
+                print(f"[INFO] Supervised: {len(feats_rows)} samples "
+                      f"with module labels")
+                from collections import Counter
+                dist = Counter(label_indices)
+                for idx, count in sorted(dist.items()):
+                    print(f"  {LABELS[idx]}: {count}")
+            else:
+                print("[WARN] No valid module labels. "
+                      "Falling back to unsupervised.")
+                label_indices = None
+        else:
+            print(f"[INFO] Unsupervised: {len(feats_rows)} samples")
+
+    elif args.data:
+        data_path = Path(args.data)
+        if not data_path.exists():
+            raise FileNotFoundError(f"CSV not found: {data_path}")
+        feats_rows = _load_csv_rows(data_path)
+
+        if args.supervised and args.label_col:
+            idx_map = {m: i for i, m in enumerate(LABELS)}
+            filtered_rows = []
+            filtered_indices = []
+            for row in feats_rows:
+                label = row.get(args.label_col, "")
+                if label in idx_map:
+                    filtered_rows.append(row)
+                    filtered_indices.append(idx_map[label])
+            if filtered_rows:
+                feats_rows = filtered_rows
+                label_indices = filtered_indices
+            else:
+                print("[WARN] No valid labels. Falling back to unsupervised.")
+    else:
+        raise ValueError("Please provide --data_dir or --data")
+
+    print(f"\n[INFO] Starting CMA-ES optimization...")
+    print(f"  Samples: {len(feats_rows)}")
+    print(f"  Mode: {'supervised' if label_indices is not None else 'unsupervised'}")
+    print(f"  Max iterations: {args.maxiter}")
+    if args.popsize:
+        print(f"  Population size: {args.popsize}")
+
+    best_w, best_obj, history = optimize(
         feats_rows=feats_rows,
-        supervised=args.supervised,
-        label_col=args.label_col,
+        label_indices=label_indices,
         maxiter=args.maxiter,
         popsize=args.popsize,
         seed=args.seed,
         sigma0=args.sigma0,
     )
 
-    # 保存结果
-    out_path = "optimized_module_rule_weights.txt"
-    np.savetxt(out_path, best_w, fmt="%.6f")
-    print(f"[INFO] 最优权重已保存到 {out_path}")
+    # Save results
+    out_dir = Path(args.output_dir) if args.output_dir else Path(".")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    result = {
+        "module_rule_weights": best_w.tolist(),
+        "objective": float(best_obj),
+        "generations": len(history),
+        "mode": ("supervised" if label_indices is not None
+                 else "unsupervised"),
+        "n_samples": len(feats_rows),
+    }
+    params_path = out_dir / "best_params.json"
+    params_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\n[INFO] Best params saved to {params_path}")
+
+    if history:
+        log_path = out_dir / "optimization_log.csv"
+        with log_path.open("w", newline="") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=["generation", "best_obj", "mean_obj"])
+            writer.writeheader()
+            writer.writerows(history)
+        print(f"[INFO] Optimization log saved to {log_path}")
+
+    weights_path = out_dir / "optimized_module_rule_weights.txt"
+    np.savetxt(str(weights_path), best_w, fmt="%.6f")
+    print(f"[INFO] Weights saved to {weights_path}")
+
+    print(f"\n{'='*50}")
+    print("OPTIMIZATION RESULTS")
+    print(f"{'='*50}")
+    for i, w in enumerate(best_w):
+        print(f"  Rule {i}: weight = {w:.4f}")
+    print(f"  Objective: {best_obj:.6f}")
+    print(f"{'='*50}")
+
 
 if __name__ == "__main__":
     main()

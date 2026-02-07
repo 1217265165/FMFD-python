@@ -43,6 +43,8 @@ Output/compare_methods_strict/
 Output/compare_methods_fix/
 Output/compare_methods_scan/
 Output/compare_methods_clean/
+Output/compare_methods_optimized/
+Output/optimization_results/
 Output/baseline_audit/
 Output/runs/
 Output/diagnosis_test/

@@ -74,6 +74,30 @@ if AC_COUPLED:
     DISABLED_MODULES.append("衰减器")
 DISABLED_MODULES = list(dict.fromkeys(DISABLED_MODULES))
 
+# Default BRB rule weights; can be overridden via set_module_rule_weights()
+_DEFAULT_RULE_WEIGHTS = [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15]
+_module_rule_weights = list(_DEFAULT_RULE_WEIGHTS)
+
+
+def set_module_rule_weights(weights):
+    """Override BRB module rule weights (from CMA-ES optimization).
+    
+    Parameters
+    ----------
+    weights : list of 7 floats
+        Rule weights for: [ref_rule, amp_rule, freq_rule, 
+        hf_filter_rule, lf_filter_rule, digital_rule, power_rule]
+    """
+    global _module_rule_weights
+    if len(weights) != 7:
+        raise ValueError(f"Expected 7 rule weights, got {len(weights)}")
+    _module_rule_weights = list(weights)
+
+
+def get_module_rule_weights():
+    """Return current BRB module rule weights."""
+    return list(_module_rule_weights)
+
 
 def _filter_belief(belief: Dict[str, float]) -> Dict[str, float]:
     if not DISABLED_MODULES:
@@ -356,27 +380,25 @@ def module_level_infer(
     # 使用特征分流计算模块层分数
     md = _aggregate_module_score(features, anomaly_type)
 
-    # Rules updated: 前置放大器 removed from amplitude rules in single-band mode
-    # 降低电源模块主导性（任务书 §5.2）
+    # Rules with tunable weights from _module_rule_weights (optimizable via CMA-ES)
+    rw = _module_rule_weights
     rules = [
         BRBRule(
-            weight=0.8 * ref_prior,
+            weight=rw[0] * ref_prior,
             belief={"衰减器": 0.60, "校准源": 0.08, "存储器": 0.06, "校准信号开关": 0.16},
         ),
-        # Amplitude rules: 前置放大器 belief redistributed to other modules
         BRBRule(
-            weight=0.6 * amp_prior,
+            weight=rw[1] * amp_prior,
             belief={"中频放大器": 0.35, "数字放大器": 0.30, "衰减器": 0.20, "ADC": 0.15},
         ),
         BRBRule(
-            weight=0.7 * freq_prior,
+            weight=rw[2] * freq_prior,
             belief={"时钟振荡器": 0.35, "时钟合成与同步网络": 0.35, "本振源（谐波发生器）": 0.15, "本振混频组件": 0.15},
         ),
-        BRBRule(weight=0.5 * freq_prior, belief={"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
-        BRBRule(weight=0.5 * freq_prior, belief={"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
-        BRBRule(weight=0.4 * amp_prior, belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-        # 电源模块权重降低（从 0.3 降到 0.15）
-        BRBRule(weight=0.15, belief={"电源模块": 1.0}),
+        BRBRule(weight=rw[3] * freq_prior, belief={"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
+        BRBRule(weight=rw[4] * freq_prior, belief={"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
+        BRBRule(weight=rw[5] * amp_prior, belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
+        BRBRule(weight=rw[6], belief={"电源模块": 1.0}),
     ]
 
     rules = _sanitize_rules(rules)

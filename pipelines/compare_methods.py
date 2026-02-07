@@ -1154,6 +1154,8 @@ def main():
                        help='Alias for --data_dir')
     parser.add_argument('--manifest', '-m', default=None,
                        help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
+    parser.add_argument('--load_params', type=str, default=None,
+                       help='Path to best_params.json from optimize_brb.py (optimized BRB module weights)')
     args = parser.parse_args()
     
     # Smart path correction: prevent user from pointing to raw_curves subdirectory
@@ -1167,6 +1169,23 @@ def main():
     output_dir = Path(args.output_dir) if Path(args.output_dir).is_absolute() else PROJECT_ROOT / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     build_run_snapshot(output_dir)
+
+    # Load optimized BRB parameters if provided
+    if args.load_params:
+        params_path = Path(args.load_params) if Path(args.load_params).is_absolute() else PROJECT_ROOT / args.load_params
+        if params_path.exists():
+            try:
+                params_data = json.loads(params_path.read_text(encoding="utf-8"))
+                if "module_rule_weights" in params_data:
+                    from BRB.module_brb import set_module_rule_weights
+                    weights = params_data["module_rule_weights"]
+                    set_module_rule_weights(weights)
+                    print(f"[INFO] Loaded optimized BRB weights from {params_path}")
+                    print(f"[INFO] Weights: {weights}")
+            except Exception as e:
+                print(f"[WARN] Failed to load params from {params_path}: {e}")
+        else:
+            print(f"[WARN] Params file not found: {params_path}")
 
     print(f"[INFO] project_root={PROJECT_ROOT}")
     print(f"[INFO] single_band={SINGLE_BAND}")
