@@ -512,6 +512,9 @@ class OursAdapter(MethodAdapter):
         
         Stage 1: Train RandomForest for system-level classification
         This achieves high accuracy (~90%+) for system fault type identification.
+        
+        After training, syncs the fitted RF classifier to all submodules that
+        have an 'rf' attribute, ensuring consistent inference across components.
         """
         # V-E.3: Debug logging to confirm fit is called
         print(f">> OursAdapter.fit() called! RF Training Started...")
@@ -526,6 +529,23 @@ class OursAdapter(MethodAdapter):
         
         # V-E.3: Confirm training complete
         print(f">> OursAdapter.fit() complete! is_fitted={self.is_fitted}")
+        
+        # [CRITICAL] Sync trained RF classifier to all submodules
+        # Traverse all attributes; any object with an 'rf' attribute gets the trained classifier
+        synced_count = 0
+        for attr_name, attr_value in self.__dict__.items():
+            if attr_name in ['classifier', 'rf']:
+                continue  # Skip the classifier itself
+
+            if hasattr(attr_value, 'rf'):
+                print(f">> [SYNC] Injecting trained RF into submodule: '{attr_name}'")
+                attr_value.rf = self.classifier
+                synced_count += 1
+
+        if synced_count == 0:
+            print(">> [SYNC] No submodules found to sync RF (this is OK if predict() uses self.classifier directly).")
+        else:
+            print(f">> [SYNC] Complete. Synced to {synced_count} modules.")
     
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
         """Predict using two-stage hybrid approach.

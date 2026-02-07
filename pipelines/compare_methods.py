@@ -1121,6 +1121,10 @@ def main():
     parser.add_argument('--val_size', type=float, default=SPLIT[1], help='Validation set ratio')
     parser.add_argument('--small_sample', action='store_true', 
                        help='Run small-sample adaptability experiments')
+    parser.add_argument('--methods', type=str, default='all',
+                       help='Comma-separated list of methods to run (e.g., "ours,hcf")')
+    parser.add_argument('--input_dir', type=str, dest='data_dir',
+                       help='Alias for --data_dir')
     parser.add_argument('--manifest', '-m', default=None,
                        help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
     args = parser.parse_args()
@@ -1369,6 +1373,12 @@ def main():
         DBRBAdapter(),
         AIBRBAdapter(),
     ]
+    
+    # Filter methods based on --methods argument
+    if args.methods != 'all':
+        method_list = [m.strip() for m in args.methods.split(',')]
+        methods = [m for m in methods if m.name in method_list]
+        print(f"[INFO] Running selected methods: {[m.name for m in methods]}")
     
     # Evaluate all methods
     all_results = []
