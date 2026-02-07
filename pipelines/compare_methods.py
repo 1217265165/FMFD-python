@@ -987,7 +987,12 @@ def evaluate_method(
     # Fit
     start_fit = time.time()
     meta_train = {'feature_names': feature_names}
+    
+    # V-E.3: Force training with explicit logging
+    print(f"[FORCE] Training {method.name} with {len(X_train)} samples...")
     method.fit(X_train, y_sys_train, y_mod_train, meta_train)
+    print(f"[FORCE] Training {method.name} complete in {time.time() - start_fit:.2f}s")
+    
     fit_time = time.time() - start_fit
     
     # Predict

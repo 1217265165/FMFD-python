@@ -51,3 +51,5 @@ Output/*.json
 *.tmp
 *.log
 optimized_module_rule_weights.txt
+tests/output/
+__pycache__/

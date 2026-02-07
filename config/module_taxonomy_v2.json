@@ -1,0 +1,203 @@
+{
+  "_version": "2.0",
+  "_description": "模块分类体系 - 基于映射.md的物理模块定义",
+  "_last_updated": "2026-02-06",
+
+  "BOARD_HIERARCHY": {
+    "RF_BOARD": {
+      "name_cn": "RF板",
+      "modules": [
+        "[RF板][RF域] AC耦合入口（隔直电容/高通网络）",
+        "[RF板][RF域] 输入连接/匹配/保护（连接器、过渡、限幅/ESD）",
+        "[RF板][RF域] 输入衰减器组（步进衰减器、PIN衰减器）",
+        "[RF板][RF域] 低频通路固定滤波/抑制网络",
+        "[RF板][RF域] 高频通路固定滤波/抑制网络",
+        "[RF板][混频域] Mixer1（第一混频器）",
+        "[RF板][LO注入] LO1注入网络/耦合器"
+      ]
+    },
+    "DIGITAL_IF_BOARD": {
+      "name_cn": "数字中频板",
+      "modules": [
+        "[数字中频板][IF域] 中频放大/衰减链",
+        "[数字中频板][IF域] RBW数字滤波器",
+        "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
+        "[数字中频板][采样域] ADC采样时钟",
+        "[数字中频板][DSP域] 数字增益/偏置校准",
+        "[数字中频板][DSP域] 中频窗函数与加权",
+        "[数字中频板][DSP域] 数字检波与平均",
+        "[数字中频板][DSP域] 峰值搜索逻辑"
+      ]
+    },
+    "LO_CLOCK_BOARD": {
+      "name_cn": "LO/时钟板",
+      "modules": [
+        "[LO/时钟板][LO1] 合成链（PLL、VCO、分频倍频）",
+        "[LO/时钟板][LO2] 合成链（可选）",
+        "[时钟板][参考域] 10MHz基准OCXO",
+        "[时钟板][参考分配] 参考时钟分配网络"
+      ]
+    },
+    "CALIBRATION_LINK": {
+      "name_cn": "校准链路",
+      "modules": [
+        "[校准链路][校准源] 50Ω校准信号源",
+        "[校准链路][校准路径开关/耦合] 校准信号切换开关",
+        "[校准链路][校准表/存储] 校准系数存储器"
+      ]
+    },
+    "POWER_BOARD": {
+      "name_cn": "电源板",
+      "modules": [
+        "[电源板] 电源管理模块"
+      ]
+    }
+  },
+
+  "MODULE_ALIASES": {
+    "ac_coupling": "[RF板][RF域] AC耦合入口（隔直电容/高通网络）",
+    "input_connector": "[RF板][RF域] 输入连接/匹配/保护（连接器、过渡、限幅/ESD）",
+    "step_attenuator": "[RF板][RF域] 输入衰减器组（步进衰减器、PIN衰减器）",
+    "lpf_low_band": "[RF板][RF域] 低频通路固定滤波/抑制网络",
+    "lpf_high_band": "[RF板][RF域] 高频通路固定滤波/抑制网络",
+    "mixer1": "[RF板][混频域] Mixer1（第一混频器）",
+    "lo1_inject": "[RF板][LO注入] LO1注入网络/耦合器",
+    
+    "if_amp_chain": "[数字中频板][IF域] 中频放大/衰减链",
+    "rbw_filter": "[数字中频板][IF域] RBW数字滤波器",
+    "adc_module": "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
+    "adc_clock": "[数字中频板][采样域] ADC采样时钟",
+    "dsp_gain_cal": "[数字中频板][DSP域] 数字增益/偏置校准",
+    "dsp_window": "[数字中频板][DSP域] 中频窗函数与加权",
+    "dsp_detector": "[数字中频板][DSP域] 数字检波与平均",
+    "peak_search": "[数字中频板][DSP域] 峰值搜索逻辑",
+    
+    "lo1_synth": "[LO/时钟板][LO1] 合成链（PLL、VCO、分频倍频）",
+    "lo2_synth": "[LO/时钟板][LO2] 合成链（可选）",
+    "ocxo_ref": "[时钟板][参考域] 10MHz基准OCXO",
+    "ref_distribution": "[时钟板][参考分配] 参考时钟分配网络",
+    
+    "cal_source": "[校准链路][校准源] 50Ω校准信号源",
+    "cal_switch": "[校准链路][校准路径开关/耦合] 校准信号切换开关",
+    "cal_storage": "[校准链路][校准表/存储] 校准系数存储器",
+    
+    "power_management": "[电源板] 电源管理模块"
+  },
+
+  "FAULT_TYPE_TO_MODULES": {
+    "amp_error": {
+      "primary": [
+        "ac_coupling", "input_connector", "step_attenuator", 
+        "lpf_low_band", "lpf_high_band", "mixer1",
+        "if_amp_chain", "dsp_gain_cal", "dsp_detector"
+      ],
+      "secondary": [
+        "adc_module", "power_management"
+      ]
+    },
+    "freq_error": {
+      "primary": [
+        "lo1_synth", "lo2_synth", "ocxo_ref", "ref_distribution",
+        "adc_clock", "peak_search"
+      ],
+      "secondary": [
+        "mixer1"
+      ]
+    },
+    "ref_error": {
+      "primary": [
+        "cal_source", "cal_switch", "cal_storage",
+        "step_attenuator", "dsp_gain_cal"
+      ],
+      "secondary": [
+        "adc_module"
+      ]
+    }
+  },
+
+  "CURVE_SIGNATURES": {
+    "low_freq_rolloff": {
+      "description": "低频端响应塌陷，高通滤波器效应",
+      "modules": ["ac_coupling"],
+      "fault_type": "amp_error"
+    },
+    "periodic_ripple": {
+      "description": "周期性纹波，阻抗失配",
+      "modules": ["input_connector"],
+      "fault_type": "amp_error"
+    },
+    "global_shift": {
+      "description": "整体偏移，增益/衰减异常",
+      "modules": ["step_attenuator", "if_amp_chain", "dsp_gain_cal"],
+      "fault_type": "amp_error"
+    },
+    "band_insertion_loss": {
+      "description": "频段插损增大",
+      "modules": ["lpf_low_band", "lpf_high_band"],
+      "fault_type": "amp_error"
+    },
+    "linear_slope": {
+      "description": "线性斜率变化",
+      "modules": ["mixer1"],
+      "fault_type": "amp_error"
+    },
+    "peak_jitter": {
+      "description": "峰值频率抖动",
+      "modules": ["lo1_synth", "ocxo_ref"],
+      "fault_type": "freq_error"
+    },
+    "blackout_band": {
+      "description": "频段黑洞/置零",
+      "modules": ["lo1_synth", "lo2_synth"],
+      "fault_type": "freq_error"
+    },
+    "sawtooth_quant": {
+      "description": "锯齿形量化噪声",
+      "modules": ["adc_module"],
+      "fault_type": "ref_error"
+    },
+    "smooth_shift": {
+      "description": "平滑偏移",
+      "modules": ["if_amp_chain", "cal_source"],
+      "fault_type": "amp_error"
+    },
+    "isolated_spike": {
+      "description": "孤立尖峰",
+      "modules": ["peak_search"],
+      "fault_type": "freq_error"
+    },
+    "dense_spikes": {
+      "description": "密集尖峰",
+      "modules": ["peak_search"],
+      "fault_type": "freq_error"
+    },
+    "high_diff_variance": {
+      "description": "高差分方差",
+      "modules": ["power_management"],
+      "fault_type": "amp_error"
+    }
+  },
+
+  "V1_TO_V2_MAPPING": {
+    "衰减器": "[RF板][RF域] 输入衰减器组（步进衰减器、PIN衰减器）",
+    "前置放大器": "前置放大器",
+    "低频段前置低通滤波器": "[RF板][RF域] 低频通路固定滤波/抑制网络",
+    "低频段第一混频器": "[RF板][混频域] Mixer1（第一混频器）",
+    "高频段YTF滤波器": "[RF板][RF域] 高频通路固定滤波/抑制网络",
+    "高频段混频器": "[RF板][混频域] Mixer2（第二混频器）",
+    "时钟振荡器": "[时钟板][参考域] 10MHz基准OCXO",
+    "时钟合成与同步网络": "[时钟板][参考分配] 参考时钟分配网络",
+    "本振源（谐波发生器）": "[LO/时钟板][LO1] 合成链（PLL、VCO、分频倍频）",
+    "本振混频组件": "[RF板][LO注入] LO1注入网络/耦合器",
+    "校准源": "[校准链路][校准源] 50Ω校准信号源",
+    "存储器": "[校准链路][校准表/存储] 校准系数存储器",
+    "校准信号开关": "[校准链路][校准路径开关/耦合] 校准信号切换开关",
+    "中频放大器": "[数字中频板][IF域] 中频放大/衰减链",
+    "ADC": "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
+    "数字RBW": "[数字中频板][IF域] RBW数字滤波器",
+    "数字放大器": "[数字中频板][DSP域] 数字增益/偏置校准",
+    "数字检波器": "[数字中频板][DSP域] 数字检波与平均",
+    "VBW滤波器": "[数字中频板][DSP域] 中频窗函数与加权",
+    "电源模块": "[电源板] 电源管理模块"
+  }
+}
