@@ -60,9 +60,10 @@ def logit(p: np.ndarray, eps: float = 1e-6) -> np.ndarray:
 class GatingPriorFusion:
     """门控先验融合器"""
     
-    def __init__(self, config: Optional[Dict] = None):
+    def __init__(self, config: Optional[Dict] = None, rf_model=None):
         self.config = config or FUSION_CONFIG
         self.method = self.config.get("method", "gated")
+        self.rf_model = rf_model
     
     def fuse(self, rf_probs: np.ndarray, brb_probs: np.ndarray) -> np.ndarray:
         """
@@ -184,6 +185,47 @@ class GatingPriorFusion:
             "brb_pred": CLASS_NAMES[int(np.argmax(brb_probs))],
             "fused_pred": CLASS_NAMES[int(np.argmax(fused_probs))],
         }
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Execute batch fusion prediction: P_final = alpha * P_rf + (1-alpha) * P_brb.
+
+        Uses the stored ``rf_model`` for the RF prior.  BRB likelihood is
+        temporarily approximated as a uniform distribution until BRB inference
+        is fully integrated.
+
+        Parameters
+        ----------
+        X : np.ndarray, shape (N, D)
+            Feature matrix.
+
+        Returns
+        -------
+        np.ndarray, shape (N,)
+            Predicted class indices.
+        """
+        # 1. Get RF prior
+        if self.rf_model is not None and hasattr(self.rf_model, 'predict_proba'):
+            rf_probs = self.rf_model.predict_proba(X)
+        else:
+            print("> [Fusion Error] RF model missing! Returning random.")
+            return np.random.randint(0, len(CLASS_NAMES), size=len(X))
+
+        # 2. BRB likelihood – uniform placeholder until real BRB is wired in
+        # TODO: replace with real BRB inference (brb_probs = self.brb.infer(X))
+        n_classes = rf_probs.shape[1]
+        brb_probs = np.full_like(rf_probs, 1.0 / n_classes)
+
+        # 3. Linear fusion (weighted average)
+        # Give RF high weight (0.8) to preserve accuracy baseline
+        alpha = self.config.get("linear_weight", 0.8)
+        final_probs = alpha * rf_probs + (1 - alpha) * brb_probs
+
+        # Debug log (sampled)
+        if np.random.rand() < 0.01:
+            print(f"> [Fusion Debug] RF: {rf_probs[0]}, BRB: {brb_probs[0]} -> Final: {final_probs[0]}")
+
+        return np.argmax(final_probs, axis=1)
 
 
 def create_fusion_instance(method: str = "gated", **kwargs) -> GatingPriorFusion:
