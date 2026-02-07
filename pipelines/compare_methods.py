@@ -1071,11 +1071,12 @@ def evaluate_method(
                 # module should be considered equivalent (e.g., ADC=14 and
                 # 数字检波器=17 both map to [数字中频板][ADC])
                 from tools.label_mapping import module_v2_from_v1
-                gt_v1_name = MODULE_LABELS[gt_idx] if gt_idx < len(MODULE_LABELS) else ""
+                n_mods = len(MODULE_LABELS)
+                gt_v1_name = MODULE_LABELS[gt_idx] if gt_idx < n_mods else ""
                 gt_v2 = module_v2_from_v1(gt_v1_name)
                 
-                pred_v2_top1 = module_v2_from_v1(MODULE_LABELS[top3_indices[0]]) if top3_indices[0] < len(MODULE_LABELS) else ""
-                pred_v2_top3 = [module_v2_from_v1(MODULE_LABELS[j]) if j < len(MODULE_LABELS) else "" for j in top3_indices]
+                pred_v2_top1 = module_v2_from_v1(MODULE_LABELS[top3_indices[0]]) if top3_indices[0] < n_mods else ""
+                pred_v2_top3 = [module_v2_from_v1(MODULE_LABELS[j]) if j < n_mods else "" for j in top3_indices]
                 
                 if gt_v2 == pred_v2_top1:
                     n_correct_top1 += 1

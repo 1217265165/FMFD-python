@@ -788,8 +788,7 @@ def hierarchical_module_infer(
     filtered_probs = dict(FAULT_MODULE_PRIORS.get(fault_type, {}))
 
     # Feature-based adjustment: use discriminative features to shift priors
-    # Calibrated from training data feature distributions per V2 module
-    _nf = normalize_feature
+    # Thresholds calibrated from training data feature distributions per V2 module
     if fault_type == "amp_error":
         # Key discriminating features (from data analysis):
         # X13: Filter=1.68 >> ADC=0.66 >> Power=0.38, Mixer/IF/DSP=0
