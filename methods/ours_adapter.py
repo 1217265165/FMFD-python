@@ -513,12 +513,19 @@ class OursAdapter(MethodAdapter):
         Stage 1: Train RandomForest for system-level classification
         This achieves high accuracy (~90%+) for system fault type identification.
         """
+        # V-E.3: Debug logging to confirm fit is called
+        print(f">> OursAdapter.fit() called! RF Training Started...")
+        print(f">> Training samples: {len(X_train)}, Classes: {np.unique(y_sys_train)}")
+        
         if meta and 'feature_names' in meta:
             self.feature_names = meta['feature_names']
         
         # Train system-level classifier
         self.classifier.fit(X_train, y_sys_train)
         self.is_fitted = True
+        
+        # V-E.3: Confirm training complete
+        print(f">> OursAdapter.fit() complete! is_fitted={self.is_fitted}")
     
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
         """Predict using two-stage hybrid approach.
