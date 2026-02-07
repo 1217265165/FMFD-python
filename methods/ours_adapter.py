@@ -628,22 +628,29 @@ class OursAdapter(MethodAdapter):
             # Module probabilities
             mod_probs_dict = {m["name"]: m["prob"] for m in result["module_topk"]}
             
-            # Convert V2 module names to indices using MODULE_LABELS_V2
-            from BRB.module_brb import MODULE_LABELS_V2
+            # Convert V2 module names to V1 indices for storage
+            from tools.label_mapping import module_v2_from_v1
+            
+            # Build V2→V1 index mapping (one V2 may map to multiple V1)
+            v2_to_v1_indices = {}
+            for v1_idx, v1_name in enumerate(MODULE_LABELS):
+                v2_name = module_v2_from_v1(v1_name)
+                if v2_name not in v2_to_v1_indices:
+                    v2_to_v1_indices[v2_name] = []
+                v2_to_v1_indices[v2_name].append(v1_idx)
             
             for mod_name, prob in mod_probs_dict.items():
                 try:
-                    # Find index in MODULE_LABELS_V2
-                    if mod_name in MODULE_LABELS_V2:
-                        mod_idx = MODULE_LABELS_V2.index(mod_name)
-                        if 0 <= mod_idx < len(MODULE_LABELS):
-                            mod_proba[i, mod_idx] = prob
+                    # Direct V2→V1 mapping (distribute equally to all V1 aliases)
+                    if mod_name in v2_to_v1_indices:
+                        for v1_idx in v2_to_v1_indices[mod_name]:
+                            mod_proba[i, v1_idx] = prob
                     else:
                         # Try partial matching
-                        for idx, v2_name in enumerate(MODULE_LABELS_V2):
+                        for v2_name, v1_indices in v2_to_v1_indices.items():
                             if mod_name in v2_name or v2_name in mod_name:
-                                if idx < len(MODULE_LABELS):
-                                    mod_proba[i, idx] = prob
+                                for v1_idx in v1_indices:
+                                    mod_proba[i, v1_idx] = prob
                                 break
                 except (ValueError, IndexError):
                     continue

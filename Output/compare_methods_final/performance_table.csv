@@ -1,0 +1,2 @@
+method,sys_accuracy,sys_macro_f1,mod_top1_accuracy,mod_top3_accuracy
+ours,0.9875,0.9874921826141339,0.23333333333333334,0.75

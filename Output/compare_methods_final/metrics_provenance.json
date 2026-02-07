@@ -1,0 +1,22 @@
+{
+  "data_dir": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum",
+  "output_dir": "/home/runner/work/FMFD-python/FMFD-python/Output/compare_methods_final",
+  "manifest_path": null,
+  "n_eval": 80,
+  "n_train": 240,
+  "seed": 2025,
+  "sample_ids_first10": [
+    "sim_00000",
+    "sim_00001",
+    "sim_00002",
+    "sim_00003",
+    "sim_00004",
+    "sim_00005",
+    "sim_00006",
+    "sim_00007",
+    "sim_00008",
+    "sim_00009"
+  ],
+  "labels_path": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/labels.json",
+  "features_path": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/features_brb.csv"
+}
