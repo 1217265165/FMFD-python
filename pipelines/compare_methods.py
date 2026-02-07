@@ -565,6 +565,32 @@ def prepare_dataset(
     if y_mod is not None:
         print(f"Module labels available: {np.sum(y_mod >= 0)} samples")
     
+    # --- Feature-Label Correlation Scan: detect high-correlation leakage ---
+    corr_values = np.array([
+        abs(np.corrcoef(X[:, j], y_sys)[0, 1]) if np.std(X[:, j]) > 1e-12 else 0.0
+        for j in range(X.shape[1])
+    ])
+    sorted_idx = np.argsort(corr_values)[::-1]
+    print("\n" + "=" * 50)
+    print("LEAKAGE SCAN: Top 15 Features Correlated with Label")
+    print("=" * 50)
+    for rank, idx in enumerate(sorted_idx[:15]):
+        print(f"  {rank+1:2d}. {feature_names[idx]:30s}  corr={corr_values[idx]:.4f}")
+    print("=" * 50)
+
+    CORR_THRESHOLD = 0.95
+    leak_by_corr = [feature_names[j] for j in range(X.shape[1]) if corr_values[j] > CORR_THRESHOLD]
+    if leak_by_corr:
+        print(f"[CRITICAL] Auto-removing {len(leak_by_corr)} features with corr > {CORR_THRESHOLD}: {leak_by_corr}")
+        valid_indices = [j for j in range(X.shape[1]) if corr_values[j] <= CORR_THRESHOLD]
+        feature_names = [feature_names[j] for j in valid_indices]
+        X = X[:, valid_indices]
+        leak_columns = leak_columns + leak_by_corr
+        print(f"  Feature matrix after cleaning: {X.shape}")
+    else:
+        print("[OK] No high-correlation leakage features detected.")
+    print()
+    
     return (
         X,
         y_sys,

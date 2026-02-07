@@ -1,0 +1,2 @@
+method,sys_accuracy,sys_macro_f1,mod_top1_accuracy,mod_top3_accuracy,fit_time_sec,infer_ms_per_sample,n_rules,n_params,n_features_used
+ours,0.9,0.8961751662971176,0.15,0.45,0.12063407897949219,7.478228211402893,48,68,22
