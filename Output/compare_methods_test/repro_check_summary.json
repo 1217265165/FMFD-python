@@ -1,0 +1,39 @@
+{
+  "data_dir": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum",
+  "features_rows": 400,
+  "labels_count": 400,
+  "raw_curves_count": 0,
+  "missing_in_features": [],
+  "missing_in_labels": [],
+  "missing_in_features_count": 0,
+  "missing_in_labels_count": 0,
+  "label_distribution": {
+    "正常": 100,
+    "幅度失准": 100,
+    "频率失准": 100,
+    "参考电平失准": 100
+  },
+  "class_index_map": {
+    "0": "正常",
+    "1": "幅度失准",
+    "2": "频率失准",
+    "3": "参考电平失准"
+  },
+  "feature_integrity_report": "/home/runner/work/FMFD-python/FMFD-python/Output/compare_methods_test/feature_integrity_report.json",
+  "best_params": {
+    "path": "/home/runner/work/FMFD-python/FMFD-python/Output/sim_spectrum/best_params.json",
+    "exists": false,
+    "sha256": null
+  },
+  "single_band": true,
+  "disable_preamp": true,
+  "seed": 2025,
+  "splits": {
+    "train_count": 240,
+    "val_count": 80,
+    "test_count": 80,
+    "train_hash": "35cc508be8b35d3fa3287600f9f827fb78f816287b460d7b2db19452cb980f66",
+    "val_hash": "4c989cc4e2c86623476f852e40077c6bf4b5566f1736d5b8a88e2921bfab6aec",
+    "test_hash": "36b510c9293cc96ccf5aefecde13d62288efc6ef9427650bd942f259e6509d27"
+  }
+}
