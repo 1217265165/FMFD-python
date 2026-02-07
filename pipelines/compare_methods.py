@@ -75,8 +75,8 @@ except ImportError:
 # Unified system label order (Normal, Amp, Freq, Ref)
 SYS_LABEL_ORDER = ['正常', '幅度失准', '频率失准', '参考电平失准']
 
-LEAK_PREFIXES = ("sys_", "label", "target", "gt_", "y_", "truth", "class_")
-LEAK_SUBSTRINGS = ("label", "target", "truth")
+LEAK_PREFIXES = ("sys_", "label", "target", "gt_", "y_", "truth", "class_", "mod_", "prob_", "pred_")
+LEAK_SUBSTRINGS = ("label", "target", "truth", "_pred", "_prob")
 
 EXPECTED_FEATURES_DIR = PROJECT_ROOT / "config" / "expected_features"
 
@@ -525,6 +525,7 @@ def prepare_dataset(
     if leak_columns and strict_leakage:
         raise LeakageError(leak_columns)
     if leak_columns:
+        print(f"[WARN] Detected {len(leak_columns)} leakage columns (auto-removed): {leak_columns[:10]}{'...' if len(leak_columns) > 10 else ''}")
         for feats in features_dict.values():
             for col in leak_columns:
                 feats.pop(col, None)
@@ -1174,7 +1175,7 @@ def main():
         ) = prepare_dataset(
             data_dir,
             use_pool_features=True,
-            strict_leakage=True,
+            strict_leakage=False,
         )
     except LeakageError as exc:
         audit_info['leakage_detected'] = True
@@ -1182,7 +1183,7 @@ def main():
         write_eval_audit(output_dir, audit_info)
         raise SystemExit(1) from exc
     else:
-        audit_info['leakage_detected'] = False
+        audit_info['leakage_detected'] = bool(leak_columns)
         audit_info['leakage_columns'] = leak_columns
     
     # P0.2: Filter by manifest if provided
