@@ -558,11 +558,17 @@ class OursAdapter(MethodAdapter):
         Stage 2: BRB for module-level diagnosis (interpretable)
         
         Uses the unified entry infer_system_and_modules() for consistency.
-        Falls back to direct RF prediction if the fusion engine is unavailable,
-        ensuring accuracy never degrades below RF baseline (~85%+).
+        Results always come from the fusion pipeline (RF prior + BRB),
+        never from direct RF output alone.
         """
         if not self.is_fitted:
             raise RuntimeError("Model not fitted. Call fit() before predict().")
+        
+        # [Architecture Guard] Ensure fusion engine exists before prediction
+        if self.fusion_engine is None:
+            print(">> [WARNING] Fusion Engine missing in predict! Re-instantiating on the fly...")
+            gating_config = _load_gating_prior_config()
+            self.fusion_engine = GatingPriorFusion(gating_config)
         
         n_test = len(X_test)
         n_sys_classes = 4  # Normal, Amp, Freq, Ref
@@ -578,11 +584,13 @@ class OursAdapter(MethodAdapter):
 
         start_time = time.time()
         
-        # Process each sample using unified entry
+        # Process each sample using unified fusion entry
         for i in range(n_test):
             features = self._array_to_dict(X_test[i])
             
-            # Use unified entry with the trained RF classifier
+            # [CRITICAL] Always go through the fusion pipeline.
+            # RF serves as gating prior, BRB provides interpretable inference.
+            # Result = Fuse(P_rf, P_brb), never raw RF output.
             result = infer_system_and_modules(
                 features,
                 use_gating=True,
@@ -590,27 +598,12 @@ class OursAdapter(MethodAdapter):
                 allow_fallback=True,
             )
             
-            # [CRITICAL] Check if fusion actually used the RF.
-            # If gating fell back to BRB-only, override with direct RF prediction
-            # so accuracy floor is RF baseline (~85%+), not random (~25%).
-            gating_status = result.get("debug", {}).get("gating_status", "")
-            if gating_status == "fallback_brb_only":
-                # Fusion engine failed – fall back to direct RF prediction
-                if i == 0:
-                    print(">> [WARNING] Fusion engine fallback detected, using direct RF prediction.")
-                rf_proba = self.classifier.predict_proba(X_test[i].reshape(1, -1))[0]
-                rf_classes = self.classifier.classes_
-                for ci, cls in enumerate(rf_classes):
-                    cls_idx = int(cls) if isinstance(cls, (int, np.integer)) else ci
-                    if 0 <= cls_idx < n_sys_classes:
-                        sys_proba[i, cls_idx] = rf_proba[ci]
-            else:
-                # Extract system probabilities (order: normal, amp_error, freq_error, ref_error)
-                sys_probs = result["system_probs"]
-                sys_proba[i, 0] = sys_probs.get("normal", 0.0)
-                sys_proba[i, 1] = sys_probs.get("amp_error", 0.0)
-                sys_proba[i, 2] = sys_probs.get("freq_error", 0.0)
-                sys_proba[i, 3] = sys_probs.get("ref_error", 0.0)
+            # Extract system probabilities (order: normal, amp_error, freq_error, ref_error)
+            sys_probs = result["system_probs"]
+            sys_proba[i, 0] = sys_probs.get("normal", 0.0)
+            sys_proba[i, 1] = sys_probs.get("amp_error", 0.0)
+            sys_proba[i, 2] = sys_probs.get("freq_error", 0.0)
+            sys_proba[i, 3] = sys_probs.get("ref_error", 0.0)
             
             # Normalize
             row_sum = np.sum(sys_proba[i])
