@@ -1,16 +1,16 @@
 {
-    "_version": "1.1",
-    "_description": "门控先验融合配置 - 所有入口必须加载此配置",
+    "_version": "1.2",
+    "_description": "门控先验融合配置 - 置信度门控(gated)方法，论文推荐",
     
-    "method": "linear",
+    "method": "gated",
     "linear_weight": 0.8,
     "logit_weight": 0.6,
     
     "gated": {
         "threshold": 0.55,
-        "w_min": 0.3,
-        "w_max": 0.85,
-        "temperature": 1.0
+        "w_min": 0.82,
+        "w_max": 0.95,
+        "temperature": 1.2
     },
     
     "fallback": {

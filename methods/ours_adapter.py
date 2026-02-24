@@ -112,14 +112,14 @@ def _load_gating_prior_config() -> Dict:
     
     # Default config if file not found
     _GATING_PRIOR_CONFIG = {
-        "method": "linear",
+        "method": "gated",
         "linear_weight": 0.8,
         "logit_weight": 0.6,
         "gated": {
             "threshold": 0.55,
-            "w_min": 0.3,
-            "w_max": 0.85,
-            "temperature": 1.0,
+            "w_min": 0.82,
+            "w_max": 0.95,
+            "temperature": 1.2,
         }
     }
     return _GATING_PRIOR_CONFIG
@@ -494,12 +494,14 @@ class OursAdapter(MethodAdapter):
         )
         self.is_fitted = False
         self.fusion_engine = None  # [CRITICAL] Fusion engine slot – set in fit()
+        self._rf_feature_indices = None  # Set in fit() – indices of KD features for RF
         
         self.feature_names = None
         self.n_system_rules = 15  # 3 sub-BRBs with 5 rules each
         self.n_module_rules = 33  # Configured per-module rules
         self.n_params = 68  # 22 feature weights + 3 rule weights + 33 belief params + 10 sub-BRB params
         self.kd_features = [f'X{i}' for i in range(1, 23)]  # X1-X22
+        self.rf_kd_features = {f'X{i}' for i in range(1, 38)}  # X1-X37 for RF training
         self.use_sub_brb = True  # Enable sub-BRB architecture for better accuracy
         # Feature name aliases for compatibility
         self.kd_features_aliases = {
@@ -523,17 +525,40 @@ class OursAdapter(MethodAdapter):
         Stage 1: Train RandomForest for system-level classification
         This achieves high accuracy (~90%+) for system fault type identification.
         
+        The RF is trained on the knowledge-driven feature subset (X1-X37) to
+        match the architecture's feature scope.  Extra metadata features are
+        excluded to prevent the RF from becoming overconfident and rendering
+        the BRB fusion layer ineffective.
+        
         After training, instantiates the fusion engine and injects the trained RF,
         ensuring the trained model is persisted and used during predict().
         """
-        print(f">> [OursAdapter] Fitting RF with {len(X_train)} samples...")
-        print(f">> Training samples: {len(X_train)}, Classes: {np.unique(y_sys_train)}")
-        
         if meta and 'feature_names' in meta:
             self.feature_names = meta['feature_names']
         
-        # 1. Train system-level classifier
-        self.classifier.fit(X_train, y_sys_train)
+        # 1. Select knowledge-driven features (X1-X37) for RF training.
+        #    Using only these features keeps the RF's confidence calibrated
+        #    so the BRB fusion layer can meaningfully contribute.
+        if self.feature_names:
+            rf_indices = [i for i, name in enumerate(self.feature_names)
+                          if name in self.rf_kd_features]
+            if rf_indices:
+                self._rf_feature_indices = rf_indices
+                X_rf = X_train[:, rf_indices]
+                print(f">> [OursAdapter] Fitting RF with {len(X_train)} samples, "
+                      f"{len(rf_indices)} KD features (X1-X37)...")
+            else:
+                X_rf = X_train
+                print(f">> [OursAdapter] Fitting RF with {len(X_train)} samples, "
+                      f"{X_train.shape[1]} features (no KD match)...")
+        else:
+            X_rf = X_train
+            print(f">> [OursAdapter] Fitting RF with {len(X_train)} samples...")
+        
+        print(f">> Training samples: {len(X_train)}, Classes: {np.unique(y_sys_train)}")
+        
+        # Train system-level classifier on selected features
+        self.classifier.fit(X_rf, y_sys_train)
         self.is_fitted = True
         
         # 2. [CRITICAL] Instantiate fusion engine and inject trained RF
@@ -600,13 +625,16 @@ class OursAdapter(MethodAdapter):
             # [CRITICAL] Always go through the fusion pipeline.
             # RF serves as gating prior, BRB provides interpretable inference.
             # Result = Fuse(P_rf, P_brb), never raw RF output.
-            # Pass the original feature vector so the RF sees the same dimensions
-            # it was trained on (may be >22 features).
+            # Pass the KD feature subset so the RF sees the same dimensions
+            # it was trained on.
+            rf_vec = X_test[i]
+            if self._rf_feature_indices is not None:
+                rf_vec = X_test[i][self._rf_feature_indices]
             result = infer_system_and_modules(
                 features,
                 use_gating=True,
                 rf_classifier=self.classifier,
-                rf_feature_vector=X_test[i],
+                rf_feature_vector=rf_vec,
                 allow_fallback=True,
             )
             
