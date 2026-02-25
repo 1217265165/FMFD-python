@@ -48,7 +48,9 @@ Output/compare_methods_clean/
 Output/compare_methods_optimized/
 Output/compare_methods_final/
 Output/compare_methods_final_opt/
+Output/compare_methods_final_pcmaes/
 Output/optimization_results/
+Output/optimization_results_pcmaes/
 Output/baseline_audit/
 Output/runs/
 Output/diagnosis_test/

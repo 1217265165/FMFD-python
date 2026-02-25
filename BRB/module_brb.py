@@ -821,24 +821,25 @@ def hierarchical_module_infer(
     sys_probs[fault_type] = 0.9  # 高置信度
     
     # Data-aligned module distribution priors per fault type
-    # Base priors are scaled by tunable _hierarchical_params (optimized by CMA-ES)
+    # hp[0:13] are scale factors (optimized by P-CMA-ES with box projection).
+    # Always: scaled_prior = base_prior * scale_factor, then normalize to Σ=1.
+    # This guarantees valid probability output while allowing full optimization freedom.
     hp = _hierarchical_params
     _BASE_AMP_PRIORS = [0.30, 0.30, 0.21, 0.10, 0.05, 0.04]
     _BASE_FREQ_PRIORS = [0.37, 0.33, 0.17, 0.13]
     _BASE_REF_PRIORS = [0.38, 0.32, 0.30]
-    
+
+    def _scale_and_normalize(base, scales, modules):
+        scaled = [b * max(sc, 0.01) for b, sc in zip(base, scales)]
+        total = sum(scaled) or 1.0
+        return {m: v / total for m, v in zip(modules, scaled)}
+
     if fault_type == "amp_error":
-        scaled = [b * s for b, s in zip(_BASE_AMP_PRIORS, hp[0:6])]
-        total_s = sum(scaled) or 1.0
-        filtered_probs = {m: v / total_s for m, v in zip(_AMP_MODULES, scaled)}
+        filtered_probs = _scale_and_normalize(_BASE_AMP_PRIORS, hp[0:6], _AMP_MODULES)
     elif fault_type == "freq_error":
-        scaled = [b * s for b, s in zip(_BASE_FREQ_PRIORS, hp[6:10])]
-        total_s = sum(scaled) or 1.0
-        filtered_probs = {m: v / total_s for m, v in zip(_FREQ_MODULES, scaled)}
+        filtered_probs = _scale_and_normalize(_BASE_FREQ_PRIORS, hp[6:10], _FREQ_MODULES)
     elif fault_type == "ref_error":
-        scaled = [b * s for b, s in zip(_BASE_REF_PRIORS, hp[10:13])]
-        total_s = sum(scaled) or 1.0
-        filtered_probs = {m: v / total_s for m, v in zip(_REF_MODULES, scaled)}
+        filtered_probs = _scale_and_normalize(_BASE_REF_PRIORS, hp[10:13], _REF_MODULES)
     else:
         filtered_probs = {}
     
