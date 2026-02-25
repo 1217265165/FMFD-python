@@ -34,7 +34,16 @@ if str(REPO_ROOT) not in sys.path:
 from sklearn.metrics import log_loss, accuracy_score
 
 from BRB.system_brb import system_level_infer
-from BRB.module_brb import MODULE_LABELS
+from BRB.module_brb import (
+    MODULE_LABELS, BOARD_MODULES,
+    hierarchical_module_infer, set_hierarchical_params,
+    _AMP_MODULES, _FREQ_MODULES, _REF_MODULES,
+)
+
+# V2 module label list (all modules from BOARD_MODULES)
+V2_LABELS: List[str] = []
+for board_modules in BOARD_MODULES.values():
+    V2_LABELS.extend(board_modules)
 
 # ------- 与 module_brb 一致的 labels 列表 -------
 LABELS = list(MODULE_LABELS)
@@ -49,6 +58,38 @@ try:
         _MODULE_V1_LOOKUP[v1] = v1
 except ImportError:
     pass
+
+# Fault type → V2 module list (for label resolution)
+_FAULT_V2_MODULES = {
+    "amp_error": _AMP_MODULES,
+    "freq_error": _FREQ_MODULES,
+    "ref_error": _REF_MODULES,
+}
+
+# V2 module name → index in V2_LABELS
+_V2_LABEL_INDEX = {m: i for i, m in enumerate(V2_LABELS)}
+
+
+def _resolve_module_to_v2(label_entry: dict) -> Optional[str]:
+    """Resolve module label from labels.json entry to V2 module name."""
+    mod_v2 = label_entry.get("module_v2") or ""
+    if mod_v2 in _V2_LABEL_INDEX:
+        return mod_v2
+    # Try V1→V2 mapping
+    mod_v1 = label_entry.get("module") or ""
+    if mod_v1 in _MODULE_V1_LOOKUP:
+        v1_name = _MODULE_V1_LOOKUP[mod_v1]
+        # Map v1→v2 
+        try:
+            from tools.label_mapping import module_v2_from_v1
+            return module_v2_from_v1(v1_name)
+        except (ImportError, KeyError):
+            pass
+    # Try partial matching
+    for v2_name in V2_LABELS:
+        if mod_v2 and (mod_v2 in v2_name or v2_name in mod_v2):
+            return v2_name
+    return None
 
 
 def _normalize_feature(x, low, high):
@@ -79,86 +120,77 @@ def _aggregate_module_score(features):
     return float(np.mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias]))
 
 
-# ------- 可调参数的模块推理 --------
-def module_level_infer_param(features, sys_probs, rule_weights):
-    """
-    rule_weights: 长度 7，对应 module_brb 中 7 条 BRBRule 的 weight 系数
-    """
-    probs = sys_probs.get("probabilities", sys_probs)
-    ref_prior = probs.get("参考电平失准", 0.3)
-    amp_prior = probs.get("幅度失准", 0.3)
-    freq_prior = probs.get("频率失准", 0.3)
+# ------- Hierarchical inference wrapper for optimization --------
+def _infer_hierarchical(features: Dict, fault_type: str, params: np.ndarray) -> Dict[str, float]:
+    """Call hierarchical_module_infer with given params set globally."""
+    set_hierarchical_params(list(np.clip(params, 0.01, 10.0)))
+    return hierarchical_module_infer(fault_type, features, use_board_prior=True)
 
-    md = _aggregate_module_score(features)
 
-    rules = [
-        (rule_weights[0] * ref_prior,
-         {"校准源": 0.38, "存储器": 0.32, "校准信号开关": 0.30}),
-        (rule_weights[1] * amp_prior,
-         {"低频段第一混频器": 0.25, "低频段前置低通滤波器": 0.21,
-          "数字检波器": 0.17, "ADC": 0.13, "电源模块": 0.10,
-          "中频放大器": 0.05, "本振混频组件": 0.05, "数字放大器": 0.04}),
-        (rule_weights[2] * freq_prior,
-         {"时钟合成与同步网络": 0.37, "本振混频组件": 0.33,
-          "本振源（谐波发生器）": 0.17, "时钟振荡器": 0.13}),
-        (rule_weights[3] * freq_prior, {"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
-        (rule_weights[4] * freq_prior, {"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
-        (rule_weights[5] * amp_prior, {"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-        (rule_weights[6], {"电源模块": 1.0}),
-    ]
-
-    acts = []
-    for w, bel in rules:
-        act = w * md
-        acts.append((act, bel))
-    total = sum(a for a, _ in acts) + 1e-9
-    out = {lab: 0.0 for lab in LABELS}
-    for a, bel in acts:
-        for lab in LABELS:
-            out[lab] += (a / total) * bel.get(lab, 0.0)
-    s = sum(out.values()) + 1e-9
-    for lab in LABELS:
-        out[lab] = out[lab] / s
-    return out
+def _fault_type_from_features(features: Dict) -> str:
+    """Determine fault type from system-level BRB inference."""
+    sys_p = system_level_infer(features)
+    probs = sys_p.get("probabilities", sys_p)
+    fault_map = {
+        "幅度失准": "amp_error",
+        "频率失准": "freq_error",
+        "参考电平失准": "ref_error",
+        "正常": "normal",
+    }
+    best_cn = max(probs, key=probs.get)
+    return fault_map.get(best_cn, "normal")
 
 
 # ------- 目标函数 -------
-def unsupervised_objective(weights, feats_rows, w_entropy=0.6, w_conf=0.4):
-    probs = []
-    for row in feats_rows:
+def supervised_objective(params, feats_rows, label_v2_names, fault_types):
+    """Supervised objective using hierarchical_module_infer with V2 labels.
+    
+    Uses (1 - accuracy) + regularization to prevent overfitting.
+    The regularization penalizes large deviations from default params (1.0).
+    """
+    clipped = np.clip(params, 0.01, 10.0)
+    set_hierarchical_params(list(clipped))
+    
+    correct = 0
+    total = 0
+    for row, true_v2, ft in zip(feats_rows, label_v2_names, fault_types):
         f = dict(row)
-        sys_p = system_level_infer(f)
-        mod_p = module_level_infer_param(f, sys_p, weights)
-        probs.append([mod_p[lab] for lab in LABELS])
-    probs = np.array(probs)
-    eps = 1e-12
-    ent = -np.sum(probs * np.log(np.clip(probs, eps, 1.0)), axis=1)
+        mod_probs = hierarchical_module_infer(ft, f, use_board_prior=True)
+        if mod_probs:
+            pred_v2 = max(mod_probs, key=mod_probs.get)
+            if pred_v2 == true_v2:
+                correct += 1
+        total += 1
+    
+    acc = correct / max(total, 1)
+    # Regularization: penalize large deviations from 1.0 (default)
+    reg = 0.01 * float(np.sum((clipped - 1.0) ** 2))
+    return (1.0 - acc) + reg
+
+
+def unsupervised_objective(params, feats_rows, fault_types, w_entropy=0.6, w_conf=0.4):
+    """Unsupervised objective using hierarchical_module_infer."""
+    set_hierarchical_params(list(np.clip(params, 0.01, 10.0)))
+    
+    all_probs = []
+    for row, ft in zip(feats_rows, fault_types):
+        f = dict(row)
+        mod_probs = hierarchical_module_infer(ft, f, use_board_prior=True)
+        vals = list(mod_probs.values())
+        all_probs.append(vals)
+    
+    probs = np.array(all_probs) + 1e-12
+    ent = -np.sum(probs * np.log(probs), axis=1)
     mean_ent = float(np.nanmean(ent))
     mean_top1 = float(np.nanmean(np.max(probs, axis=1)))
     return w_entropy * mean_ent + w_conf * (1.0 - mean_top1)
 
 
-def supervised_objective(weights, feats_rows, label_indices):
-    """Supervised objective using module label indices."""
-    probs = []
-    for row in feats_rows:
-        f = dict(row)
-        sys_p = system_level_infer(f)
-        mod_p = module_level_infer_param(f, sys_p, weights)
-        probs.append([mod_p[lab] for lab in LABELS])
-    probs = np.array(probs)
-    y_idx = np.array(label_indices)
-    try:
-        loss = log_loss(y_idx, probs, labels=list(range(len(LABELS))))
-    except Exception:
-        loss = 1.0 - accuracy_score(y_idx, np.argmax(probs, axis=1))
-    return float(loss)
-
-
 # ------- CMA-ES 优化主流程 -------
-def optimize(feats_rows, label_indices=None, maxiter=80, popsize=None, seed=42, sigma0=0.3):
-    # Initial weights: [ref, amp, freq, hf_filter, lf_filter, digital, power]
-    x0 = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15], dtype=float)
+def optimize(feats_rows, label_v2_names=None, fault_types=None,
+             maxiter=80, popsize=None, seed=42, sigma0=0.3):
+    # 16 params: [amp_priors(6), freq_priors(4), ref_priors(3), feat_sens(3)]
+    x0 = np.ones(16, dtype=float)  # All scales start at 1.0 (unchanged priors)
     opts = {"seed": seed, "verbose": 1, "maxiter": maxiter}
     if popsize:
         opts["popsize"] = popsize
@@ -171,12 +203,12 @@ def optimize(feats_rows, label_indices=None, maxiter=80, popsize=None, seed=42, 
         sols = es.ask()
         objs = []
         for x in sols:
-            w = np.clip(x, 0.01, 3.0)
+            w = np.clip(x, 0.01, 10.0)
             try:
-                if label_indices is not None:
-                    obj = supervised_objective(w, feats_rows, label_indices)
+                if label_v2_names is not None:
+                    obj = supervised_objective(w, feats_rows, label_v2_names, fault_types)
                 else:
-                    obj = unsupervised_objective(w, feats_rows)
+                    obj = unsupervised_objective(w, feats_rows, fault_types)
             except Exception:
                 obj = float("inf")
             objs.append(obj)
@@ -189,10 +221,10 @@ def optimize(feats_rows, label_indices=None, maxiter=80, popsize=None, seed=42, 
         it += 1
 
     if best_x is None:
-        best_x = np.clip(es.result.xbest, 0.01, 3.0)
+        best_x = np.clip(es.result.xbest, 0.01, 10.0)
         best_obj = float(es.result.fbest)
 
-    print(f"\n[INFO] best_obj={best_obj:.6f}, best_weights={best_x}")
+    print(f"\n[INFO] best_obj={best_obj:.6f}, best_params={best_x}")
     return best_x, best_obj, history
 
 
@@ -231,7 +263,7 @@ def _resolve_module_label(label_entry: dict) -> Optional[str]:
 
 def main():
     ap = argparse.ArgumentParser(
-        description="CMA-ES optimization for BRB module rule weights")
+        description="CMA-ES optimization for BRB hierarchical module inference params")
     ap.add_argument("--data_dir", default=None,
                     help="数据目录 (包含 features_brb.csv 和 labels.json)")
     ap.add_argument("--data", default=None, help="特征 CSV (旧格式)")
@@ -252,15 +284,15 @@ def main():
 
     if cma is None:
         print("[WARN] cma not installed. Install with: pip install cma")
-        print("[WARN] Saving default weights as fallback.")
-        best_w = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
-                          dtype=float)
+        print("[WARN] Saving default params as fallback.")
+        best_w = np.ones(16, dtype=float)
         out_dir = Path(args.output_dir) if args.output_dir else Path(".")
         out_dir.mkdir(parents=True, exist_ok=True)
         result = {
-            "module_rule_weights": best_w.tolist(),
+            "hierarchical_params": best_w.tolist(),
+            "module_rule_weights": [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
             "objective": None,
-            "note": "Default weights (cma not installed)",
+            "note": "Default params (cma not installed)",
         }
         out_path = out_dir / "best_params.json"
         out_path.write_text(
@@ -270,7 +302,18 @@ def main():
 
     # Load data
     feats_rows: List[Dict] = []
-    label_indices: Optional[List[int]] = None
+    label_v2_names: Optional[List[str]] = None
+    fault_types: List[str] = []
+
+    # Fault class mapping
+    _SYS_CN_TO_FAULT = {
+        "amp_error": "amp_error",
+        "freq_error": "freq_error",
+        "ref_error": "ref_error",
+        "幅度失准": "amp_error",
+        "频率失准": "freq_error",
+        "参考电平失准": "ref_error",
+    }
 
     if args.data_dir:
         data_dir = Path(args.data_dir)
@@ -295,70 +338,68 @@ def main():
             sample_feats[str(sid)] = row
 
         if args.supervised:
-            idx_map = {m: i for i, m in enumerate(LABELS)}
             filtered_rows: List[Dict] = []
-            filtered_indices: List[int] = []
+            filtered_labels: List[str] = []
+            filtered_faults: List[str] = []
             for sid, label_entry in labels_dict.items():
                 if str(sid) not in sample_feats:
-                    continue
-                mod_name = _resolve_module_label(label_entry)
-                if mod_name is None or mod_name not in idx_map:
                     continue
                 sys_class = label_entry.get("system_fault_class", "normal")
                 if sys_class == "normal":
                     continue
+                fault_type = _SYS_CN_TO_FAULT.get(sys_class)
+                if fault_type is None:
+                    continue
+                mod_v2 = _resolve_module_to_v2(label_entry)
+                if mod_v2 is None:
+                    continue
                 filtered_rows.append(sample_feats[str(sid)])
-                filtered_indices.append(idx_map[mod_name])
+                filtered_labels.append(mod_v2)
+                filtered_faults.append(fault_type)
 
             if filtered_rows:
                 feats_rows = filtered_rows
-                label_indices = filtered_indices
+                label_v2_names = filtered_labels
+                fault_types = filtered_faults
                 print(f"[INFO] Supervised: {len(feats_rows)} samples "
-                      f"with module labels")
+                      f"with V2 module labels")
                 from collections import Counter
-                dist = Counter(label_indices)
-                for idx, count in sorted(dist.items()):
-                    print(f"  {LABELS[idx]}: {count}")
+                dist = Counter(label_v2_names)
+                for mod, count in sorted(dist.items(), key=lambda x: -x[1]):
+                    print(f"  {mod}: {count}")
             else:
                 print("[WARN] No valid module labels. "
                       "Falling back to unsupervised.")
-                label_indices = None
-        else:
+                label_v2_names = None
+        
+        # For unsupervised mode, still need fault_types
+        if not fault_types:
             print(f"[INFO] Unsupervised: {len(feats_rows)} samples")
+            for row in feats_rows:
+                fault_types.append(_fault_type_from_features(dict(row)))
 
     elif args.data:
         data_path = Path(args.data)
         if not data_path.exists():
             raise FileNotFoundError(f"CSV not found: {data_path}")
         feats_rows = _load_csv_rows(data_path)
-
-        if args.supervised and args.label_col:
-            idx_map = {m: i for i, m in enumerate(LABELS)}
-            filtered_rows = []
-            filtered_indices = []
-            for row in feats_rows:
-                label = row.get(args.label_col, "")
-                if label in idx_map:
-                    filtered_rows.append(row)
-                    filtered_indices.append(idx_map[label])
-            if filtered_rows:
-                feats_rows = filtered_rows
-                label_indices = filtered_indices
-            else:
-                print("[WARN] No valid labels. Falling back to unsupervised.")
+        for row in feats_rows:
+            fault_types.append(_fault_type_from_features(dict(row)))
     else:
         raise ValueError("Please provide --data_dir or --data")
 
-    print(f"\n[INFO] Starting CMA-ES optimization...")
+    print(f"\n[INFO] Starting CMA-ES optimization (hierarchical params)...")
     print(f"  Samples: {len(feats_rows)}")
-    print(f"  Mode: {'supervised' if label_indices is not None else 'unsupervised'}")
+    print(f"  Mode: {'supervised' if label_v2_names is not None else 'unsupervised'}")
+    print(f"  Parameters: 16 (6 amp + 4 freq + 3 ref priors + 3 feat sensitivity)")
     print(f"  Max iterations: {args.maxiter}")
     if args.popsize:
         print(f"  Population size: {args.popsize}")
 
     best_w, best_obj, history = optimize(
         feats_rows=feats_rows,
-        label_indices=label_indices,
+        label_v2_names=label_v2_names,
+        fault_types=fault_types,
         maxiter=args.maxiter,
         popsize=args.popsize,
         seed=args.seed,
@@ -370,10 +411,11 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     result = {
-        "module_rule_weights": best_w.tolist(),
+        "hierarchical_params": best_w.tolist(),
+        "module_rule_weights": [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
         "objective": float(best_obj),
         "generations": len(history),
-        "mode": ("supervised" if label_indices is not None
+        "mode": ("supervised" if label_v2_names is not None
                  else "unsupervised"),
         "n_samples": len(feats_rows),
     }
@@ -391,15 +433,21 @@ def main():
             writer.writerows(history)
         print(f"[INFO] Optimization log saved to {log_path}")
 
-    weights_path = out_dir / "optimized_module_rule_weights.txt"
+    weights_path = out_dir / "optimized_hierarchical_params.txt"
     np.savetxt(str(weights_path), best_w, fmt="%.6f")
-    print(f"[INFO] Weights saved to {weights_path}")
+    print(f"[INFO] Params saved to {weights_path}")
 
+    param_names = [
+        "amp_ADC", "amp_Mixer1", "amp_Filter", "amp_Power", "amp_IF", "amp_DSP",
+        "freq_RefDist", "freq_Mixer1", "freq_LO1", "freq_OCXO",
+        "ref_CalSrc", "ref_CalStore", "ref_CalSwitch",
+        "feat_sens_amp", "feat_sens_freq", "feat_sens_ref",
+    ]
     print(f"\n{'='*50}")
     print("OPTIMIZATION RESULTS")
     print(f"{'='*50}")
-    for i, w in enumerate(best_w):
-        print(f"  Rule {i}: weight = {w:.4f}")
+    for i, (name, w) in enumerate(zip(param_names, best_w)):
+        print(f"  {name}: {w:.4f}")
     print(f"  Objective: {best_obj:.6f}")
     print(f"{'='*50}")
 

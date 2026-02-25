@@ -78,6 +78,45 @@ DISABLED_MODULES = list(dict.fromkeys(DISABLED_MODULES))
 _DEFAULT_RULE_WEIGHTS = [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15]
 _module_rule_weights = list(_DEFAULT_RULE_WEIGHTS)
 
+# Tunable prior scales for hierarchical_module_infer (optimized by CMA-ES)
+# Structure: 16 parameters
+#   [0:6]  = amp_error module prior scales (ADC, Mixer1, Filter, Power, IF, DSP)
+#   [6:10] = freq_error module prior scales (RefDist, Mixer1, LO1, OCXO)
+#   [10:13] = ref_error module prior scales (CalSrc, CalStore, CalSwitch)
+#   [13:16] = feature sensitivity per fault type (amp, freq, ref)
+_DEFAULT_HIERARCHICAL_PARAMS = [
+    # amp_error priors (6)
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    # freq_error priors (4)
+    1.0, 1.0, 1.0, 1.0,
+    # ref_error priors (3)
+    1.0, 1.0, 1.0,
+    # feature sensitivity (3)
+    1.0, 1.0, 1.0,
+]
+_hierarchical_params = list(_DEFAULT_HIERARCHICAL_PARAMS)
+
+# Module name ordering for each fault type (matches FAULT_MODULE_PRIORS)
+_AMP_MODULES = [
+    "[数字中频板][ADC] 数字检波与平均",
+    "[RF板][Mixer1]",
+    "[RF板][RF] 低频通路固定滤波/抑制网络",
+    "[电源板] 电源管理模块",
+    "[数字中频板][IF] 中频放大/衰减链",
+    "[数字中频板][DSP] 数字增益/偏置校准",
+]
+_FREQ_MODULES = [
+    "[时钟板][参考分配]",
+    "[RF板][Mixer1]",
+    "[LO/时钟板][LO1] 合成链",
+    "[时钟板][参考域] 10MHz 基准 OCXO",
+]
+_REF_MODULES = [
+    "[校准链路][校准源]",
+    "[校准链路][校准表/存储]",
+    "[校准链路][校准路径开关/耦合]",
+]
+
 
 def set_module_rule_weights(weights):
     """Override BRB module rule weights (from CMA-ES optimization).
@@ -97,6 +136,26 @@ def set_module_rule_weights(weights):
 def get_module_rule_weights():
     """Return current BRB module rule weights."""
     return list(_module_rule_weights)
+
+
+def set_hierarchical_params(params):
+    """Override hierarchical module inference parameters (from CMA-ES).
+    
+    Parameters
+    ----------
+    params : list of 16 floats
+        [0:6] amp prior scales, [6:10] freq prior scales,
+        [10:13] ref prior scales, [13:16] feature sensitivity
+    """
+    global _hierarchical_params
+    if len(params) != 16:
+        raise ValueError(f"Expected 16 hierarchical params, got {len(params)}")
+    _hierarchical_params = list(params)
+
+
+def get_hierarchical_params():
+    """Return current hierarchical module inference parameters."""
+    return list(_hierarchical_params)
 
 
 def _filter_belief(belief: Dict[str, float]) -> Dict[str, float]:
@@ -762,30 +821,29 @@ def hierarchical_module_infer(
     sys_probs[fault_type] = 0.9  # 高置信度
     
     # Data-aligned module distribution priors per fault type
-    # These replace the base BRB inference to avoid V1→V2 conversion noise
-    FAULT_MODULE_PRIORS = {
-        "amp_error": {
-            "[数字中频板][ADC] 数字检波与平均": 0.30,
-            "[RF板][Mixer1]": 0.30,
-            "[RF板][RF] 低频通路固定滤波/抑制网络": 0.21,
-            "[电源板] 电源管理模块": 0.10,
-            "[数字中频板][IF] 中频放大/衰减链": 0.05,
-            "[数字中频板][DSP] 数字增益/偏置校准": 0.04,
-        },
-        "freq_error": {
-            "[时钟板][参考分配]": 0.37,
-            "[RF板][Mixer1]": 0.33,
-            "[LO/时钟板][LO1] 合成链": 0.17,
-            "[时钟板][参考域] 10MHz 基准 OCXO": 0.13,
-        },
-        "ref_error": {
-            "[校准链路][校准源]": 0.38,
-            "[校准链路][校准表/存储]": 0.32,
-            "[校准链路][校准路径开关/耦合]": 0.30,
-        },
-    }
+    # Base priors are scaled by tunable _hierarchical_params (optimized by CMA-ES)
+    hp = _hierarchical_params
+    _BASE_AMP_PRIORS = [0.30, 0.30, 0.21, 0.10, 0.05, 0.04]
+    _BASE_FREQ_PRIORS = [0.37, 0.33, 0.17, 0.13]
+    _BASE_REF_PRIORS = [0.38, 0.32, 0.30]
     
-    filtered_probs = dict(FAULT_MODULE_PRIORS.get(fault_type, {}))
+    if fault_type == "amp_error":
+        scaled = [b * s for b, s in zip(_BASE_AMP_PRIORS, hp[0:6])]
+        total_s = sum(scaled) or 1.0
+        filtered_probs = {m: v / total_s for m, v in zip(_AMP_MODULES, scaled)}
+    elif fault_type == "freq_error":
+        scaled = [b * s for b, s in zip(_BASE_FREQ_PRIORS, hp[6:10])]
+        total_s = sum(scaled) or 1.0
+        filtered_probs = {m: v / total_s for m, v in zip(_FREQ_MODULES, scaled)}
+    elif fault_type == "ref_error":
+        scaled = [b * s for b, s in zip(_BASE_REF_PRIORS, hp[10:13])]
+        total_s = sum(scaled) or 1.0
+        filtered_probs = {m: v / total_s for m, v in zip(_REF_MODULES, scaled)}
+    else:
+        filtered_probs = {}
+    
+    # Feature sensitivity multiplier for this fault type
+    feat_sens = hp[13] if fault_type == "amp_error" else hp[14] if fault_type == "freq_error" else hp[15]
 
     # Feature-based adjustment: use discriminative features to shift priors
     # Thresholds calibrated from training data feature distributions per V2 module
@@ -851,7 +909,7 @@ def hierarchical_module_infer(
         adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
 
         for mod in filtered_probs:
-            filtered_probs[mod] *= adj.get(mod, 1.0)
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
     elif fault_type == "freq_error":
         # Discriminating features (from training data V2 analysis):
@@ -903,7 +961,7 @@ def hierarchical_module_infer(
         adj["[时钟板][参考域] 10MHz 基准 OCXO"] = ocxo_s
 
         for mod in filtered_probs:
-            filtered_probs[mod] *= adj.get(mod, 1.0)
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
     elif fault_type == "ref_error":
         # Ref modules barely distinguishable (RF ceiling ~35%)
@@ -939,7 +997,7 @@ def hierarchical_module_infer(
         adj["[校准链路][校准路径开关/耦合]"] = sw_s
 
         for mod in filtered_probs:
-            filtered_probs[mod] *= adj.get(mod, 1.0)
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
     # Normalize
     total = sum(filtered_probs.values())

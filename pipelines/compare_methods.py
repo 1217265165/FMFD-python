@@ -1186,12 +1186,17 @@ def main():
         if params_path.exists():
             try:
                 params_data = json.loads(params_path.read_text(encoding="utf-8"))
+                if "hierarchical_params" in params_data:
+                    from BRB.module_brb import set_hierarchical_params
+                    hp = params_data["hierarchical_params"]
+                    set_hierarchical_params(hp)
+                    print(f"[INFO] Loaded optimized hierarchical params from {params_path}")
+                    print(f"[INFO] Params ({len(hp)}): {[f'{x:.3f}' for x in hp]}")
                 if "module_rule_weights" in params_data:
                     from BRB.module_brb import set_module_rule_weights
                     weights = params_data["module_rule_weights"]
                     set_module_rule_weights(weights)
                     print(f"[INFO] Loaded optimized BRB weights from {params_path}")
-                    print(f"[INFO] Weights: {weights}")
             except Exception as e:
                 print(f"[WARN] Failed to load params from {params_path}: {e}")
         else:

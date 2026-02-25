@@ -47,6 +47,7 @@ Output/compare_methods_scan/
 Output/compare_methods_clean/
 Output/compare_methods_optimized/
 Output/compare_methods_final/
+Output/compare_methods_final_opt/
 Output/optimization_results/
 Output/baseline_audit/
 Output/runs/
