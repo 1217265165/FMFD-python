@@ -49,6 +49,7 @@ Output/compare_methods_optimized/
 Output/compare_methods_final/
 Output/compare_methods_final_opt/
 Output/compare_methods_final_pcmaes/
+Output/compare_methods_real_mod/
 Output/optimization_results/
 Output/optimization_results_pcmaes/
 Output/baseline_audit/

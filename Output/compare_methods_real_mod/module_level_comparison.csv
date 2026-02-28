@@ -1,7 +1,0 @@
-method,mod_top1_accuracy,mod_macro_f1,fit_time_sec,infer_time_ms,status,error,n_classes
-ours,0.6167,,0.12,7.4688,OK,,14
-hcf,0.45,0.237,0.05,0.0152,OK,,14
-dbrb,0.4167,0.3578,1.41,0.2352,OK,,14
-brb_mu,0.5333,0.4436,0.0,0.3108,OK,,14
-brb_p,0.1167,0.0372,56.13,0.0737,OK,,14
-a_ibrb,0.1,0.0317,50.43,0.1984,OK,,14

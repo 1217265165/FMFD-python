@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Module-level flat evaluation: force all baselines to classify ~20 module classes.
+"""Module-level flat evaluation: force all baselines to classify module classes.
 
 This script evaluates every baseline method on the module-level fault localization
-task (y_mod, ~14-20 classes) using flat multi-class classification. Methods that
-cannot handle the high-dimensional output space (e.g., due to memory explosion
-or intractable rule generation) are recorded as "OOM" or "Failed".
+task (y_mod, 14 classes from ~20 possible module categories) using flat multi-class
+classification. Methods that cannot handle the high-dimensional output space (e.g.,
+due to memory explosion or intractable rule generation) are recorded as "OOM" or
+"Failed".
 
 Usage:
     python pipelines/evaluate_baselines_module.py \
