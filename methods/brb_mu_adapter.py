@@ -79,7 +79,12 @@ class BRBMUAdapter(MethodAdapter):
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
         """Predict using multi-source fusion."""
         n_test = len(X_test)
+        # Derive n_classes from trained source models instead of hardcoding
         n_classes = 4
+        for model in self.source_models.values():
+            if 'means' in model:
+                n_classes = len(model['means'])
+                break
         
         if not self.source_models:
             sys_pred = np.random.randint(0, n_classes, n_test)

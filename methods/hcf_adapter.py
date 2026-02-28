@@ -119,7 +119,8 @@ class HCFAdapter(MethodAdapter):
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
         """Predict using HCF."""
         n_test = len(X_test)
-        n_sys_classes = 4
+        # Derive n_classes from trained classifier instead of hardcoding
+        n_sys_classes = self.classifier.classes_.shape[0] if self.classifier is not None and hasattr(self.classifier, 'classes_') else 4
         
         if self.classifier is None:
             # Fallback: random baseline
