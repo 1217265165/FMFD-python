@@ -1,20 +1,27 @@
 # Legacy Code Archive
 
-This directory contains deprecated code that has been archived during the V-D.1 architecture refactoring.
+This directory contains deprecated code archived during the V-E.14 project cleanup.
 
-## Archived Files
+## Archive Contents
 
-### utils/feature_pool.py
-- **Reason**: Confirmed as unused dead code
-- **Replacement**: Feature pools are now defined in `config/feature_definitions.json`
+### tools/ (31 scripts)
+Development/debugging utilities that are NOT imported by the current pipeline.
+Moved here to keep the active `tools/` directory clean (only 3 files remain).
 
-### BRB/system_brb_amp.py, BRB/system_brb_freq.py, BRB/system_brb_ref.py
-- **Reason**: Replaced by the new unified layered engine
-- **Replacement**: `BRB/engines/layered_engine.py` + `config/feature_definitions.json`
+### docs/ (6 markdown files)
+Old audit reports and temporary design notes. Current documentation lives in `docs/`.
+
+### scripts/ (9 shell/batch scripts)
+Automation scripts for earlier pipeline versions. Current execution is documented in the root `README.md`.
+
+### BRB/ (3 files)
+Old per-fault-type BRB engines, replaced by the unified layered engine.
+
+### feature_pool.py
+Deprecated feature pool, replaced by `config/feature_definitions.json`.
+
+### check_sim_labels.py
+Simulation label validator — useful for debugging but not part of the core pipeline.
 
 ## Archive Date
-2026-02-06
-
-## Notes
-- Do NOT delete these files until the new architecture is fully validated
-- They may be needed for reference during debugging
+2026-03-02 (V-E.14 cleanup)

@@ -25,42 +25,9 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Project specific - ALL generated output
 *.npz
-Output/*.zip
-Output/sim_spectrum/*.csv
-Output/sim_spectrum/*.png
-Output/sim_spectrum/*.txt
-Output/sim_spectrum/*.json
-Output/sim_spectrum/*.npy
-Output/sim_spectrum/*.md
-Output/sim_spectrum/raw_curves/
-Output/sim_spectrum_prev/
-!Output/sim_spectrum/labels.json
-!Output/sim_spectrum/statistics.json
-Output/comparison_results/
-Output/compare_methods/
-Output/compare_methods_test/
-Output/compare_methods_strict/
-Output/compare_methods_fix/
-Output/compare_methods_scan/
-Output/compare_methods_clean/
-Output/compare_methods_optimized/
-Output/compare_methods_final/
-Output/compare_methods_final_opt/
-Output/compare_methods_final_pcmaes/
-Output/compare_methods_real_mod/
-Output/optimization_results/
-Output/optimization_results_pcmaes/
-Output/baseline_audit/
-Output/runs/
-Output/diagnosis_test/
-Output/diagnosis_audit/
-Output/*.png
-Output/*.csv
-Output/*.json
-!Output/sim_spectrum/.gitkeep
-!Output/comparison_results/.gitkeep
+Output/
 
 # Temporary files
 *.tmp
