@@ -1046,6 +1046,46 @@ def evaluate_method(
         if np.sum(valid_mask) > 0:
             mod_acc = calculate_accuracy(y_mod_test[valid_mask], y_mod_pred[valid_mask])
     
+    # Flat module-level evaluation for baseline methods
+    # Baselines don't implement module prediction natively, so we retrain them
+    # on y_mod as a flat multi-class target to reveal their true module-level ability.
+    if method.name != 'ours' and mod_acc is None and y_mod_train is not None and y_mod_test is not None:
+        valid_train = y_mod_train >= 0
+        valid_test = y_mod_test >= 0
+        if np.sum(valid_train) > 10 and np.sum(valid_test) > 0:
+            try:
+                X_tr_mod = X_train[valid_train]
+                y_tr_mod = y_mod_train[valid_train]
+                X_te_mod = X_test[valid_test]
+                y_te_mod = y_mod_test[valid_test]
+
+                # Remap sparse module indices to contiguous [0..k-1]
+                all_labels = np.unique(np.concatenate([y_tr_mod, y_te_mod]))
+                sparse_to_dense = {int(v): i for i, v in enumerate(all_labels)}
+                y_tr_flat = np.array([sparse_to_dense[int(v)] for v in y_tr_mod])
+                y_te_flat = np.array([sparse_to_dense[int(v)] for v in y_te_mod])
+
+                # Create a fresh adapter instance for flat module training
+                mod_adapter = method.__class__()
+                mod_adapter.fit(X_tr_mod, y_tr_flat, None,
+                                {'feature_names': feature_names})
+                mod_preds = mod_adapter.predict(X_te_mod,
+                                                meta={'feature_names': feature_names})
+                y_mod_flat_pred = mod_preds['system_pred']
+
+                mod_acc = calculate_accuracy(y_te_flat, y_mod_flat_pred)
+                # Top-3 from probabilities if available
+                mod_proba_flat = mod_preds.get('system_proba')
+                if mod_proba_flat is not None and mod_proba_flat.shape[1] >= 3:
+                    top3 = np.argsort(mod_proba_flat, axis=1)[:, -3:]
+                    mod_top3_acc = np.mean([y_te_flat[i] in top3[i]
+                                           for i in range(len(y_te_flat))])
+                print(f"  [Module Flat] {method.name}: Top-1={mod_acc:.4f}"
+                      f"{f', Top-3={mod_top3_acc:.4f}' if mod_top3_acc else ''}")
+            except Exception as e:
+                err_type = "OOM" if isinstance(e, MemoryError) else type(e).__name__
+                print(f"  [Module Flat] {method.name}: {err_type} - {e}")
+
     # P2.2: Enhanced module metrics for "ours" method using module_topk predictions
     if method.name == 'ours' and 'module_proba' in predictions:
         mod_proba = predictions['module_proba']
