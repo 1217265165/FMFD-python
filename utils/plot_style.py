@@ -25,6 +25,23 @@ def get_available_fonts():
         return []
 
 
+def _try_register_noto_cjk():
+    """Try to register Noto CJK SC font directly from .ttc file."""
+    try:
+        import matplotlib.font_manager as fm
+        noto_paths = [
+            Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+            Path("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
+        ]
+        for p in noto_paths:
+            if p.exists():
+                fm.fontManager.addfont(str(p))
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def find_chinese_font() -> str:
     """
     Find an available Chinese font based on the operating system.
@@ -60,10 +77,13 @@ def find_chinese_font() -> str:
         preferred = [
             "Noto Sans CJK SC",
             "Noto Sans CJK",
+            "Noto Sans CJK JP",  # JP variant also supports Chinese characters
+            "Noto Sans CJK TC",
             "WenQuanYi Micro Hei",
             "WenQuanYi Zen Hei",
             "Droid Sans Fallback",
             "Source Han Sans CN",
+            "Source Han Sans SC",
         ]
     
     # Find first available preferred font
@@ -71,8 +91,16 @@ def find_chinese_font() -> str:
         if font in available:
             return font
     
+    # Try to register Noto CJK from .ttc file (some systems need explicit registration)
+    if _try_register_noto_cjk():
+        available = get_available_fonts()
+        for font in preferred:
+            if font in available:
+                return font
+    
     # Fallback - try to find any CJK font
-    cjk_keywords = ["CJK", "Chinese", "SC", "SimHei", "YaHei", "WenQuanYi"]
+    cjk_keywords = ["CJK", "Chinese", "SC", "SimHei", "YaHei", "WenQuanYi",
+                     "Source Han"]
     for font in available:
         for kw in cjk_keywords:
             if kw.lower() in font.lower():

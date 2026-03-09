@@ -75,6 +75,16 @@ except ImportError:
 # Unified system label order (Normal, Amp, Freq, Ref)
 SYS_LABEL_ORDER = ['正常', '幅度失准', '频率失准', '参考电平失准']
 
+# Method display names for academic figures (internal_name -> paper_name)
+METHOD_DISPLAY_NAMES = {
+    'ours': 'HBRB',
+    'hcf': 'HCF',
+    'brb_p': 'BRB-P',
+    'brb_mu': 'BRB-MU',
+    'dbrb': 'DBRB',
+    'a_ibrb': 'A-IBRB',
+}
+
 LEAK_PREFIXES = ("sys_", "label", "target", "gt_", "y_", "truth", "class_", "mod_", "prob_", "pred_")
 LEAK_SUBSTRINGS = ("label", "target", "truth", "_pred", "_prob")
 
@@ -760,7 +770,7 @@ def calculate_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, n_classes
 
 def plot_confusion_matrix(cm: np.ndarray, class_names: List[str], 
                          output_path: Path, title: str):
-    """Plot and save confusion matrix."""
+    """Plot and save confusion matrix with Chinese labels for academic papers."""
     try:
         import matplotlib
         matplotlib.use('Agg')
@@ -774,13 +784,12 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
                yticks=np.arange(cm.shape[0]),
                xticklabels=class_names,
                yticklabels=class_names,
-               title=title,
-               ylabel='True label',
-               xlabel='Predicted label')
+               ylabel='真实标签 (True label)',
+               xlabel='预测标签 (Predicted label)')
         
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
         
-        # Add text annotations
+        # Add text annotations with adaptive color
         thresh = cm.max() / 2.
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
@@ -788,6 +797,8 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
                        ha="center", va="center",
                        color="white" if cm[i, j] > thresh else "black")
         
+        # Place caption below the figure
+        fig.text(0.5, -0.02, title, ha='center', fontsize=12, fontstyle='italic')
         fig.tight_layout()
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         plt.close(fig)
@@ -803,7 +814,7 @@ def plot_comparison_bar(results: List[Dict], output_dir: Path):
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         
-        methods = [r['method'] for r in results]
+        methods = [METHOD_DISPLAY_NAMES.get(r['method'], r['method'].upper()) for r in results]
         rules = [r.get('n_rules', 0) for r in results]
         params = [r.get('n_params', 0) for r in results]
         infer_ms = [r.get('infer_ms_per_sample', 0) for r in results]
@@ -812,20 +823,20 @@ def plot_comparison_bar(results: List[Dict], output_dir: Path):
         
         # Rules
         axes[0].bar(methods, rules, color='skyblue')
-        axes[0].set_ylabel('Number of Rules')
-        axes[0].set_title('Model Complexity: Rules')
+        axes[0].set_ylabel('规则数')
+        axes[0].set_title('模型复杂度 (规则数)')
         axes[0].tick_params(axis='x', rotation=45)
         
         # Params
         axes[1].bar(methods, params, color='lightcoral')
-        axes[1].set_ylabel('Number of Parameters')
-        axes[1].set_title('Model Complexity: Parameters')
+        axes[1].set_ylabel('参数数量')
+        axes[1].set_title('模型复杂度 (参数)')
         axes[1].tick_params(axis='x', rotation=45)
         
         # Inference time
         axes[2].bar(methods, infer_ms, color='lightgreen')
-        axes[2].set_ylabel('Inference Time (ms/sample)')
-        axes[2].set_title('Inference Efficiency')
+        axes[2].set_ylabel('推理时间 (ms/样本)')
+        axes[2].set_title('推理效率')
         axes[2].tick_params(axis='x', rotation=45)
         
         plt.tight_layout()
@@ -848,11 +859,12 @@ def plot_small_sample_curve(small_sample_results: List[Dict], output_dir: Path):
         methods_data = {}
         for entry in small_sample_results:
             method = entry['method']
-            if method not in methods_data:
-                methods_data[method] = {'sizes': [], 'means': [], 'stds': []}
-            methods_data[method]['sizes'].append(entry['train_size'])
-            methods_data[method]['means'].append(entry['mean_acc'])
-            methods_data[method]['stds'].append(entry['std_acc'])
+            display = METHOD_DISPLAY_NAMES.get(method, method.upper())
+            if display not in methods_data:
+                methods_data[display] = {'sizes': [], 'means': [], 'stds': []}
+            methods_data[display]['sizes'].append(entry['train_size'])
+            methods_data[display]['means'].append(entry['mean_acc'])
+            methods_data[display]['stds'].append(entry['std_acc'])
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -864,9 +876,9 @@ def plot_small_sample_curve(small_sample_results: List[Dict], output_dir: Path):
             ax.plot(sizes, means, marker='o', label=method)
             ax.fill_between(sizes, means - stds, means + stds, alpha=0.2)
         
-        ax.set_xlabel('Training Set Size')
-        ax.set_ylabel('Accuracy')
-        ax.set_title('Small-Sample Adaptability')
+        ax.set_xlabel('训练集大小')
+        ax.set_ylabel('准确率')
+        ax.set_title('小样本适应性')
         ax.legend()
         ax.grid(True, alpha=0.3)
         
@@ -885,7 +897,7 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         
-        methods = [r['method'] for r in all_results]
+        methods = [METHOD_DISPLAY_NAMES.get(r['method'], r['method'].upper()) for r in all_results]
         accuracies = [r['sys_accuracy'] * 100 for r in all_results]  # Convert to percentage
         f1_scores = [r['sys_macro_f1'] * 100 for r in all_results]
         n_rules = [r['n_rules'] for r in all_results]
@@ -900,8 +912,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         # 1. Accuracy comparison
         ax1 = fig.add_subplot(gs[0, 0])
         bars1 = ax1.bar(methods, accuracies, color='steelblue', alpha=0.8)
-        ax1.set_ylabel('System Accuracy (%)', fontsize=11)
-        ax1.set_title('(a) Classification Accuracy', fontsize=12, fontweight='bold')
+        ax1.set_ylabel('系统准确率 (%)', fontsize=11)
+        ax1.set_title('(a) 分类准确率 (%)', fontsize=12, fontweight='bold')
         ax1.tick_params(axis='x', rotation=45)
         ax1.grid(axis='y', alpha=0.3)
         # Add value labels on bars
@@ -913,8 +925,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         # 2. F1-score comparison
         ax2 = fig.add_subplot(gs[0, 1])
         bars2 = ax2.bar(methods, f1_scores, color='coral', alpha=0.8)
-        ax2.set_ylabel('Macro F1-Score (%)', fontsize=11)
-        ax2.set_title('(b) F1-Score Performance', fontsize=12, fontweight='bold')
+        ax2.set_ylabel('宏平均 F1 值 (%)', fontsize=11)
+        ax2.set_title('(b) F1 值 (%)', fontsize=12, fontweight='bold')
         ax2.tick_params(axis='x', rotation=45)
         ax2.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars2, f1_scores):
@@ -925,8 +937,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         # 3. Rules count
         ax3 = fig.add_subplot(gs[0, 2])
         bars3 = ax3.bar(methods, n_rules, color='mediumseagreen', alpha=0.8)
-        ax3.set_ylabel('Number of Rules', fontsize=11)
-        ax3.set_title('(c) Model Complexity (Rules)', fontsize=12, fontweight='bold')
+        ax3.set_ylabel('规则数', fontsize=11)
+        ax3.set_title('(c) 模型复杂度 (规则数)', fontsize=12, fontweight='bold')
         ax3.tick_params(axis='x', rotation=45)
         ax3.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars3, n_rules):
@@ -937,8 +949,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         # 4. Parameters count
         ax4 = fig.add_subplot(gs[1, 0])
         bars4 = ax4.bar(methods, n_params, color='mediumpurple', alpha=0.8)
-        ax4.set_ylabel('Number of Parameters', fontsize=11)
-        ax4.set_title('(d) Parameter Count', fontsize=12, fontweight='bold')
+        ax4.set_ylabel('参数数量', fontsize=11)
+        ax4.set_title('(d) 参数数量', fontsize=12, fontweight='bold')
         ax4.tick_params(axis='x', rotation=45)
         ax4.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars4, n_params):
@@ -949,8 +961,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         # 5. Inference time
         ax5 = fig.add_subplot(gs[1, 1])
         bars5 = ax5.bar(methods, infer_ms, color='lightgreen', alpha=0.8)
-        ax5.set_ylabel('Inference Time (ms/sample)', fontsize=11)
-        ax5.set_title('(e) Inference Efficiency', fontsize=12, fontweight='bold')
+        ax5.set_ylabel('推理时间 (ms/样本)', fontsize=11)
+        ax5.set_title('(e) 推理效率 (ms/样本)', fontsize=12, fontweight='bold')
         ax5.tick_params(axis='x', rotation=45)
         ax5.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars5, infer_ms):
@@ -962,9 +974,9 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         ax6 = fig.add_subplot(gs[1, 2])
         scatter = ax6.scatter(n_rules, accuracies, s=100, c=infer_ms, 
                              cmap='viridis', alpha=0.7, edgecolors='black', linewidth=1)
-        ax6.set_xlabel('Number of Rules', fontsize=11)
-        ax6.set_ylabel('Accuracy (%)', fontsize=11)
-        ax6.set_title('(f) Accuracy vs Complexity', fontsize=12, fontweight='bold')
+        ax6.set_xlabel('规则数', fontsize=11)
+        ax6.set_ylabel('准确率 (%)', fontsize=11)
+        ax6.set_title('(f) 准确率 vs 复杂度', fontsize=12, fontweight='bold')
         ax6.grid(True, alpha=0.3)
         # Add method labels
         for i, method in enumerate(methods):
@@ -972,10 +984,11 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
                         xytext=(5, 5), textcoords='offset points', fontsize=8)
         # Add colorbar for inference time
         cbar = plt.colorbar(scatter, ax=ax6)
-        cbar.set_label('Infer Time (ms)', fontsize=9)
+        cbar.set_label('推理时间 (ms)', fontsize=9)
         
-        plt.suptitle('Comprehensive Method Comparison Results', 
-                    fontsize=14, fontweight='bold', y=0.98)
+        # Place caption below the figure (update label number to match paper layout)
+        fig.text(0.5, -0.01, 'HBRB 与各对比方法综合性能评估图',
+                ha='center', fontsize=14, fontweight='bold')
         
         output_path = output_dir / "comparison_results.png"
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -1627,12 +1640,13 @@ def main():
     # Plot confusion matrices
     sys_label_names = SYS_LABEL_ORDER[:n_sys_classes]
     for result in all_results:
+        display_name = METHOD_DISPLAY_NAMES.get(result['method'], result['method'].upper())
         cm_path = output_dir / f"confusion_matrix_{result['method']}.png"
         plot_confusion_matrix(
             result['confusion_matrix'], 
             sys_label_names,
             cm_path,
-            f"System-Level Confusion Matrix: {result['method']}"
+            f"(a) {display_name} 系统级故障诊断混淆矩阵"
         )
     
     # Plot comparison bars
