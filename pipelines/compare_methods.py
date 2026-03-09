@@ -1225,6 +1225,8 @@ def main():
                        help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
     parser.add_argument('--load_params', type=str, default=None,
                        help='Path to best_params.json from optimize_brb.py (optimized BRB module weights)')
+    parser.add_argument('--plot_only', action='store_true',
+                       help='Skip training/evaluation; regenerate plots from saved comparison_summary.json')
     args = parser.parse_args()
     
     # Smart path correction: prevent user from pointing to raw_curves subdirectory
@@ -1238,6 +1240,40 @@ def main():
     output_dir = Path(args.output_dir) if Path(args.output_dir).is_absolute() else PROJECT_ROOT / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     build_run_snapshot(output_dir)
+
+    # ──── Plot-only mode: skip training, regenerate plots from saved data ────
+    if args.plot_only:
+        summary_path = output_dir / "comparison_summary.json"
+        if not summary_path.exists():
+            print(f"[ERROR] --plot_only requires {summary_path} to exist. Run full evaluation first.")
+            sys.exit(1)
+        print(f"[INFO] --plot_only mode: loading results from {summary_path}")
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        all_results = summary["methods"]
+        if not all_results:
+            print("[ERROR] comparison_summary.json contains no method results.")
+            sys.exit(1)
+        # Restore numpy arrays for confusion matrices
+        for r in all_results:
+            if "confusion_matrix" in r and isinstance(r["confusion_matrix"], list):
+                r["confusion_matrix"] = np.array(r["confusion_matrix"])
+        sys_label_names = SYS_LABEL_ORDER[:len(all_results[0].get("confusion_matrix", [[]]))]
+        # Plot confusion matrices — sequential letters
+        for idx, result in enumerate(all_results):
+            letter = chr(ord('a') + idx)
+            display_name = METHOD_DISPLAY_NAMES.get(result['method'], result['method'].upper())
+            cm_path = output_dir / f"confusion_matrix_{result['method']}.png"
+            plot_confusion_matrix(
+                result['confusion_matrix'],
+                sys_label_names,
+                cm_path,
+                f"({letter}) {display_name} 系统级故障诊断混淆矩阵"
+            )
+        # Plot comparison bars & comprehensive comparison
+        plot_comparison_bar(all_results, output_dir)
+        plot_comprehensive_comparison(all_results, output_dir)
+        print(f"\n[INFO] Plot-only mode complete. Plots saved to: {output_dir}")
+        return
 
     # Load optimized BRB parameters if provided
     if args.load_params:
@@ -1643,16 +1679,17 @@ def main():
             json.dumps(feature_report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     
-    # Plot confusion matrices
+    # Plot confusion matrices — sequential letters (a), (b), (c), ...
     sys_label_names = SYS_LABEL_ORDER[:n_sys_classes]
-    for result in all_results:
+    for idx, result in enumerate(all_results):
+        letter = chr(ord('a') + idx)  # a, b, c, d, ...
         display_name = METHOD_DISPLAY_NAMES.get(result['method'], result['method'].upper())
         cm_path = output_dir / f"confusion_matrix_{result['method']}.png"
         plot_confusion_matrix(
             result['confusion_matrix'], 
             sys_label_names,
             cm_path,
-            f"(a) {display_name} 系统级故障诊断混淆矩阵"
+            f"({letter}) {display_name} 系统级故障诊断混淆矩阵"
         )
     
     # Plot comparison bars
