@@ -904,16 +904,17 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         n_params = [r['n_params'] for r in all_results]
         infer_ms = [r['infer_ms_per_sample'] for r in all_results]
         
-        fig = plt.figure(figsize=(16, 10))
+        fig = plt.figure(figsize=(16, 12))
         
-        # Create 2x3 grid
-        gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
+        # Create 2x3 grid — extra hspace/bottom for captions below each subplot
+        gs = fig.add_gridspec(2, 3, hspace=0.55, wspace=0.3)
         
         # 1. Accuracy comparison
         ax1 = fig.add_subplot(gs[0, 0])
         bars1 = ax1.bar(methods, accuracies, color='steelblue', alpha=0.8)
         ax1.set_ylabel('系统准确率 (%)', fontsize=11)
-        ax1.set_title('(a) 分类准确率 (%)', fontsize=12, fontweight='bold')
+        ax1.text(0.5, -0.32, '(a) 分类准确率 (%)', transform=ax1.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax1.tick_params(axis='x', rotation=45)
         ax1.grid(axis='y', alpha=0.3)
         # Add value labels on bars
@@ -926,7 +927,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         ax2 = fig.add_subplot(gs[0, 1])
         bars2 = ax2.bar(methods, f1_scores, color='coral', alpha=0.8)
         ax2.set_ylabel('宏平均 F1 值 (%)', fontsize=11)
-        ax2.set_title('(b) F1 值 (%)', fontsize=12, fontweight='bold')
+        ax2.text(0.5, -0.32, '(b) F1 值 (%)', transform=ax2.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax2.tick_params(axis='x', rotation=45)
         ax2.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars2, f1_scores):
@@ -938,7 +940,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         ax3 = fig.add_subplot(gs[0, 2])
         bars3 = ax3.bar(methods, n_rules, color='mediumseagreen', alpha=0.8)
         ax3.set_ylabel('规则数', fontsize=11)
-        ax3.set_title('(c) 模型复杂度 (规则数)', fontsize=12, fontweight='bold')
+        ax3.text(0.5, -0.32, '(c) 模型复杂度 (规则数)', transform=ax3.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax3.tick_params(axis='x', rotation=45)
         ax3.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars3, n_rules):
@@ -950,7 +953,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         ax4 = fig.add_subplot(gs[1, 0])
         bars4 = ax4.bar(methods, n_params, color='mediumpurple', alpha=0.8)
         ax4.set_ylabel('参数数量', fontsize=11)
-        ax4.set_title('(d) 参数数量', fontsize=12, fontweight='bold')
+        ax4.text(0.5, -0.32, '(d) 参数数量', transform=ax4.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax4.tick_params(axis='x', rotation=45)
         ax4.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars4, n_params):
@@ -962,7 +966,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         ax5 = fig.add_subplot(gs[1, 1])
         bars5 = ax5.bar(methods, infer_ms, color='lightgreen', alpha=0.8)
         ax5.set_ylabel('推理时间 (ms/样本)', fontsize=11)
-        ax5.set_title('(e) 推理效率 (ms/样本)', fontsize=12, fontweight='bold')
+        ax5.text(0.5, -0.32, '(e) 推理效率 (ms/样本)', transform=ax5.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax5.tick_params(axis='x', rotation=45)
         ax5.grid(axis='y', alpha=0.3)
         for bar, val in zip(bars5, infer_ms):
@@ -976,7 +981,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
                              cmap='viridis', alpha=0.7, edgecolors='black', linewidth=1)
         ax6.set_xlabel('规则数', fontsize=11)
         ax6.set_ylabel('准确率 (%)', fontsize=11)
-        ax6.set_title('(f) 准确率 vs 复杂度', fontsize=12, fontweight='bold')
+        ax6.text(0.5, -0.32, '(f) 准确率 vs 复杂度', transform=ax6.transAxes,
+                ha='center', fontsize=12, fontweight='bold')
         ax6.grid(True, alpha=0.3)
         # Add method labels
         for i, method in enumerate(methods):
@@ -986,8 +992,8 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         cbar = plt.colorbar(scatter, ax=ax6)
         cbar.set_label('推理时间 (ms)', fontsize=9)
         
-        # Place caption below the figure (update label number to match paper layout)
-        fig.text(0.5, -0.01, 'HBRB 与各对比方法综合性能评估图',
+        # Overall figure caption at the very bottom
+        fig.text(0.5, -0.02, 'HBRB 与各对比方法综合性能评估图',
                 ha='center', fontsize=14, fontweight='bold')
         
         output_path = output_dir / "comparison_results.png"
