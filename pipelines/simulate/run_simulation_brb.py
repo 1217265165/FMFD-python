@@ -256,6 +256,8 @@ def _module_v2_from_fault(module_v1: str, fault_type: str) -> str:
         "数字检波器": "[数字中频板][检波/对数]",
         "电源模块": "[RF板][RF] 输入连接/匹配/保护",
         "衰减器": "[RF板][RF] 步进衰减器/ATT",
+        "数字RBW": "[数字中频板][数字IF域] RBW滤波器",
+        "VBW滤波器": "[数字中频板][数字IF域] VBW滤波器",
     }
     if fault_type in ("clock_drift", "freq_miscal"):
         return "[LO/时钟板][LO1] 合成链"
