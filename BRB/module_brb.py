@@ -79,14 +79,14 @@ _DEFAULT_RULE_WEIGHTS = [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15]
 _module_rule_weights = list(_DEFAULT_RULE_WEIGHTS)
 
 # Tunable prior scales for hierarchical_module_infer (optimized by CMA-ES)
-# Structure: 16 parameters
-#   [0:6]  = amp_error module prior scales (ADC, Mixer1, Filter, Power, IF, DSP)
-#   [6:10] = freq_error module prior scales (RefDist, Mixer1, LO1, OCXO)
-#   [10:13] = ref_error module prior scales (CalSrc, CalStore, CalSwitch)
-#   [13:16] = feature sensitivity per fault type (amp, freq, ref)
+# Structure: 18 parameters
+#   [0:8]  = amp_error module prior scales (ADC, Mixer1, Filter, Power, IF, DSP, RBW, VBW)
+#   [8:12] = freq_error module prior scales (RefDist, Mixer1, LO1, OCXO)
+#   [12:15] = ref_error module prior scales (CalSrc, CalStore, CalSwitch)
+#   [15:18] = feature sensitivity per fault type (amp, freq, ref)
 _DEFAULT_HIERARCHICAL_PARAMS = [
-    # amp_error priors (6)
-    1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    # amp_error priors (8)
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
     # freq_error priors (4)
     1.0, 1.0, 1.0, 1.0,
     # ref_error priors (3)
@@ -104,6 +104,8 @@ _AMP_MODULES = [
     "[电源板] 电源管理模块",
     "[数字中频板][IF] 中频放大/衰减链",
     "[数字中频板][DSP] 数字增益/偏置校准",
+    "[数字中频板][数字IF域] RBW滤波器",
+    "[数字中频板][数字IF域] VBW滤波器",
 ]
 _FREQ_MODULES = [
     "[时钟板][参考分配]",
@@ -143,13 +145,13 @@ def set_hierarchical_params(params):
     
     Parameters
     ----------
-    params : list of 16 floats
-        [0:6] amp prior scales, [6:10] freq prior scales,
-        [10:13] ref prior scales, [13:16] feature sensitivity
+    params : list of 18 floats
+        [0:8] amp prior scales, [8:12] freq prior scales,
+        [12:15] ref prior scales, [15:18] feature sensitivity
     """
     global _hierarchical_params
-    if len(params) != 16:
-        raise ValueError(f"Expected 16 hierarchical params, got {len(params)}")
+    if len(params) != 18:
+        raise ValueError(f"Expected 18 hierarchical params, got {len(params)}")
     _hierarchical_params = list(params)
 
 
@@ -738,7 +740,8 @@ BOARD_MODULES = {
         "[数字中频板][ADC] 数字检波与平均",
         "[数字中频板][ADC] 采样时钟",
         "[数字中频板][DSP] 数字增益/偏置校准",
-        "[数字中频板][IF] RBW数字滤波器"
+        "[数字中频板][数字IF域] RBW滤波器",
+        "[数字中频板][数字IF域] VBW滤波器"
     ],
     "LO/时钟板": [
         "[LO/时钟板][LO1] 合成链",
@@ -821,11 +824,11 @@ def hierarchical_module_infer(
     sys_probs[fault_type] = 0.9  # 高置信度
     
     # Data-aligned module distribution priors per fault type
-    # hp[0:13] are scale factors (optimized by P-CMA-ES with box projection).
+    # hp[0:15] are scale factors (optimized by P-CMA-ES with box projection).
     # Always: scaled_prior = base_prior * scale_factor, then normalize to Σ=1.
     # This guarantees valid probability output while allowing full optimization freedom.
     hp = _hierarchical_params
-    _BASE_AMP_PRIORS = [0.30, 0.30, 0.21, 0.10, 0.05, 0.04]
+    _BASE_AMP_PRIORS = [0.24, 0.24, 0.17, 0.08, 0.04, 0.03, 0.10, 0.10]
     _BASE_FREQ_PRIORS = [0.37, 0.33, 0.17, 0.13]
     _BASE_REF_PRIORS = [0.38, 0.32, 0.30]
 
@@ -835,16 +838,16 @@ def hierarchical_module_infer(
         return {m: v / total for m, v in zip(modules, scaled)}
 
     if fault_type == "amp_error":
-        filtered_probs = _scale_and_normalize(_BASE_AMP_PRIORS, hp[0:6], _AMP_MODULES)
+        filtered_probs = _scale_and_normalize(_BASE_AMP_PRIORS, hp[0:8], _AMP_MODULES)
     elif fault_type == "freq_error":
-        filtered_probs = _scale_and_normalize(_BASE_FREQ_PRIORS, hp[6:10], _FREQ_MODULES)
+        filtered_probs = _scale_and_normalize(_BASE_FREQ_PRIORS, hp[8:12], _FREQ_MODULES)
     elif fault_type == "ref_error":
-        filtered_probs = _scale_and_normalize(_BASE_REF_PRIORS, hp[10:13], _REF_MODULES)
+        filtered_probs = _scale_and_normalize(_BASE_REF_PRIORS, hp[12:15], _REF_MODULES)
     else:
         filtered_probs = {}
     
     # Feature sensitivity multiplier for this fault type
-    feat_sens = hp[13] if fault_type == "amp_error" else hp[14] if fault_type == "freq_error" else hp[15]
+    feat_sens = hp[15] if fault_type == "amp_error" else hp[16] if fault_type == "freq_error" else hp[17]
 
     # Feature-based adjustment: use discriminative features to shift priors
     # Thresholds calibrated from training data feature distributions per V2 module

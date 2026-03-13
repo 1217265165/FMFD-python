@@ -494,3 +494,118 @@ def inject_power_noise(
             "noise_std_mean": float(np.mean(noise_std)) if np.ndim(noise_std) else float(noise_std),
         }
     return result
+
+
+# ============ 数字中频板故障模型 (新增) ============
+# 严重度权重体系与文档 simulation_methodology.md 保持一致
+_SEVERITY_WEIGHTS = {"light": 0.3, "mid": 0.5, "severe": 0.8}
+
+
+def inject_rbw_ripple(
+    amp,
+    max_ripple_db=3.0,
+    severity="mid",
+    rng=None,
+    return_params=False,
+):
+    """
+    [数字中频板][数字IF域] RBW滤波器故障：周期性正弦纹波叠加。
+
+    机理：数字 RBW 滤波器系数异常，导致曲线出现规则的"非物理"Sinc
+    旁瓣效应或过补偿起伏。
+
+    建模：叠加带高斯包络约束的正弦波 (Sine Ripple)。
+        actual_ripple_db = max_ripple_db × severity_weight
+
+    Parameters
+    ----------
+    amp : array_like
+        原始幅度曲线 (dBm)。
+    max_ripple_db : float
+        基准最大起伏幅度 (dB)。 **禁止写死**，通过此参数暴露。
+    severity : str
+        严重度等级 ('light', 'mid', 'severe')。
+    rng : numpy.random.Generator, optional
+    return_params : bool
+        是否返回注入参数字典。
+    """
+    rng = rng or np.random.default_rng()
+    amp = np.asarray(amp, dtype=float)
+    n = len(amp)
+    if n < 4:
+        return (amp.copy(), {}) if return_params else amp.copy()
+
+    severity_weight = _SEVERITY_WEIGHTS.get(severity, 0.5)
+    actual_ripple_db = max_ripple_db * severity_weight
+
+    # 随机纹波周期数与相位
+    ripple_periods = rng.uniform(3.0, 12.0)
+    phase = rng.uniform(0.0, 2 * np.pi)
+    x = np.linspace(0, 2 * np.pi * ripple_periods, n)
+
+    # 高斯包络约束，避免边缘突变
+    envelope = np.exp(-0.5 * (np.linspace(-2.0, 2.0, n) ** 2))
+
+    ripple = actual_ripple_db * np.sin(x + phase) * envelope
+    result = amp + ripple
+
+    if return_params:
+        return result, {
+            "severity": severity,
+            "max_ripple_db": float(max_ripple_db),
+            "actual_ripple_db": float(actual_ripple_db),
+            "ripple_periods": float(ripple_periods),
+        }
+    return result
+
+
+def inject_vbw_ema_lag(
+    amp,
+    max_alpha=0.85,
+    severity="mid",
+    rng=None,
+    return_params=False,
+):
+    """
+    [数字中频板][数字IF域] VBW滤波器故障：一阶指数平滑 (EMA) 迟滞/拖尾。
+
+    机理：VBW 包络平滑常数异常，细小纹波被过度抹平，陡峭过渡带出现
+    向扫描方向的迟滞拖尾形变。
+
+    建模：一阶 EMA 单向滤波 y[n] = α·y[n-1] + (1-α)·x[n]。
+        actual_alpha = max_alpha × severity_weight
+
+    Parameters
+    ----------
+    amp : array_like
+        原始幅度曲线 (dBm)。
+    max_alpha : float
+        基准最大平滑/迟滞系数 (0 < max_alpha < 1)。 **禁止写死**。
+    severity : str
+        严重度等级 ('light', 'mid', 'severe')。
+    rng : numpy.random.Generator, optional
+    return_params : bool
+        是否返回注入参数字典。
+    """
+    rng = rng or np.random.default_rng()
+    amp = np.asarray(amp, dtype=float)
+    n = len(amp)
+    if n < 2:
+        return (amp.copy(), {}) if return_params else amp.copy()
+
+    severity_weight = _SEVERITY_WEIGHTS.get(severity, 0.5)
+    actual_alpha = max_alpha * severity_weight
+
+    # 一阶 EMA 向右迟滞
+    result = np.empty_like(amp)
+    result[0] = amp[0]
+    for i in range(1, n):
+        result[i] = actual_alpha * result[i - 1] + (1.0 - actual_alpha) * amp[i]
+
+    if return_params:
+        return result, {
+            "severity": severity,
+            "max_alpha": float(max_alpha),
+            "actual_alpha": float(actual_alpha),
+        }
+    return result

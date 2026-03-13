@@ -123,18 +123,18 @@ def _aggregate_module_score(features):
 
 # ======= P-CMA-ES Projection Operators =======
 
-# Parameter structure: 16 params total
-#   [0:6]   amp_error module prior scale factors → box constraint [0.1, 5.0]
-#   [6:10]  freq_error module prior scale factors → box constraint [0.1, 5.0]
-#   [10:13] ref_error module prior scale factors  → box constraint [0.1, 5.0]
-#   [13:16] feature sensitivity per fault type    → box constraint [0.1, 5.0]
+# Parameter structure: 18 params total
+#   [0:8]   amp_error module prior scale factors → box constraint [0.1, 5.0]
+#   [8:12]  freq_error module prior scale factors → box constraint [0.1, 5.0]
+#   [12:15] ref_error module prior scale factors  → box constraint [0.1, 5.0]
+#   [15:18] feature sensitivity per fault type    → box constraint [0.1, 5.0]
 #
 # Note: The simplex constraint (Σ prior_i = 1) is enforced implicitly by the
 # normalization step in hierarchical_module_infer() after scaling base priors.
 # This is equivalent to Softmax归一化 applied at the inference level.
 
-_SCALE_BOX = (0.1, 5.0)  # bounds for prior scale factors [0:13]
-_SENS_BOX = (0.1, 5.0)   # bounds for feature sensitivity [13:16]
+_SCALE_BOX = (0.1, 5.0)  # bounds for prior scale factors [0:15]
+_SENS_BOX = (0.1, 5.0)   # bounds for feature sensitivity [15:18]
 
 
 def _simplex_projection(v: np.ndarray, floor: float = 0.0) -> np.ndarray:
@@ -172,15 +172,15 @@ def project_to_feasible(params: np.ndarray) -> np.ndarray:
     """P-CMA-ES Projection Operator: map unconstrained CMA-ES solution
     to the feasible parameter space.
 
-    - Prior scale factors [0:13] → box [0.1, 5.0]
-    - Feature sensitivity [13:16] → box [0.1, 5.0]
+    - Prior scale factors [0:15] → box [0.1, 5.0]
+    - Feature sensitivity [15:18] → box [0.1, 5.0]
     - Simplex guarantee (Σ prior_i = 1) enforced by inference-level normalization
     """
     projected = params.copy()
     lo_s, hi_s = _SCALE_BOX
-    projected[0:13] = np.clip(projected[0:13], lo_s, hi_s)
+    projected[0:15] = np.clip(projected[0:15], lo_s, hi_s)
     lo_f, hi_f = _SENS_BOX
-    projected[13:16] = np.clip(projected[13:16], lo_f, hi_f)
+    projected[15:18] = np.clip(projected[15:18], lo_f, hi_f)
     return projected
 
 
@@ -237,8 +237,8 @@ def supervised_objective(params, feats_rows, label_v2_names, fault_types):
     balanced_acc = float(np.mean(recalls)) if recalls else 0.0
     
     # L2 regularization: strong on scale factors (keep near 1.0), weak on feat sensitivity
-    reg_scales = 0.05 * float(np.sum((projected[0:13] - 1.0) ** 2))
-    reg_sens = 0.001 * float(np.sum((projected[13:16] - 1.0) ** 2))
+    reg_scales = 0.05 * float(np.sum((projected[0:15] - 1.0) ** 2))
+    reg_sens = 0.001 * float(np.sum((projected[15:18] - 1.0) ** 2))
     return (1.0 - balanced_acc) + reg_scales + reg_sens
 
 
@@ -264,19 +264,19 @@ def unsupervised_objective(params, feats_rows, fault_types, w_entropy=0.6, w_con
 def optimize(feats_rows, label_v2_names=None, fault_types=None,
              maxiter=80, popsize=None, seed=42, sigma0=0.5):
     print("[AUDIT] Using P-CMA-ES with Projection Operator")
-    print(f"  Scale factors [0:13]: box [{_SCALE_BOX[0]}, {_SCALE_BOX[1]}]")
-    print(f"  Feature sensitivity [13:16]: box [{_SENS_BOX[0]}, {_SENS_BOX[1]}]")
+    print(f"  Scale factors [0:15]: box [{_SCALE_BOX[0]}, {_SCALE_BOX[1]}]")
+    print(f"  Feature sensitivity [15:18]: box [{_SENS_BOX[0]}, {_SENS_BOX[1]}]")
     print(f"  Simplex (Σ prior_i = 1): enforced by inference-level normalization")
 
-    # 16 params: [amp_scales(6), freq_scales(4), ref_scales(3), feat_sens(3)]
+    # 18 params: [amp_scales(8), freq_scales(4), ref_scales(3), feat_sens(3)]
     # Initialize: scale factors at 1.0 (preserve domain-expert base priors),
     # feature sensitivity at 1.5 (explore higher-than-neutral sensitivity)
-    x0 = np.ones(16, dtype=float)
-    x0[13:16] = 1.5
+    x0 = np.ones(18, dtype=float)
+    x0[15:18] = 1.5
 
     # Use CMA-ES with initial step sizes weighted toward feature sensitivity
     opts = {"seed": seed, "verbose": 1, "maxiter": maxiter,
-            "CMA_stds": [0.2]*13 + [1.0]*3}  # Small steps for priors, large for sens
+            "CMA_stds": [0.2]*15 + [1.0]*3}  # Small steps for priors, large for sens
     if popsize:
         opts["popsize"] = popsize
     es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
@@ -315,10 +315,10 @@ def optimize(feats_rows, label_v2_names=None, fault_types=None,
     # Verify box constraints
     lo_s, hi_s = _SCALE_BOX
     lo_f, hi_f = _SENS_BOX
-    assert np.all(best_x[0:13] >= lo_s) and np.all(best_x[0:13] <= hi_s), \
-        f"Box violation in scale factors: min={best_x[0:13].min()}, max={best_x[0:13].max()}"
-    assert np.all(best_x[13:16] >= lo_f) and np.all(best_x[13:16] <= hi_f), \
-        f"Box violation in feat sensitivity: min={best_x[13:16].min()}, max={best_x[13:16].max()}"
+    assert np.all(best_x[0:15] >= lo_s) and np.all(best_x[0:15] <= hi_s), \
+        f"Box violation in scale factors: min={best_x[0:15].min()}, max={best_x[0:15].max()}"
+    assert np.all(best_x[15:18] >= lo_f) and np.all(best_x[15:18] <= hi_f), \
+        f"Box violation in feat sensitivity: min={best_x[15:18].min()}, max={best_x[15:18].max()}"
     print(f"\n[AUDIT] All projection constraints verified ✓")
     print(f"[INFO] best_obj={best_obj:.6f}, best_params={best_x}")
     return best_x, best_obj, history
@@ -381,7 +381,7 @@ def main():
     if cma is None:
         print("[WARN] cma not installed. Install with: pip install cma")
         print("[WARN] Saving default params as fallback.")
-        best_w = np.ones(16, dtype=float)
+        best_w = np.ones(18, dtype=float)
         out_dir = Path(args.output_dir) if args.output_dir else Path(".")
         out_dir.mkdir(parents=True, exist_ok=True)
         result = {
@@ -487,7 +487,7 @@ def main():
     print(f"\n[INFO] Starting P-CMA-ES optimization (hierarchical params)...")
     print(f"  Samples: {len(feats_rows)}")
     print(f"  Mode: {'supervised' if label_v2_names is not None else 'unsupervised'}")
-    print(f"  Parameters: 16 (6 amp + 4 freq + 3 ref priors + 3 feat sensitivity)")
+    print(f"  Parameters: 18 (8 amp + 4 freq + 3 ref priors + 3 feat sensitivity)")
     print(f"  Constraints: simplex (prior groups), box [0.1, 5.0] (feat sensitivity)")
     print(f"  Max iterations: {args.maxiter}")
     if args.popsize:
@@ -542,6 +542,7 @@ def main():
 
     param_names = [
         "amp_ADC", "amp_Mixer1", "amp_Filter", "amp_Power", "amp_IF", "amp_DSP",
+        "amp_RBW", "amp_VBW",
         "freq_RefDist", "freq_Mixer1", "freq_LO1", "freq_OCXO",
         "ref_CalSrc", "ref_CalStore", "ref_CalSwitch",
         "feat_sens_amp", "feat_sens_freq", "feat_sens_ref",
@@ -552,9 +553,9 @@ def main():
     for i, (name, w) in enumerate(zip(param_names, best_w)):
         print(f"  {name}: {w:.6f}")
     print(f"  ---")
-    print(f"  Σ(amp priors):  {sum(best_w[0:6]):.6f}  (target: 1.0)")
-    print(f"  Σ(freq priors): {sum(best_w[6:10]):.6f}  (target: 1.0)")
-    print(f"  Σ(ref priors):  {sum(best_w[10:13]):.6f}  (target: 1.0)")
+    print(f"  Σ(amp priors):  {sum(best_w[0:8]):.6f}  (target: 1.0)")
+    print(f"  Σ(freq priors): {sum(best_w[8:12]):.6f}  (target: 1.0)")
+    print(f"  Σ(ref priors):  {sum(best_w[12:15]):.6f}  (target: 1.0)")
     print(f"  Objective: {best_obj:.6f}")
     print(f"{'='*55}")
 

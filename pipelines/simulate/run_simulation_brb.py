@@ -224,6 +224,8 @@ KIND_TO_MODULE = {
     "adc": "ADC",
     "vbw": "数字检波器",
     "power": "电源模块",
+    "rbw": "数字RBW",
+    "vbw_filter": "VBW滤波器",
 }
 
 # Attenuator behavior controls (AC does not auto-disable attenuator faults).
@@ -367,6 +369,8 @@ def _build_active_fault_kinds(
         "adc",
         "vbw",
         "power",
+        "rbw",
+        "vbw_filter",
         "freq",
         "clock",
         "lo",
@@ -1162,27 +1166,30 @@ def simulate_curve(
         # Realistic distribution reflecting module diversity (NO PREAMP)
         kind_probs = {
             # Amplitude-related (多种模块, 概率较高) - NO PREAMP
-            "amp": 0.12,      # Calibration source
-            "lpf": 0.09,      # Low-pass filter
-            "mixer": 0.09,    # Mixer
-            "adc": 0.09,      # ADC
-            "vbw": 0.08,      # Digital detector
-            "power": 0.08,    # Power supply
+            "amp": 0.10,      # Calibration source
+            "lpf": 0.08,      # Low-pass filter
+            "mixer": 0.08,    # Mixer
+            "adc": 0.08,      # ADC
+            "vbw": 0.06,      # Digital detector
+            "power": 0.06,    # Power supply
+            "rbw": 0.07,      # RBW filter (新增)
+            "vbw_filter": 0.07, # VBW filter (新增)
             # Frequency-related (少量模块, 概率较低)
             "freq": 0.08,     # Frequency calibration
             "clock": 0.06,    # Clock synthesis
             "lo": 0.06,       # Local oscillator
             # Reference level (特定模块)
-            "rl": 0.08,       # Reference level
-            "att": 0.06,      # Attenuator
+            "rl": 0.07,       # Reference level
+            "att": 0.05,      # Attenuator
             # Normal
-            "normal": 0.10,   # Normal state (increased slightly)
+            "normal": 0.08,   # Normal state
         }
     elif target_class == "amp_error":
         # Select from amplitude fault modules with realistic weights (NO PREAMP)
         kind_probs = {
-            "amp": 0.25, "lpf": 0.18, "mixer": 0.18,
-            "adc": 0.15, "vbw": 0.12, "power": 0.12
+            "amp": 0.20, "lpf": 0.14, "mixer": 0.14,
+            "adc": 0.12, "vbw": 0.08, "power": 0.08,
+            "rbw": 0.12, "vbw_filter": 0.12
         }
     elif target_class == "freq_error":
         # Select from frequency fault modules
@@ -1195,10 +1202,10 @@ def simulate_curve(
     else:
         # Fallback to distribution without preamp
         kind_probs = {
-            "amp": 0.15, "freq": 0.12, "rl": 0.12, "att": 0.08,
-            "lpf": 0.09, "mixer": 0.09,
-            "clock": 0.06, "lo": 0.06, "adc": 0.06, "vbw": 0.06,
-            "power": 0.06, "normal": 0.10,
+            "amp": 0.12, "freq": 0.10, "rl": 0.10, "att": 0.06,
+            "lpf": 0.08, "mixer": 0.08,
+            "clock": 0.05, "lo": 0.05, "adc": 0.05, "vbw": 0.05,
+            "power": 0.05, "rbw": 0.06, "vbw_filter": 0.06, "normal": 0.09,
         }
     
     kind_probs = {k: v for k, v in kind_probs.items() if k in active_kinds}
@@ -1278,6 +1285,8 @@ def simulate_curve(
             "clock": "ref_distribution",
             "lo": "lo1_synth",
             "ytf": "lpf_high_band",
+            "rbw": "rbw_filter",
+            "vbw_filter": "vbw_filter",
         }
         
         # V-D.2: 频率 warp 参数常量
@@ -1402,6 +1411,20 @@ def simulate_curve(
             fault_params["subtype"] = "amp_error_ripple"
             curve = curve_generator.apply_degradation(rrs_copy, "power_management", severity_float)
             fault_params["module_key"] = "power_management"
+        elif fault_kind == "rbw":
+            label_sys = "幅度失准"
+            label_mod = forced_module_label or "数字RBW"
+            fault_params["type"] = "rbw_ripple"
+            fault_params["subtype"] = "amp_error_ripple"
+            curve = curve_generator.apply_degradation(rrs_copy, "rbw_filter", severity_float)
+            fault_params["module_key"] = "rbw_filter"
+        elif fault_kind == "vbw_filter":
+            label_sys = "幅度失准"
+            label_mod = forced_module_label or "VBW滤波器"
+            fault_params["type"] = "vbw_ema_lag"
+            fault_params["subtype"] = "amp_error_offset"
+            curve = curve_generator.apply_degradation(rrs_copy, "vbw_filter", severity_float)
+            fault_params["module_key"] = "vbw_filter"
 
         # 注意：V-D.3 已完全禁用旧模板系统 (apply_template, template_id)
         

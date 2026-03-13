@@ -114,9 +114,14 @@ HIERARCHY_MAP = {
         "curve_signature": "smooth_shift",
     },
     "RBW": {
-        "system_class": "ref_error",
-        "label_group": "Ref",
+        "system_class": "amp_error",
+        "label_group": "Amp",
         "curve_signature": "regular_nonphysical_ripple",
+    },
+    "VBW": {
+        "system_class": "amp_error",
+        "label_group": "Amp",
+        "curve_signature": "ema_lag_smoothing",
     },
     "PEAK1": {
         "system_class": "freq_error",
@@ -202,10 +207,10 @@ MODULE_V1_TO_V2 = {
     "高频段混频器": "[RF板][Mixer2]",
     "中频放大器": "[数字中频板][IF] 中频放大/衰减链",
     "ADC": "[数字中频板][ADC] 数字检波与平均",
-    "数字RBW": "[数字中频板][IF] RBW数字滤波器",
+    "数字RBW": "[数字中频板][数字IF域] RBW滤波器",
     "数字放大器": "[数字中频板][DSP] 数字增益/偏置校准",
     "数字检波器": "[数字中频板][ADC] 数字检波与平均",
-    "VBW滤波器": "[数字中频板][VBW]",
+    "VBW滤波器": "[数字中频板][数字IF域] VBW滤波器",
     "电源模块": "[电源板] 电源管理模块",
     "衰减器": "[RF板][RF] 输入衰减器组",
     "前置放大器": "前置放大器",
@@ -214,7 +219,7 @@ MODULE_V1_TO_V2 = {
     "中频窗函数与加权": "[数字中频板][DSP] 中频窗函数与加权",
     "输入衰减器组": "[RF板][RF] 输入衰减器组",
     "输入连接与匹配网络": "[RF板][RF] 输入连接/匹配/保护",
-    "RBW带宽滤波器": "[数字中频板][IF] RBW数字滤波器",
+    "RBW带宽滤波器": "[数字中频板][数字IF域] RBW滤波器",
     "ADC采样时钟": "[数字中频板][ADC] 采样时钟",
 }
 
