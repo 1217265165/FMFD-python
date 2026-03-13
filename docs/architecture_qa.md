@@ -12,9 +12,9 @@
 
 | 来源函数 | 文件:行号 | 特征数量 |
 |----------|-----------|----------|
-| `extract_system_features()` | `features/feature_extraction.py:294-810` | X1–X37 (37 个) + 3 个冗余别名 + 13 个鲁棒残差特征 |
-| `compute_dynamic_threshold_features()` | `features/feature_extraction.py:813-892` | 5 个动态阈值特征（+ 重复的 robust_feats 会被 dict 合并去重） |
-| **合并去重后** (`**sys_feats, **dyn_feats`) | `run_simulation_brb.py:1910,1920-1926` | **58 个独立特征** |
+| `extract_system_features()` | `features/feature_extraction.py:294-810` | X1–X37 (37 个) + 3 个别名 (offset_db, viol_rate_aligned, viol_energy_aligned) + 13 个鲁棒残差特征 = **53 个** |
+| `compute_dynamic_threshold_features()` | `features/feature_extraction.py:813-892` | 5 个动态阈值特征 (env_overrun_rate/max/mean, switch_step_mean_abs/std) + 重复的 3 个别名和 13 个 robust_feats（合并时去重）= 新增 **5 个** |
+| **合并去重后** (`**sys_feats, **dyn_feats`) | `run_simulation_brb.py:1910,1920-1926` | 53 + 5 = **58 个独立特征** |
 
 > 写入 `features_brb.csv` 时仅包含 `sample_id` + 58 个特征列，无标签列。
 > `compare_methods.py` 加载后特征矩阵形状为 `(400, 58)`（`compare_methods.py:572`）。
@@ -148,7 +148,7 @@
 
 > **禁用配置**（`module_brb.py:64-75`）：当前默认 `SINGLE_BAND=True` + `DISABLE_PREAMP=True` + `AC_COUPLED=True`，共禁用 4 个模块。
 
-#### B. V2 合并后的模块（去重后 16 个独立名称）
+#### B. V2 合并后的模块（去重后 18 个独立名称）
 
 由于 V1→V2 存在多对一映射（如 "低频段第一混频器" 和 "本振混频组件" 均映射到 "[RF板][Mixer1]"；"ADC" 和 "数字检波器" 均映射到 "[数字中频板][ADC] 数字检波与平均"），去重后为 **18 个**独立 V2 模块（`label_mapping.py:190-218`，`module_brb.py:55-61`）。
 
@@ -212,7 +212,7 @@
 
 **正常（`normal`）— 100 条样本**：模块标签为 `"none"`，不分配模块。
 
-#### 结论：实际参与仿真的 V1 模块（16 个启用中的 12 个）
+#### 结论：实际参与仿真的 V1 模块（16 个启用中的 14 个）
 
 | V1 模块 | 是否实际仿真 | 仿真路径 |
 |---------|-------------|---------|
@@ -230,10 +230,10 @@
 | 校准信号开关 | ✅ | `rl`/`att` 随机 |
 | ADC | ✅ | `adc` |
 | 数字检波器 | ✅ | `vbw` |
-| **数字RBW** | ❌ 未仿真 | MODULE_LIBRARY 中标记为 ref_error，但仿真不包含该路径 |
-| **VBW滤波器** | ❌ 未仿真 | MODULE_LIBRARY 中标记为 ref_error，但仿真不包含该路径 |
+| 数字RBW | ❌ 未仿真 | MODULE_LIBRARY 中标记为 ref_error，但仿真的 `rl`/`att` 路径仅从 `_choose_ref_module()` 选取 |
+| VBW滤波器 | ❌ 未仿真 | MODULE_LIBRARY 中标记为 ref_error，但仿真的 `rl`/`att` 路径仅从 `_choose_ref_module()` 选取 |
 
-> **关键发现**：20 个 V1 模块中，4 个被配置禁用，12 个实际参与仿真，**2 个**（数字RBW、VBW滤波器）虽然启用但未被任何 fault_kind 路径分配到。
+> **关键发现**：20 个 V1 模块中，4 个被配置禁用，16 个启用；其中 14 个实际参与仿真，**2 个**（数字RBW、VBW滤波器）虽然在 MODULE_LIBRARY 中标记为 `ref_error` 但未被任何 `fault_kind` 路径分配到（仿真的 `rl`/`att` 路径仅通过 `_choose_ref_module()` 从 `[校准源, 存储器, 校准信号开关]` 中选取）。
 
 ### 2.3 数据集划分
 
@@ -254,13 +254,13 @@ SPLIT = (0.6, 0.2, 0.2)  # 训练集:验证集:测试集
 ### 2.4 模块级故障数据分布
 
 - **故障样本总数**：300 条（正常 100 条不含模块标签）
-- **模块级标签分布**：由于 `_choose_module_for_system()` 和 `_choose_ref_module()` 是**随机等概率选取**，具体分布因随机种子而异。以下是**期望分布**：
+- **模块级标签分布**：由于 `_choose_module_for_system()` 和 `_choose_ref_module()` 是**随机等概率选取**，具体分布因随机种子而异。以下是**基于概率的期望分布**（仅供参考，实际值因随机种子而有偏差）：
 
-| 系统类别 | 样本数 | V1 模块 → 期望条数 |
-|---------|--------|-------------------|
-| 幅度失准 | 100 | 低频段前置低通滤波器 ≈ 18+4=22, 低频段第一混频器 ≈ 18+4=22, 本振混频组件 ≈ 4, 中频放大器 ≈ 4, 数字放大器 ≈ 4, 电源模块 ≈ 12+4=16, ADC ≈ 15, 数字检波器 ≈ 12 |
-| 频率失准 | 100 | 时钟振荡器 ≈ 13, 时钟合成与同步网络 ≈ 30+13=43, 本振源(谐波发生器) ≈ 13, 本振混频组件 ≈ 30 |
-| 参考电平失准 | 100 | 校准源 ≈ 33, 存储器 ≈ 33, 校准信号开关 ≈ 33 |
+| 系统类别 | 样本数 | 分配方式说明 |
+|---------|--------|-------------|
+| 幅度失准 | 100 | `amp`(25%) 从 6 个 V1 模块中均匀随机选取 + `lpf`(18%)→低频段前置低通滤波器 + `mixer`(18%)→低频段第一混频器 + `adc`(15%)→ADC + `vbw`(12%)→数字检波器 + `power`(12%)→电源模块 |
+| 频率失准 | 100 | `freq`(40%) 从 3 个 V1 模块中均匀随机选取 + `clock`(30%)→时钟合成与同步网络 + `lo`(30%)→本振混频组件 |
+| 参考电平失准 | 100 | `rl`(60%) + `att`(40%) 均从 `[校准源, 存储器, 校准信号开关]` 中均匀随机选取 |
 | 正常 | 100 | 无模块标签 |
 
 ---
