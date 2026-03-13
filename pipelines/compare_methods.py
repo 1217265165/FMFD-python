@@ -1123,23 +1123,33 @@ def evaluate_method(
                     continue
                 n_valid += 1
                 
-                # Get top-3 predicted indices
-                top3_indices = np.argsort(row)[::-1][:3]
-                
                 # V2-aware matching: two V1 indices mapping to the same V2
                 # module should be considered equivalent (e.g., ADC=14 and
-                # 数字检波器=17 both map to [数字中频板][ADC])
+                # 数字检波器=17 both map to [数字中频板][ADC]).
+                # De-duplicate so that a single V2 module with multiple V1
+                # aliases does not consume multiple top-K slots.
                 from tools.label_mapping import module_v2_from_v1
                 n_mods = len(MODULE_LABELS)
                 gt_v1_name = MODULE_LABELS[gt_idx] if gt_idx < n_mods else ""
                 gt_v2 = module_v2_from_v1(gt_v1_name)
                 
-                pred_v2_top1 = module_v2_from_v1(MODULE_LABELS[top3_indices[0]]) if top3_indices[0] < n_mods else ""
-                pred_v2_top3 = [module_v2_from_v1(MODULE_LABELS[j]) if j < n_mods else "" for j in top3_indices]
+                # Build de-duplicated top-3 by unique V2 module names
+                sorted_indices = np.argsort(row)[::-1]
+                pred_v2_unique = []
+                for j in sorted_indices:
+                    if j >= n_mods:
+                        continue
+                    v2 = module_v2_from_v1(MODULE_LABELS[j])
+                    if v2 not in pred_v2_unique:
+                        pred_v2_unique.append(v2)
+                    if len(pred_v2_unique) >= 3:
+                        break
+                
+                pred_v2_top1 = pred_v2_unique[0] if pred_v2_unique else ""
                 
                 if gt_v2 == pred_v2_top1:
                     n_correct_top1 += 1
-                if gt_v2 in pred_v2_top3:
+                if gt_v2 in pred_v2_unique:
                     n_correct_top3 += 1
             
             if n_valid > 0:
