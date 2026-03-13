@@ -1,0 +1,362 @@
+{
+  "_version": "2.0",
+  "_description": "特征定义配置 - X1-X37完整定义（含v9频谱分析、v10形态特征）",
+  "_last_updated": "2026-02-06",
+
+  "FEATURE_SCHEMA": {
+    "X1": {
+      "name": "global_offset_db",
+      "name_cn": "整体幅度偏移",
+      "category": "amplitude",
+      "layer": 1,
+      "description": "频响曲线的全局偏移量(dB)"
+    },
+    "X2": {
+      "name": "inband_flatness",
+      "name_cn": "带内平坦度",
+      "category": "amplitude",
+      "layer": 1,
+      "description": "带内频响变化量"
+    },
+    "X3": {
+      "name": "hf_attenuation_slope",
+      "name_cn": "高频段衰减斜率",
+      "category": "amplitude",
+      "layer": 1,
+      "description": "高频端的衰减斜率"
+    },
+    "X4": {
+      "name": "freq_scale_nonlinearity",
+      "name_cn": "频率标度非线性度",
+      "category": "frequency",
+      "layer": 1,
+      "description": "频率标度的非线性偏差"
+    },
+    "X5": {
+      "name": "amp_scale_consistency",
+      "name_cn": "幅度缩放一致性",
+      "category": "amplitude",
+      "layer": 1,
+      "description": "幅度缩放的一致性指标"
+    },
+    "X6": {
+      "name": "ripple_variance",
+      "name_cn": "纹波方差",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "纹波变化量"
+    },
+    "X7": {
+      "name": "gain_nonlinearity",
+      "name_cn": "增益非线性",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "增益的非线性变化"
+    },
+    "X8": {
+      "name": "lo_leakage",
+      "name_cn": "本振泄漏",
+      "category": "frequency",
+      "layer": 2,
+      "description": "本振信号泄漏量"
+    },
+    "X9": {
+      "name": "tuning_linearity_residual",
+      "name_cn": "调谐线性度残差",
+      "category": "frequency",
+      "layer": 2,
+      "description": "调谐线性度的残差"
+    },
+    "X10": {
+      "name": "band_amplitude_consistency",
+      "name_cn": "频段幅度一致性",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "不同频段间的幅度一致性"
+    },
+    "X11": {
+      "name": "env_overrun_rate",
+      "name_cn": "包络超出率",
+      "category": "reference",
+      "layer": 2,
+      "description": "超出动态包络的点占比"
+    },
+    "X12": {
+      "name": "env_overrun_max",
+      "name_cn": "最大包络违规",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "最大包络违规幅度"
+    },
+    "X13": {
+      "name": "env_violation_energy",
+      "name_cn": "包络违规能量",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "包络违规能量总和"
+    },
+    "X14": {
+      "name": "band_residual_low",
+      "name_cn": "低频段残差均值",
+      "category": "frequency",
+      "layer": 2,
+      "description": "低频段残差的均值"
+    },
+    "X15": {
+      "name": "band_residual_high_std",
+      "name_cn": "高频段残差标准差",
+      "category": "frequency",
+      "layer": 2,
+      "description": "高频段残差的标准差"
+    },
+    "X16": {
+      "name": "corr_shift_bins",
+      "name_cn": "互相关滞后/频移",
+      "category": "frequency",
+      "layer": 1,
+      "description": "互相关峰值的滞后(bins)"
+    },
+    "X17": {
+      "name": "warp_scale",
+      "name_cn": "频轴缩放因子",
+      "category": "frequency",
+      "layer": 1,
+      "description": "频轴缩放因子"
+    },
+    "X18": {
+      "name": "warp_bias",
+      "name_cn": "频轴平移因子",
+      "category": "frequency",
+      "layer": 2,
+      "description": "频轴平移偏置"
+    },
+    "X19": {
+      "name": "slope_low",
+      "name_cn": "低频段斜率",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "低频段的斜率"
+    },
+    "X20": {
+      "name": "kurtosis_detrended",
+      "name_cn": "去趋势残差峰度",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "去趋势后残差的峰度"
+    },
+    "X21": {
+      "name": "peak_count_residual",
+      "name_cn": "残差峰值数",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "残差中的峰值数量"
+    },
+    "X22": {
+      "name": "ripple_dom_freq_energy",
+      "name_cn": "残差主频能量占比",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "残差主频的能量占比"
+    },
+    "X23": {
+      "name": "warp_residual_energy",
+      "name_cn": "频轴变形残差能量",
+      "category": "frequency",
+      "layer": 1,
+      "description": "频轴变形后的残差能量"
+    },
+    "X24": {
+      "name": "phase_slope_diff",
+      "name_cn": "相位斜率差",
+      "category": "frequency",
+      "layer": 1,
+      "description": "相位斜率差异"
+    },
+    "X25": {
+      "name": "interp_mse_after_shift",
+      "name_cn": "位移后MSE",
+      "category": "frequency",
+      "layer": 1,
+      "description": "最优位移后的MSE"
+    },
+    "X26": {
+      "name": "high_quantile_compress",
+      "name_cn": "高分位压缩分",
+      "category": "reference",
+      "layer": 2,
+      "description": "高分位区间的压缩度"
+    },
+    "X27": {
+      "name": "piecewise_gain_change",
+      "name_cn": "分段增益变化",
+      "category": "reference",
+      "layer": 2,
+      "description": "分段增益的变化量"
+    },
+    "X28": {
+      "name": "residual_upper_tail_asym",
+      "name_cn": "上尾不对称",
+      "category": "reference",
+      "layer": 2,
+      "description": "残差上尾的不对称性"
+    },
+    "X29": {
+      "name": "hf_lf_energy_ratio",
+      "name_cn": "高低频能量比",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "高频与低频能量的比值(v8)"
+    },
+    "X30": {
+      "name": "compress_index",
+      "name_cn": "压缩指数",
+      "category": "amplitude",
+      "layer": 2,
+      "description": "高电平压缩指数(v8)"
+    },
+    "X31": {
+      "name": "piecewise_offset_consistency",
+      "name_cn": "分段偏移一致性",
+      "category": "reference",
+      "layer": 2,
+      "description": "分段偏移的一致性(v8)"
+    },
+    "X32": {
+      "name": "psd_ratio",
+      "name_cn": "PSD比",
+      "category": "spectrum",
+      "layer": 3,
+      "description": "功率谱密度高/低频比(v9)"
+    },
+    "X33": {
+      "name": "spectrum_smoothness",
+      "name_cn": "频谱平滑度",
+      "category": "spectrum",
+      "layer": 3,
+      "description": "频谱变化率标准差(v9)"
+    },
+    "X34": {
+      "name": "local_stats_variance",
+      "name_cn": "局部统计方差",
+      "category": "spectrum",
+      "layer": 3,
+      "description": "局部统计量的方差(v9)"
+    },
+    "X35": {
+      "name": "diff_variance",
+      "name_cn": "差分方差",
+      "category": "morphology",
+      "layer": 3,
+      "description": "一阶差分的方差(v10)"
+    },
+    "X36": {
+      "name": "periodicity_score",
+      "name_cn": "周期性分数",
+      "category": "morphology",
+      "layer": 3,
+      "description": "自相关周期性得分(v10)"
+    },
+    "X37": {
+      "name": "linear_fit_residual",
+      "name_cn": "线性拟合残差",
+      "category": "morphology",
+      "layer": 3,
+      "description": "线性拟合残差标准差(v10)"
+    }
+  },
+
+  "FEATURE_POOLS": {
+    "amp_pool": {
+      "description": "幅度失准相关特征池",
+      "features": ["X1", "X2", "X5", "X7", "X29", "X30", "X35"],
+      "layer_assignment": {
+        "layer_1": ["X1", "X2", "X5"],
+        "layer_2": ["X7", "X29", "X30"],
+        "layer_3": ["X35"]
+      }
+    },
+    "freq_pool": {
+      "description": "频率失准相关特征池",
+      "features": ["X4", "X16", "X17", "X23", "X24", "X25"],
+      "layer_assignment": {
+        "layer_1": ["X4", "X16", "X17", "X23", "X24", "X25"],
+        "layer_2": [],
+        "layer_3": []
+      }
+    },
+    "ref_pool": {
+      "description": "参考电平失准相关特征池",
+      "features": ["X1", "X3", "X5", "X11", "X26", "X27", "X28", "X31"],
+      "layer_assignment": {
+        "layer_1": ["X1", "X3", "X5"],
+        "layer_2": ["X11", "X26", "X27", "X28", "X31"],
+        "layer_3": []
+      }
+    },
+    "common_pool": {
+      "description": "通用特征池(所有故障类型共享)",
+      "features": ["X1", "X5", "X11"],
+      "layer_assignment": {
+        "layer_1": ["X1", "X5"],
+        "layer_2": ["X11"],
+        "layer_3": []
+      }
+    }
+  },
+
+  "NORMALIZATION_PARAMS": {
+    "X1": {"lower": 0.02, "upper": 0.5, "method": "linear"},
+    "X2": {"lower": 0.002, "upper": 0.05, "method": "linear"},
+    "X3": {"lower": 1e-12, "upper": 1e-9, "method": "log"},
+    "X4": {"lower": 5e5, "upper": 3e7, "method": "log"},
+    "X5": {"lower": 0.01, "upper": 0.35, "method": "linear"},
+    "X6": {"lower": 0.001, "upper": 0.03, "method": "linear"},
+    "X7": {"lower": 0.05, "upper": 2.0, "method": "linear"},
+    "X8": {"lower": 0.01, "upper": 1.0, "method": "linear"},
+    "X9": {"lower": 1e3, "upper": 1e5, "method": "log"},
+    "X10": {"lower": 0.02, "upper": 0.5, "method": "linear"},
+    "X11": {"lower": 0.01, "upper": 0.3, "method": "linear"},
+    "X12": {"lower": 0.5, "upper": 5.0, "method": "linear"},
+    "X13": {"lower": 0.1, "upper": 10.0, "method": "log"},
+    "X14": {"lower": 0.01, "upper": 1.0, "method": "linear"},
+    "X15": {"lower": 0.01, "upper": 0.5, "method": "linear"},
+    "X16": {"lower": 0.001, "upper": 0.1, "method": "linear"},
+    "X17": {"lower": 0.001, "upper": 0.05, "method": "linear"},
+    "X18": {"lower": 0.001, "upper": 0.05, "method": "linear"},
+    "X19": {"lower": 1e-12, "upper": 1e-10, "method": "log"},
+    "X20": {"lower": 0.5, "upper": 5.0, "method": "linear"},
+    "X21": {"lower": 1, "upper": 20, "method": "linear"},
+    "X22": {"lower": 0.1, "upper": 0.8, "method": "linear"},
+    "X23": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X24": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X25": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X26": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X27": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X28": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X29": {"lower": -2.0, "upper": 2.0, "method": "linear"},
+    "X30": {"lower": -1.0, "upper": 1.0, "method": "linear"},
+    "X31": {"lower": 0.0, "upper": 0.5, "method": "linear"},
+    "X32": {"lower": -2.0, "upper": 2.0, "method": "linear"},
+    "X33": {"lower": 0.0, "upper": 2.0, "method": "linear"},
+    "X34": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X35": {"lower": 0.0, "upper": 0.1, "method": "linear"},
+    "X36": {"lower": 0.0, "upper": 1.0, "method": "linear"},
+    "X37": {"lower": 0.0, "upper": 1.0, "method": "linear"}
+  },
+
+  "LAYER_DEFINITIONS": {
+    "layer_1": {
+      "description": "基础特征层 - 直接物理量",
+      "features": ["X1", "X2", "X3", "X4", "X5", "X16", "X17", "X23", "X24", "X25"]
+    },
+    "layer_2": {
+      "description": "派生特征层 - 统计量和残差",
+      "features": ["X6", "X7", "X8", "X9", "X10", "X11", "X12", "X13", "X14", "X15", 
+                   "X18", "X19", "X20", "X21", "X22", "X26", "X27", "X28", "X29", "X30", "X31"]
+    },
+    "layer_3": {
+      "description": "高级特征层 - 频谱分析和形态",
+      "features": ["X32", "X33", "X34", "X35", "X36", "X37"]
+    }
+  }
+}

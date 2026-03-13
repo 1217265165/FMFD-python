@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "description": "Unified truth field configuration for all evaluation paths",
+  
+  "system_truth_field": "system_fault_class",
+  "module_truth_field": "module_v2",
+  
+  "module_eval_policy": {
+    "exclude_normal": true,
+    "normal_class_name": "normal",
+    "description": "Normal samples do NOT participate in module localization evaluation"
+  },
+  
+  "canonical_fault_types": ["normal", "amp_error", "freq_error", "ref_error"],
+  
+  "notes": [
+    "All evaluation scripts MUST use these fields",
+    "System-level evaluation uses system_fault_class",
+    "Module-level evaluation uses module_v2 and excludes normal samples"
+  ]
+}

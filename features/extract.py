@@ -1,0 +1,304 @@
+import numpy as np
+from scipy.signal import correlate
+from sklearn.linear_model import HuberRegressor
+
+def estimate_gain_bias(rrs, amp):
+    """鲁棒拟合 A ≈ g*RRS + b，返回(g, b)。"""
+    X = rrs.reshape(-1, 1)
+    model = HuberRegressor().fit(X, amp)
+    return float(model.coef_[0]), float(model.intercept_)
+
+def estimate_quadratic(rrs, amp):
+    """拟合 A ≈ a*RRS + b + c*RRS^2，返回二次项 c（非线性压缩/扩展）。"""
+    X = np.vstack([rrs, np.ones_like(rrs), rrs**2]).T
+    coef, _, _, _ = np.linalg.lstsq(X, amp, rcond=None)
+    return float(coef[2])
+
+def estimate_freq_shift(frequency, rrs, amp, max_bins=500):
+    """
+    频率失准：频率轴整体平移的估计（可视为缩放前的近似）。
+    使用归一化互相关求最佳滞后，换算为 Δf。
+    """
+    r1 = (rrs - np.mean(rrs)) / (np.std(rrs) + 1e-9)
+    r2 = (amp - np.mean(amp)) / (np.std(amp) + 1e-9)
+    corr = correlate(r2, r1, mode="full")
+    lags = np.arange(-len(rrs) + 1, len(rrs))
+    center = np.argmax(corr)
+    start = max(0, center - max_bins)
+    end = min(len(corr), center + max_bins)
+    idx = start + np.argmax(corr[start:end])
+    best_lag = lags[idx]
+    df = np.mean(np.diff(frequency))
+    return float(best_lag * df)
+
+def envelope_violation_rate(amp, bounds):
+    """包络越界率：超出上下包络的点比例。"""
+    upper, lower = bounds
+    viol = (amp > upper) | (amp < lower)
+    return float(np.mean(viol))
+
+
+def envelope_violation_stats(amp, bounds):
+    """Compute envelope violation rate/max/mean for aligned curves."""
+    upper, lower = bounds
+    above = np.maximum(amp - upper, 0.0)
+    below = np.maximum(lower - amp, 0.0)
+    total = above + below
+    return {
+        "rate": float(np.mean(total > 0)),
+        "max": float(np.max(total)) if total.size else 0.0,
+        "mean": float(np.mean(total)) if total.size else 0.0,
+        "energy": float(np.sum(total)) if total.size else 0.0,
+    }
+
+def switching_step_score(frequency, amp, band_ranges):
+    """切换点步进评分：各切换点幅度差绝对值的总和。"""
+    score = 0.0
+    for i in range(len(band_ranges) - 1):
+        end_f = band_ranges[i][1]
+        next_f = band_ranges[i + 1][0]
+        i_end = np.argmin(np.abs(frequency - end_f))
+        i_next = np.argmin(np.abs(frequency - next_f))
+        step = amp[i_next] - amp[i_end]
+        score += abs(float(step))
+    return score
+
+def residual_slope(frequency, rrs, amp):
+    """残差随频率的线性斜率，反映高频下滑等趋势。"""
+    res = amp - rrs
+    A = np.vstack([frequency - frequency[0], np.ones_like(frequency)]).T
+    coef, _, _, _ = np.linalg.lstsq(A, res, rcond=None)
+    return float(coef[0])
+
+def ripple_variance(rrs, amp, window=200):
+    """残差局部纹波方差的均值（滑窗）。"""
+    res = amp - rrs
+    if window < 5:
+        window = 5
+    pad = window // 2
+    res_p = np.pad(res, (pad, pad), mode='edge')
+    vals = []
+    for i in range(len(res)):
+        seg = res_p[i:i + window]
+        vals.append(np.var(seg))
+    return float(np.mean(vals))
+
+# ---------------- 新增：包络不敏感的稳健残差特征 ----------------
+def _vendor_band_masks(frequency):
+    bands = [
+        (10e6, 100e6),
+        (100e6, 3.25e9),
+        (3.25e9, 5.25e9),
+        (5.25e9, 8.2e9),
+    ]
+    masks = []
+    for idx, (start, end) in enumerate(bands):
+        if idx == 0:
+            masks.append((frequency >= start) & (frequency <= end))
+        else:
+            masks.append((frequency > start) & (frequency <= end))
+    return masks
+
+
+def compute_residual_robust_features(frequency, rrs, amp):
+    """Compute envelope-insensitive robust residual features."""
+    res = amp - rrs
+    if res.size == 0:
+        return {
+            "global_offset_db": 0.0,
+            "shape_rmse": 0.0,
+            "ripple_hp": 0.0,
+            "tail_asym": 0.0,
+            "compress_ratio": 0.0,
+            "compress_ratio_high": 0.0,
+            "freq_shift_score": 0.0,
+            "offset_slope": 0.0,
+            "high_low_energy_ratio": 0.0,
+            "band_offset_db_1": 0.0,
+            "band_offset_db_2": 0.0,
+            "band_offset_db_3": 0.0,
+            "band_offset_db_4": 0.0,
+        }
+
+    median_res = np.median(res)
+    mad = np.median(np.abs(res - median_res)) + 1e-9
+    global_offset_db = float(median_res)
+    shape_rmse = float(np.sqrt(np.mean((res - median_res) ** 2)))
+    ripple_hp = float(np.std(np.diff(res))) if res.size > 1 else 0.0
+    p95 = float(np.percentile(res, 95))
+    p50 = float(np.percentile(res, 50))
+    p5 = float(np.percentile(res, 5))
+    tail_asym = (p95 - p50) - (p50 - p5)
+    p80 = float(np.percentile(res, 80))
+    compress_ratio = float(np.mean(res > p80))
+
+    # Frequency shift score via normalized correlation
+    r1 = (rrs - np.mean(rrs)) / (np.std(rrs) + 1e-9)
+    r2 = (amp - np.mean(amp)) / (np.std(amp) + 1e-9)
+    corr = correlate(r2, r1, mode="full")
+    lags = np.arange(-len(rrs) + 1, len(rrs))
+    best_idx = int(np.argmax(corr))
+    best_lag = lags[best_idx]
+    corr_coeff = float(corr[best_idx] / (len(rrs) + 1e-9))
+    lag_norm = abs(best_lag) / max(1, len(rrs))
+    freq_shift_score = float(np.sqrt(lag_norm ** 2 + (1.0 - corr_coeff) ** 2))
+
+    band_offsets = []
+    band_masks = _vendor_band_masks(frequency)
+    for mask in band_masks:
+        if np.any(mask):
+            band_offsets.append(float(np.median(res[mask])))
+        else:
+            band_offsets.append(0.0)
+
+    low_band_mask = band_masks[0] if band_masks else np.zeros_like(res, dtype=bool)
+    high_band_mask = band_masks[-1] if band_masks else np.zeros_like(res, dtype=bool)
+    if np.any(low_band_mask):
+        low_energy = float(np.mean(res[low_band_mask] ** 2))
+    else:
+        low_energy = 0.0
+    if np.any(high_band_mask):
+        high_res = res[high_band_mask]
+        high_p80 = float(np.percentile(high_res, 80))
+        compress_ratio_high = float(np.mean(high_res > high_p80))
+        high_energy = float(np.mean(high_res ** 2))
+    else:
+        compress_ratio_high = 0.0
+        high_energy = 0.0
+
+    high_low_energy_ratio = float(high_energy / (low_energy + 1e-9))
+
+    if res.size > 1:
+        coef = np.polyfit(frequency, res, 1)[0]
+        offset_slope = float(coef * 1e9)  # dB per GHz
+    else:
+        offset_slope = 0.0
+
+    return {
+        "global_offset_db": global_offset_db,
+        "shape_rmse": shape_rmse,
+        "ripple_hp": ripple_hp,
+        "tail_asym": float(tail_asym),
+        "compress_ratio": compress_ratio,
+        "compress_ratio_high": compress_ratio_high,
+        "freq_shift_score": freq_shift_score,
+        "offset_slope": offset_slope,
+        "high_low_energy_ratio": high_low_energy_ratio,
+        "band_offset_db_1": band_offsets[0],
+        "band_offset_db_2": band_offsets[1],
+        "band_offset_db_3": band_offsets[2],
+        "band_offset_db_4": band_offsets[3],
+    }
+
+# ---------------- 新增：切换点异常与非切换台阶异常 ----------------
+def compute_switch_step_anomalies(frequency, amp, band_ranges, expected_step=0.0, tol=0.2, win=5):
+    """
+    计算切换点处台阶异常：与期望步进 (expected_step) 的偏差。
+    返回: err_max, err_ratio, err_count, total_switch
+    """
+    errs = []
+    total = 0
+    for i in range(len(band_ranges) - 1):
+        f_sw = band_ranges[i][1]
+        idx = np.argmin(np.abs(frequency - f_sw))
+        l0 = max(0, idx - win)
+        r0 = min(len(amp), idx + win)
+        left = np.mean(amp[max(0, l0 - win):l0]) if l0 > 0 else np.mean(amp[:idx])
+        right = np.mean(amp[r0:min(len(amp), r0 + win)]) if r0 < len(amp) else np.mean(amp[idx:])
+        step = right - left
+        delta = step - expected_step
+        if np.abs(delta) > tol:
+            errs.append(delta)
+        total += 1
+    if total == 0:
+        return 0.0, 0.0, 0, 0
+    err_max = float(np.max(np.abs(errs))) if errs else 0.0
+    err_count = len(errs)
+    err_ratio = err_count / total
+    return err_max, err_ratio, err_count, total
+
+def compute_nonswitch_steps(frequency, amp, band_ranges, tol=0.3, block=200, margin=50):
+    """
+    检测非切换区域的台阶（相邻块均值差超阈）。
+    返回: max_step_abs, ratio, count, total_blocks
+    """
+    # 标记切换点附近区域
+    sw_indices = [np.argmin(np.abs(frequency - br[1])) for br in band_ranges[:-1]]
+    mask = np.ones(len(frequency), dtype=bool)
+    for idx in sw_indices:
+        l = max(0, idx - margin)
+        r = min(len(frequency), idx + margin)
+        mask[l:r] = False
+
+    steps = []
+    total_blocks = 0
+    i = 0
+    while i + 2 * block <= len(frequency):
+        if not mask[i:i + 2 * block].all():
+            i += block  # 跳过切换附近
+            continue
+        b1 = amp[i:i + block]
+        b2 = amp[i + block:i + 2 * block]
+        step = float(np.mean(b2) - np.mean(b1))
+        steps.append(step)
+        total_blocks += 1
+        i += block
+    if total_blocks == 0:
+        return 0.0, 0.0, 0, 0
+    steps_abs = np.abs(steps)
+    count = int(np.sum(steps_abs > tol))
+    ratio = count / total_blocks
+    # FIX: numpy 数组不可直接做布尔判断
+    max_step = float(np.max(steps_abs)) if steps_abs.size > 0 else 0.0
+    return max_step, ratio, count, total_blocks
+
+# ---------------- 汇总系统特征 ----------------
+def extract_system_features(frequency, rrs, bounds, band_ranges, amp):
+    """
+    汇总系统级特征：增益/偏置、非线性、频率平移、越界率、步进评分、残差斜率、纹波，
+    外加：切换点异常与非切换台阶异常。
+    """
+    offset_db = float(np.median(amp - rrs))
+    amp_aligned = amp - offset_db
+
+    g, b = estimate_gain_bias(rrs, amp_aligned)
+    c = estimate_quadratic(rrs, amp_aligned)
+    df = estimate_freq_shift(frequency, rrs, amp_aligned)
+    viol_stats = envelope_violation_stats(amp_aligned, bounds)
+    step = switching_step_score(frequency, amp_aligned, band_ranges)
+    slope = residual_slope(frequency, rrs, amp_aligned)
+    ripple = ripple_variance(rrs, amp_aligned)
+
+    sw_err_max, sw_err_ratio, sw_err_count, sw_total = compute_switch_step_anomalies(
+        frequency, amp, band_ranges, expected_step=0.0, tol=0.2, win=5
+    )
+    ns_max, ns_ratio, ns_count, ns_total = compute_nonswitch_steps(
+        frequency, amp, band_ranges, tol=0.3, block=200, margin=50
+    )
+
+    robust_feats = compute_residual_robust_features(frequency, rrs, amp_aligned)
+
+    return {
+        "gain": g,
+        "bias": b,
+        "comp": c,
+        "df": df,
+        "viol_rate": viol_stats["rate"],
+        "X11": viol_stats["rate"],
+        "X12": viol_stats["max"],
+        "X13": viol_stats["energy"],
+        "env_overrun_rate": viol_stats["rate"],
+        "env_overrun_max": viol_stats["max"],
+        "env_overrun_mean": viol_stats["mean"],
+        "step_score": step,
+        "res_slope": slope,
+        "ripple_var": ripple,
+        "switch_step_err_max": sw_err_max,
+        "switch_step_err_ratio": sw_err_ratio,
+        "nonswitch_step_max": ns_max,
+        "nonswitch_step_ratio": ns_ratio,
+        "offset_db": offset_db,
+        "viol_rate_aligned": viol_stats["rate"],
+        "viol_energy_aligned": viol_stats["energy"],
+        **robust_feats,
+    }

@@ -1,0 +1,155 @@
+{
+    "_version": "2.0",
+    "_description": "Coupling matrix for soft activation between fault types and modules",
+    "_last_updated": "2026-02-06",
+
+    "FAULT_TYPE_COUPLING": {
+        "_description": "Values > 1.0 indicate positive coupling (co-activation), < 1.0 indicate suppression.",
+        "normal": {
+            "normal": 1.0,
+            "amp_error": 0.1,
+            "freq_error": 0.1,
+            "ref_error": 0.1
+        },
+        "amp_error": {
+            "normal": 0.1,
+            "amp_error": 1.0,
+            "freq_error": 0.8,
+            "ref_error": 1.5
+        },
+        "freq_error": {
+            "normal": 0.1,
+            "amp_error": 0.8,
+            "freq_error": 1.0,
+            "ref_error": 0.9
+        },
+        "ref_error": {
+            "normal": 0.1,
+            "amp_error": 1.5,
+            "freq_error": 0.9,
+            "ref_error": 1.0
+        }
+    },
+
+    "MODULE_ACTIVATION_WEIGHTS": {
+        "_description": "Activation weights for modules given each fault type [0-1 range]",
+        "amp_error": {
+            "ac_coupling": 0.9,
+            "input_connector": 0.8,
+            "step_attenuator": 0.95,
+            "lpf_low_band": 0.7,
+            "lpf_high_band": 0.7,
+            "mixer1": 0.8,
+            "lo1_inject": 0.3,
+            "if_amp_chain": 0.9,
+            "rbw_filter": 0.4,
+            "adc_module": 0.6,
+            "adc_clock": 0.2,
+            "dsp_gain_cal": 0.85,
+            "dsp_window": 0.3,
+            "dsp_detector": 0.7,
+            "peak_search": 0.2,
+            "lo1_synth": 0.2,
+            "lo2_synth": 0.1,
+            "ocxo_ref": 0.1,
+            "ref_distribution": 0.1,
+            "cal_source": 0.4,
+            "cal_switch": 0.3,
+            "cal_storage": 0.3,
+            "power_management": 0.5
+        },
+        "freq_error": {
+            "ac_coupling": 0.1,
+            "input_connector": 0.2,
+            "step_attenuator": 0.1,
+            "lpf_low_band": 0.2,
+            "lpf_high_band": 0.2,
+            "mixer1": 0.6,
+            "lo1_inject": 0.7,
+            "if_amp_chain": 0.2,
+            "rbw_filter": 0.3,
+            "adc_module": 0.3,
+            "adc_clock": 0.8,
+            "dsp_gain_cal": 0.1,
+            "dsp_window": 0.2,
+            "dsp_detector": 0.2,
+            "peak_search": 0.85,
+            "lo1_synth": 0.95,
+            "lo2_synth": 0.9,
+            "ocxo_ref": 0.95,
+            "ref_distribution": 0.9,
+            "cal_source": 0.1,
+            "cal_switch": 0.1,
+            "cal_storage": 0.1,
+            "power_management": 0.3
+        },
+        "ref_error": {
+            "ac_coupling": 0.3,
+            "input_connector": 0.4,
+            "step_attenuator": 0.85,
+            "lpf_low_band": 0.3,
+            "lpf_high_band": 0.3,
+            "mixer1": 0.4,
+            "lo1_inject": 0.2,
+            "if_amp_chain": 0.5,
+            "rbw_filter": 0.4,
+            "adc_module": 0.7,
+            "adc_clock": 0.3,
+            "dsp_gain_cal": 0.9,
+            "dsp_window": 0.4,
+            "dsp_detector": 0.5,
+            "peak_search": 0.2,
+            "lo1_synth": 0.1,
+            "lo2_synth": 0.1,
+            "ocxo_ref": 0.2,
+            "ref_distribution": 0.1,
+            "cal_source": 0.95,
+            "cal_switch": 0.9,
+            "cal_storage": 0.9,
+            "power_management": 0.4
+        },
+        "normal": {
+            "_description": "All modules have low activation when normal",
+            "_default_weight": 0.05
+        }
+    },
+
+    "BOARD_ACTIVATION_WEIGHTS": {
+        "_description": "Activation weights for boards given each fault type",
+        "amp_error": {
+            "RF_BOARD": 0.85,
+            "DIGITAL_IF_BOARD": 0.8,
+            "LO_CLOCK_BOARD": 0.2,
+            "CALIBRATION_LINK": 0.4,
+            "POWER_BOARD": 0.5
+        },
+        "freq_error": {
+            "RF_BOARD": 0.4,
+            "DIGITAL_IF_BOARD": 0.4,
+            "LO_CLOCK_BOARD": 0.95,
+            "CALIBRATION_LINK": 0.1,
+            "POWER_BOARD": 0.3
+        },
+        "ref_error": {
+            "RF_BOARD": 0.6,
+            "DIGITAL_IF_BOARD": 0.7,
+            "LO_CLOCK_BOARD": 0.2,
+            "CALIBRATION_LINK": 0.95,
+            "POWER_BOARD": 0.4
+        }
+    },
+
+    "SOFT_ROUTER_CONFIG": {
+        "top_k_types": 2,
+        "min_activation_threshold": 0.1,
+        "normalization_method": "softmax",
+        "temperature": 1.0,
+        "enable_cross_coupling": true
+    },
+
+    "notes": {
+        "amp_ref_coupling": "amp_error and ref_error have strong coupling (1.5) because amplitude shifts can be caused by reference issues",
+        "freq_isolation": "freq_error is relatively isolated from amp/ref",
+        "normal_suppression": "normal strongly suppresses fault type activation"
+    }
+}
