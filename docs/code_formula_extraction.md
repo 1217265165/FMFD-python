@@ -300,7 +300,182 @@ $$
 
 ---
 
-## 5. 核心函数调用链
+## 5. P-CMA-ES 优化思想与公式推导 (Optimization Philosophy & Derivation)
+
+> **代码位置**: `pipelines/optimize_brb.py` 全文
+
+### 5.1 为何选择 P-CMA-ES 而非标准 CMA-ES？
+
+标准 CMA-ES (Covariance Matrix Adaptation Evolution Strategy, Hansen & Ostermeier 2001) 是一种无梯度的黑箱优化算法，适用于连续非凸优化问题。但 BRB 参数具有 **严格的物理约束**，标准 CMA-ES 无法保证：
+
+| 约束类型 | 数学描述 | 物理含义 |
+|---------|---------|---------|
+| **箱式约束** (Box) | $\theta_j \in [0.1, 5.0],\ \forall j$ | 缩放因子和灵敏度不能为负或无穷大 |
+| **单纯形约束** (Simplex) | $\sum_{j \in \mathcal{M}_t} \pi_j = 1,\ \pi_j \geq 0$ | 同一故障子图内各模块先验概率之和为 1 |
+
+**P-CMA-ES (Projection-based CMA-ES)** 通过在每次适应度函数求值前，将无约束搜索向量 **投影** 到合法参数空间来保证约束成立。这种"先搜索后投影"的范式既保留了 CMA-ES 的全局探索能力，又确保每个被评估的候选解都具有物理可解释性。
+
+### 5.2 投影算子的数学定义
+
+#### 5.2.1 箱式投影 (Box Projection, `project_to_feasible`, L171-184)
+
+对 CMA-ES 生成的无约束候选解 $\boldsymbol{\theta}^* \in \mathbb{R}^{16}$，执行逐分量裁剪：
+
+$$
+\text{proj}_{\text{box}}(\theta_j) = \text{clip}(\theta_j,\ l_j,\ h_j) = \max(l_j,\ \min(h_j,\ \theta_j))
+$$
+
+其中：
+- 缩放因子 ($j \in \{0, ..., 12\}$): $l_j = 0.1,\ h_j = 5.0$
+- 灵敏度指数 ($j \in \{13, 14, 15\}$): $l_j = 0.1,\ h_j = 5.0$
+
+#### 5.2.2 单纯形投影 (Simplex Projection, `_simplex_projection`, L140-168)
+
+基于 Duchi et al. (ICML 2008) 的欧几里得投影算法，将向量 $\mathbf{v} \in \mathbb{R}^n$ 投影到概率单纯形 $\Delta^n = \{\mathbf{x} \mid x_i \geq 0,\ \sum x_i = 1\}$：
+
+$$
+\text{proj}_{\Delta}(\mathbf{v}) = \arg\min_{\mathbf{x} \in \Delta^n} \|\mathbf{x} - \mathbf{v}\|_2^2
+$$
+
+算法步骤：
+1. 降序排列：$u_1 \geq u_2 \geq \cdots \geq u_n$
+2. 求截断索引：$\rho = \max\left\{j \in [n] : u_j - \frac{1}{j}\left(\sum_{i=1}^{j} u_i - 1\right) > 0 \right\}$
+3. 计算阈值：$\tau = \frac{1}{\rho}\left(\sum_{i=1}^{\rho} u_i - 1\right)$
+4. 投影结果：$x_i = \max(v_i - \tau,\ 0)$
+
+> **实现注意**: 在代码中，单纯形约束并非在投影算子中显式执行，而是在推理层通过 `_scale_and_normalize()` (L832-834) 实现归一化 $\pi_j = (\pi_j^{(0)} \times \alpha_j) / \sum_k (\pi_k^{(0)} \times \alpha_k)$。这等价于隐式的单纯形投影。显式的 `_simplex_projection` 函数作为基础工具保留，供未来需要直接优化概率参数时使用。
+
+#### 5.2.3 组合投影算子
+
+P-CMA-ES 的完整投影链：
+
+$$
+\boldsymbol{\theta}_{\text{feasible}} = \text{proj}_{\text{box}} \circ \boldsymbol{\theta}^*
+$$
+
+结合推理层内的归一化，保证最终概率合法：
+
+$$
+\pi_j^{\text{(final)}} = \frac{\pi_j^{(0)} \cdot \alpha_j}{\sum_{k \in \mathcal{M}_t} \pi_k^{(0)} \cdot \alpha_k} \in \Delta^{|\mathcal{M}_t|}
+$$
+
+### 5.3 完整参数向量定义（共 16 维）
+
+$$
+\boldsymbol{\theta} = [\underbrace{\alpha_0, \alpha_1, ..., \alpha_5}_{\text{幅度子图 (6个模块)}},\ \underbrace{\alpha_6, \alpha_7, \alpha_8, \alpha_9}_{\text{频率子图 (4个模块)}},\ \underbrace{\alpha_{10}, \alpha_{11}, \alpha_{12}}_{\text{参考子图 (3个模块)}},\ \underbrace{\gamma_{\text{amp}}, \gamma_{\text{freq}}, \gamma_{\text{ref}}}_{\text{灵敏度 (3个)}}]
+$$
+
+**各参数与物理模块的精确对应关系**：
+
+| 索引 | 参数符号 | 对应物理模块 | 代码变量名 | 所属子图 |
+|------|---------|------------|-----------|---------|
+| $\theta_0$ | $\alpha_0$ | ADC（模数转换器） | `amp_ADC` | 幅度 |
+| $\theta_1$ | $\alpha_1$ | 低频段第一混频器 | `amp_Mixer1` | 幅度 |
+| $\theta_2$ | $\alpha_2$ | 低频段前置低通滤波器 | `amp_Filter` | 幅度 |
+| $\theta_3$ | $\alpha_3$ | 电源模块 | `amp_Power` | 幅度 |
+| $\theta_4$ | $\alpha_4$ | 中频放大器 | `amp_IF` | 幅度 |
+| $\theta_5$ | $\alpha_5$ | 数字放大器/DSP | `amp_DSP` | 幅度 |
+| $\theta_6$ | $\alpha_6$ | 参考频率分配网络 | `freq_RefDist` | 频率 |
+| $\theta_7$ | $\alpha_7$ | 低频段第一混频器 | `freq_Mixer1` | 频率 |
+| $\theta_8$ | $\alpha_8$ | 本振源（谐波发生器） | `freq_LO1` | 频率 |
+| $\theta_9$ | $\alpha_9$ | 恒温晶振(OCXO) | `freq_OCXO` | 频率 |
+| $\theta_{10}$ | $\alpha_{10}$ | 校准源 | `ref_CalSrc` | 参考 |
+| $\theta_{11}$ | $\alpha_{11}$ | 校准表/存储器 | `ref_CalStore` | 参考 |
+| $\theta_{12}$ | $\alpha_{12}$ | 校准路径开关/耦合 | `ref_CalSwitch` | 参考 |
+| $\theta_{13}$ | $\gamma_{\text{amp}}$ | 幅度子图特征灵敏度 | `feat_sens_amp` | — |
+| $\theta_{14}$ | $\gamma_{\text{freq}}$ | 频率子图特征灵敏度 | `feat_sens_freq` | — |
+| $\theta_{15}$ | $\gamma_{\text{ref}}$ | 参考子图特征灵敏度 | `feat_sens_ref` | — |
+
+### 5.4 适应度函数推导
+
+#### 5.4.1 核心优化目标
+
+P-CMA-ES 优化的核心目标是最小化模块级定位误差。对于给定参数向量 $\boldsymbol{\theta}$，推理链为：
+
+$$
+\boldsymbol{\theta} \xrightarrow{\text{投影}} \boldsymbol{\theta}_{\text{feas}} \xrightarrow{\text{先验缩放}} \boldsymbol{\pi}(\boldsymbol{\theta}) \xrightarrow{\text{特征打分}} \mathbf{a}(\mathbf{x}) \xrightarrow{\text{概率计算}} P(M_j | t, \mathbf{x}; \boldsymbol{\theta})
+$$
+
+其中各步骤的公式（已在 §2.3 推导）：
+
+$$
+P(M_j | t, \mathbf{x}; \boldsymbol{\theta}) = \frac{\pi_j(\boldsymbol{\theta}) \cdot a_j(\mathbf{x})^{\gamma_t(\boldsymbol{\theta})}}{\sum_{k \in \mathcal{M}_t} \pi_k(\boldsymbol{\theta}) \cdot a_k(\mathbf{x})^{\gamma_t(\boldsymbol{\theta})}}
+$$
+
+#### 5.4.2 监督模式适应度函数推导
+
+**Step 1: 定义损失函数**
+
+直接使用准确率作为损失会导致"多数类开发"问题（若某模块样本多，优化器可能牺牲少数类精度来换取总体准确率）。因此采用 **平衡准确率 (Balanced Accuracy)**：
+
+$$
+\text{BalAcc}(\boldsymbol{\theta}) = \frac{1}{C} \sum_{c=1}^{C} \text{Recall}_c(\boldsymbol{\theta}) = \frac{1}{C} \sum_{c=1}^{C} \frac{|\{i : \hat{y}_i(\boldsymbol{\theta}) = y_i = c\}|}{|\{i : y_i = c\}|}
+$$
+
+主损失项：
+
+$$
+\mathcal{L}_{\text{main}}(\boldsymbol{\theta}) = 1 - \text{BalAcc}(\boldsymbol{\theta})
+$$
+
+**Step 2: 引入正则化**
+
+为防止优化后的参数偏离专家知识太远（丧失物理可解释性），引入以专家初始值 1.0 为中心的 L2 正则化。设计了 **差异化正则强度**：
+
+- **缩放因子**（$\alpha_0$ ~ $\alpha_{12}$）：强正则 $\lambda_s = 0.05$，因为专家先验经过领域验证，大幅偏离意味着丧失可解释性
+- **灵敏度指数**（$\gamma_{\text{amp}}, \gamma_{\text{freq}}, \gamma_{\text{ref}}$）：弱正则 $\lambda_f = 0.001$，因为最优灵敏度高度依赖数据，应允许自由调整
+
+$$
+\mathcal{R}(\boldsymbol{\theta}) = \lambda_s \sum_{j=0}^{12} (\theta_j - 1)^2 + \lambda_f \sum_{j=13}^{15} (\theta_j - 1)^2
+$$
+
+**Step 3: 联合适应度函数**
+
+$$
+\boxed{f_{\text{sup}}(\boldsymbol{\theta}) = \mathcal{L}_{\text{main}}(\boldsymbol{\theta}) + \mathcal{R}(\boldsymbol{\theta}) = (1 - \text{BalAcc}(\boldsymbol{\theta})) + 0.05 \sum_{j=0}^{12}(\theta_j - 1)^2 + 0.001 \sum_{j=13}^{15}(\theta_j - 1)^2}
+$$
+
+> **代码对应**: `supervised_objective()`, L209-242
+
+#### 5.4.3 无监督模式适应度函数推导
+
+当缺少模块级标签时，通过最小化输出不确定性来优化参数：
+
+$$
+f_{\text{unsup}}(\boldsymbol{\theta}) = w_H \cdot \overline{H}(\boldsymbol{\theta}) + w_c \cdot (1 - \overline{c}(\boldsymbol{\theta}))
+$$
+
+其中：
+- 平均熵：$\overline{H} = \frac{1}{N} \sum_{i=1}^{N} \left(-\sum_{j} P_{ij} \log P_{ij}\right)$，最小化熵促进输出的"决定性"
+- 平均置信度：$\overline{c} = \frac{1}{N} \sum_{i=1}^{N} \max_j P_{ij}$，最大化 Top-1 促进输出的"可区分性"
+- 默认权重：$w_H = 0.6,\ w_c = 0.4$
+
+> **代码对应**: `unsupervised_objective()`, L245-260
+
+### 5.5 P-CMA-ES 优化循环伪代码
+
+```
+输入: 训练集 D = {(x_i, t_i, y_i)}, 专家先验 π⁰, 初始步长 σ₀=0.5
+输出: 最优参数 θ*
+
+1. 初始化 θ₀ = [1,1,...,1, 1.5,1.5,1.5]  (16维, 缩放因子=1, 灵敏度=1.5)
+2. 初始化 CMA-ES(θ₀, σ₀, CMA_stds=[0.2]×13 + [1.0]×3)
+3. PRINT "Using P-CMA-ES with Projection Operator"  ← 审计日志
+4. REPEAT (最多 maxiter 代):
+   a. 生成候选群体: {θ₁*, θ₂*, ..., θ_λ*} = CMA-ES.ask()
+   b. 投影到可行域: θ_k = proj_box(θ_k*), ∀k        ← P-CMA-ES 核心
+   c. 评估适应度: f_k = f_sup(θ_k; D), ∀k
+   d. 更新协方差: CMA-ES.tell({θ_k*}, {f_k})
+   e. 记录: best_θ = argmin f_k
+5. 验证约束: assert 0.1 ≤ θ_j ≤ 5.0, ∀j
+6. RETURN best_θ
+```
+
+> **代码对应**: `optimize()` 函数, L264-330; `CMA_stds` 的设计意图：缩放因子步长 0.2（保守搜索，保护专家先验），灵敏度步长 1.0（激进搜索，允许大幅调整以适应数据）。
+
+---
+
+## 6. 核心函数调用链
 
 ```
 OursAdapter.predict(X)
@@ -320,7 +495,7 @@ OursAdapter.predict(X)
 
 ---
 
-## 6. 关键常量速查
+## 7. 关键常量速查
 
 | 常量 | 值 | 代码位置 | 论文用途 |
 |------|---|---------|---------|
@@ -330,4 +505,4 @@ OursAdapter.predict(X)
 | 灵敏度正则系数 $\lambda_f$ | 0.001 | `optimize_brb.py:241` | 允许灵敏度自适应 |
 | 投影箱约束 | [0.1, 5.0] | `optimize_brb.py:175-176` | P-CMA-ES 可行域 |
 | 最小模块分数 | 0.01 | `module_brb.py:324` | 避免 BRB 全零输出 |
-| CMA-ES 初始步长 $\sigma_0$ | 0.5 | `optimize_brb.py:265` | 搜索初始范围 |
+| P-CMA-ES 初始步长 $\sigma_0$ | 0.5 | `optimize_brb.py:265` | 搜索初始范围 |

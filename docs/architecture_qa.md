@@ -341,7 +341,7 @@ Step 1: 加载基先验 (line 828-830)
     freq_error: [0.37, 0.33, 0.17, 0.13]               (4个模块)
     ref_error:  [0.38, 0.32, 0.30]                      (3个模块)
 
-Step 2: CMA-ES 优化的缩放因子 (line 832-835)
+Step 2: P-CMA-ES 优化的缩放因子 (line 832-835)
     scaled_prior = base_prior × scale_factor[i]
     归一化: Σ scaled_prior = 1
 
