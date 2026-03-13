@@ -828,9 +828,9 @@ def hierarchical_module_infer(
     # Always: scaled_prior = base_prior * scale_factor, then normalize to Σ=1.
     # This guarantees valid probability output while allowing full optimization freedom.
     hp = _hierarchical_params
-    _BASE_AMP_PRIORS = [0.24, 0.24, 0.17, 0.08, 0.04, 0.03, 0.10, 0.10]
-    _BASE_FREQ_PRIORS = [0.37, 0.33, 0.17, 0.13]
-    _BASE_REF_PRIORS = [0.38, 0.32, 0.30]
+    _BASE_AMP_PRIORS = [0.19, 0.14, 0.17, 0.10, 0.04, 0.06, 0.16, 0.14]
+    _BASE_FREQ_PRIORS = [0.30, 0.30, 0.22, 0.18]
+    _BASE_REF_PRIORS = [0.35, 0.33, 0.32]
 
     def _scale_and_normalize(base, scales, modules):
         scaled = [b * max(sc, 0.01) for b, sc in zip(base, scales)]
@@ -912,23 +912,48 @@ def hierarchical_module_infer(
         adj["[数字中频板][IF] 中频放大/衰减链"] = if_score
         adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
 
+        # RBW: periodic sinc ripple → very high X22 (FFT energy) and X36 (periodicity)
+        # Data: RBW X22 mean=0.114 (others ≤ 0.057), X36 mean=0.943 (others ≤ 0.873)
+        x22 = features.get("X22", 0.04)
+        rbw_score = 1.0
+        if x22 > 0.08:
+            rbw_score += 5.0  # dominant FFT peak from periodic ripple
+        elif x22 > 0.06:
+            rbw_score += 2.0
+        if x36 > 0.91:
+            rbw_score += 3.0  # near-perfect periodicity from sinusoidal injection
+        adj["[数字中频板][数字IF域] RBW滤波器"] = rbw_score
+
+        # VBW: EMA lag → very low X35 (diff variance) and X7 (step score)
+        # Data: VBW X35 mean=0.000158 (others ≥ 0.000312), X7 mean=0.057 (others ≥ 0.078)
+        vbw_score = 1.0
+        if x35 < 0.00025:
+            vbw_score += 5.0  # EMA smoothing suppresses diff variance
+        elif x35 < 0.00030:
+            vbw_score += 2.0
+        if x7 < 0.075:
+            vbw_score += 3.0  # EMA smoothing reduces step magnitude
+        adj["[数字中频板][数字IF域] VBW滤波器"] = vbw_score
+
         for mod in filtered_probs:
             filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
     elif fault_type == "freq_error":
         # Discriminating features (from training data V2 analysis):
-        # Mixer1: X13=0.98 (high!), X14=0.001 (very low), X7=0.08
-        # 参考分配: X13=0.45, X14=0.007, X7=0.074, X35=0.00024
-        # LO1: X13=0.45, X14=0.007, X7=0.063, X36=0.886
-        # OCXO: X13=0.47, X14=0.007, X7=0.059, X36=0.897
+        # Mixer1: X13=0.97 (very high), X14=0.002 (very low), X24=0.012 (very low)
+        # 参考分配: X13=0.46, X14=0.007, X24=0.527 (highest), X35=0.00025
+        # LO1: X13=0.42, X14=0.007, X24=0.446, X36=0.900, X35=0.00015
+        # OCXO: X13=0.43, X14=0.007, X24=0.454, X36=0.885, X23=0.000086 (lowest)
         x13 = features.get("X13", 0.45)
         x14 = features.get("X14", 0.007)
         x7 = features.get("X7", 0.07)
         x36 = features.get("X36", 0.85)
         x35 = features.get("X35", 0.0002)
+        x24 = features.get("X24", 0.45)
+        x23 = features.get("X23", 0.0001)
 
         adj = {}
-        # Mixer1: very high X13 (>0.6) and low X14 (<0.003)
+        # Mixer1: very high X13 (>0.6) and low X14 (<0.003) and low X24
         mixer_s = 1.0
         if x13 > 0.7:
             mixer_s += 5.0
@@ -936,68 +961,101 @@ def hierarchical_module_infer(
             mixer_s += 2.0
         if x14 < 0.003:
             mixer_s += 2.0
+        if x24 < 0.05:
+            mixer_s += 2.0
         adj["[RF板][Mixer1]"] = mixer_s
 
-        # 参考分配: higher X35 (0.00024 vs 0.00017), lower X36 (0.847)
+        # 参考分配: highest X24 (0.527), moderate X36 (0.842), higher X35 (0.00025)
         ref_dist_s = 1.0
-        if x35 > 0.0002:
-            ref_dist_s += 2.0
-        if x36 < 0.86:
+        if x24 > 0.50:
+            ref_dist_s += 3.0
+        elif x24 > 0.47:
             ref_dist_s += 1.5
-        if x7 > 0.07:
+        if x35 > 0.00022:
+            ref_dist_s += 1.5
+        if x36 < 0.86:
             ref_dist_s += 1.0
         adj["[时钟板][参考分配]"] = ref_dist_s
 
-        # LO1: moderate X36 (0.886), low X7 (0.063)
+        # LO1: high X36 (0.900), lowest X35 (0.00015), lower X24
         lo1_s = 1.0
-        if x36 > 0.87 and x36 < 0.91:
+        if x36 > 0.88:
             lo1_s += 2.0
-        if x7 < 0.065:
-            lo1_s += 1.5
+        if x35 < 0.00016:
+            lo1_s += 2.0
+        elif x35 < 0.00020:
+            lo1_s += 1.0
+        if x24 < 0.46 and x24 > 0.30:
+            lo1_s += 1.0
         adj["[LO/时钟板][LO1] 合成链"] = lo1_s
 
-        # OCXO: highest X36 (0.897), lowest X7 (0.059)
+        # OCXO: high X36 (0.885), lower X23 (0.000086), moderate X24 (0.454)
         ocxo_s = 1.0
-        if x36 > 0.89:
+        if x36 > 0.87:
             ocxo_s += 2.0
-        if x7 < 0.062:
+        if x23 < 0.00009:
             ocxo_s += 2.0
+        elif x23 < 0.00010:
+            ocxo_s += 1.0
+        if x24 < 0.47 and x24 > 0.30:
+            ocxo_s += 1.0
         adj["[时钟板][参考域] 10MHz 基准 OCXO"] = ocxo_s
 
         for mod in filtered_probs:
             filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
     elif fault_type == "ref_error":
-        # Ref modules barely distinguishable (RF ceiling ~35%)
-        # Best discriminator: offset_slope sign (校准源: +0.017, 开关: -0.018)
-        # and band_offset_db_1 sign (校准源: -0.07, 开关: +0.08)
+        # Ref modules weakly distinguishable; use multiple correlated features
+        # Primary: X29 (Cal Source: +3.98, Storage: -0.77, Switch: +0.40) but high variance
+        # Secondary: offset_slope (Cal+0.006 vs Stor-0.009), band_offset_db_1 (Cal-0.041 vs Stor+0.023)
+        # Tertiary: X28 (Switch: +0.089 vs others ~-0.04), X14
         slope = features.get("offset_slope", features.get("res_slope", 0.0))
         band1 = features.get("band_offset_db_1", 0.0)
         x14 = features.get("X14", 0.1)
+        x29 = features.get("X29", 0.0)
+        x28 = features.get("X28", 0.0)
 
         adj = {}
-        # 校准源: positive slope, negative band1, lower X14 (0.110)
+        # 校准源: strongly positive X29 (with non-Switch X28), OR slope+band1 combined
         cal_s = 1.0
-        if slope > 0.005:
+        if x29 > 2.0 and x28 < 0.2:
+            cal_s += 3.0  # strong X29 + non-Switch X28
+        elif x29 > 2.0:
+            cal_s += 1.0  # X29 positive but X28 suggests Switch
+        elif x29 > 0.5 and x28 < 0.2:
             cal_s += 1.5
-        if band1 < -0.03:
-            cal_s += 1.0
-        if x14 < 0.12:
-            cal_s += 0.5
+        if slope > 0.03 and band1 < -0.15:
+            cal_s += 2.5  # very strong slope+band1 = Cal Source even if X29 negative
+        elif slope > 0.01 and band1 < -0.05:
+            cal_s += 1.5
         adj["[校准链路][校准源]"] = cal_s
 
-        # 校准表/存储: higher X14 (0.158), X11 moderate (0.46)
+        # 校准表/存储: negative X29 confirmed by negative slope, higher X14
         stor_s = 1.0
+        if x29 < -2.0 and slope < 0:
+            stor_s += 3.0  # both X29 and slope agree
+        elif x29 < -2.0:
+            stor_s += 1.5  # only X29 (might be noisy)
+        elif x29 < -0.5 and slope < 0:
+            stor_s += 2.0  # moderate negative X29 + negative slope
+        elif x29 < 0:
+            stor_s += 0.5
+        if slope < -0.01:
+            stor_s += 0.5
         if x14 > 0.14:
-            stor_s += 1.5
+            stor_s += 0.5
         adj["[校准链路][校准表/存储]"] = stor_s
 
-        # 校准路径开关/耦合: negative slope, positive band1
+        # 校准路径开关/耦合: positive X28 is strongest indicator, moderate X29
         sw_s = 1.0
-        if slope < -0.005:
-            sw_s += 1.5
-        if band1 > 0.03:
+        if x28 > 0.3:
+            sw_s += 2.5  # strongly positive X28
+        elif x28 > 0.1:
             sw_s += 1.0
+        if x29 > -0.5 and x29 < 2.0 and x28 > 0:
+            sw_s += 1.0
+        if band1 > 0.1:
+            sw_s += 0.5
         adj["[校准链路][校准路径开关/耦合]"] = sw_s
 
         for mod in filtered_probs:
