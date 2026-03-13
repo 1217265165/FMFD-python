@@ -1424,7 +1424,7 @@ def simulate_curve(
             label_sys = "幅度失准"
             label_mod = forced_module_label or "VBW滤波器"
             fault_params["type"] = "vbw_ema_lag"
-            fault_params["subtype"] = "amp_error_offset"
+            fault_params["subtype"] = "amp_error_smoothing"
             curve = curve_generator.apply_degradation(rrs_copy, "vbw_filter", severity_float)
             fault_params["module_key"] = "vbw_filter"
 
