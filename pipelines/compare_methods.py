@@ -896,110 +896,124 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        
+        import matplotlib.gridspec as gridspec
+
+        # 1. 全局字体与样式设置 (确保中文和负号正常显示)
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial', 'sans-serif']
+        plt.rcParams['axes.unicode_minus'] = False
+
+        # 安全获取 METHOD_DISPLAY_NAMES (假设它在全局作用域)
+        global METHOD_DISPLAY_NAMES
+        if 'METHOD_DISPLAY_NAMES' not in globals():
+            METHOD_DISPLAY_NAMES = {}
+
+        # 提取数据
         methods = [METHOD_DISPLAY_NAMES.get(r['method'], r['method'].upper()) for r in all_results]
-        accuracies = [r['sys_accuracy'] * 100 for r in all_results]  # Convert to percentage
+        accuracies = [r['sys_accuracy'] * 100 for r in all_results]
         f1_scores = [r['sys_macro_f1'] * 100 for r in all_results]
         n_rules = [r['n_rules'] for r in all_results]
         n_params = [r['n_params'] for r in all_results]
         infer_ms = [r['infer_ms_per_sample'] for r in all_results]
-        
-        fig = plt.figure(figsize=(16, 12))
-        
-        # Create 2x3 grid — extra hspace/bottom for captions below each subplot
-        gs = fig.add_gridspec(2, 3, hspace=0.55, wspace=0.3)
-        
-        # 1. Accuracy comparison
+
+        # 2. 学术期刊常用经典配色 (Seaborn deep style)
+        colors = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3', '#937860']
+
+        fig = plt.figure(figsize=(16, 11))
+        # 调整 hspace 和 wspace，增加底部空间防止 x 轴标签被裁
+        gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.35, wspace=0.25)
+
+        # 定义子图的通用美化函数
+        def format_ax(ax, xlabel):
+            # 去除顶部和右侧的边框线
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            # 调整 x 轴刻度旋转
+            ax.tick_params(axis='x', rotation=30, labelsize=10)
+            # 添加轻量级水平网格线
+            ax.grid(axis='y', linestyle='--', alpha=0.4)
+            # 将子图的描述作为 x 轴标签，这在投稿排版中非常规整
+            ax.set_xlabel(xlabel, fontsize=12, fontweight='bold', labelpad=10)
+
+        # (a) Accuracy comparison
         ax1 = fig.add_subplot(gs[0, 0])
-        bars1 = ax1.bar(methods, accuracies, color='steelblue', alpha=0.8)
-        ax1.set_ylabel('系统准确率 (%)', fontsize=11)
-        ax1.text(0.5, -0.32, '(a) 分类准确率 (%)', transform=ax1.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax1.tick_params(axis='x', rotation=45)
-        ax1.grid(axis='y', alpha=0.3)
-        # Add value labels on bars
-        for bar, val in zip(bars1, accuracies):
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.1f}%', ha='center', va='bottom', fontsize=9)
-        
-        # 2. F1-score comparison
+        bars1 = ax1.bar(methods, accuracies, color=colors[0], alpha=0.85, width=0.6)
+        ax1.set_ylabel('系统准确率 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax1, '(a) 分类准确率 (%)')
+        ax1.set_ylim(0, max(accuracies) * 1.15)  # 动态增加 y 轴上限，防止顶部文字被切
+        for bar in bars1:
+            ax1.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 1,
+                     f'{bar.get_height():.1f}%', ha='center', va='bottom', fontsize=9)
+
+        # (b) F1-score comparison
         ax2 = fig.add_subplot(gs[0, 1])
-        bars2 = ax2.bar(methods, f1_scores, color='coral', alpha=0.8)
-        ax2.set_ylabel('宏平均 F1 值 (%)', fontsize=11)
-        ax2.text(0.5, -0.32, '(b) F1 值 (%)', transform=ax2.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax2.tick_params(axis='x', rotation=45)
-        ax2.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars2, f1_scores):
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.1f}%', ha='center', va='bottom', fontsize=9)
-        
-        # 3. Rules count
+        bars2 = ax2.bar(methods, f1_scores, color=colors[1], alpha=0.85, width=0.6)
+        ax2.set_ylabel('宏平均 F1 值 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax2, '(b) F1 值 (%)')
+        ax2.set_ylim(0, max(f1_scores) * 1.15)
+        for bar in bars2:
+            ax2.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 1,
+                     f'{bar.get_height():.1f}%', ha='center', va='bottom', fontsize=9)
+
+        # (c) Rules count
         ax3 = fig.add_subplot(gs[0, 2])
-        bars3 = ax3.bar(methods, n_rules, color='mediumseagreen', alpha=0.8)
-        ax3.set_ylabel('规则数', fontsize=11)
-        ax3.text(0.5, -0.32, '(c) 模型复杂度 (规则数)', transform=ax3.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax3.tick_params(axis='x', rotation=45)
-        ax3.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars3, n_rules):
-            height = bar.get_height()
-            ax3.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val}', ha='center', va='bottom', fontsize=9)
-        
-        # 4. Parameters count
+        bars3 = ax3.bar(methods, n_rules, color=colors[2], alpha=0.85, width=0.6)
+        ax3.set_ylabel('规则数', fontsize=11, fontweight='bold')
+        format_ax(ax3, '(c) 模型复杂度 (规则数)')
+        ax3.set_ylim(0, max(n_rules) * 1.15)
+        for bar in bars3:
+            ax3.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(n_rules) * 0.02),
+                     f'{int(bar.get_height())}', ha='center', va='bottom', fontsize=9)
+
+        # (d) Parameters count
         ax4 = fig.add_subplot(gs[1, 0])
-        bars4 = ax4.bar(methods, n_params, color='mediumpurple', alpha=0.8)
-        ax4.set_ylabel('参数数量', fontsize=11)
-        ax4.text(0.5, -0.32, '(d) 参数数量', transform=ax4.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax4.tick_params(axis='x', rotation=45)
-        ax4.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars4, n_params):
-            height = bar.get_height()
-            ax4.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val}', ha='center', va='bottom', fontsize=9)
-        
-        # 5. Inference time
+        bars4 = ax4.bar(methods, n_params, color=colors[4], alpha=0.85, width=0.6)
+        ax4.set_ylabel('参数数量', fontsize=11, fontweight='bold')
+        format_ax(ax4, '(d) 参数数量')
+        ax4.set_ylim(0, max(n_params) * 1.15)
+        for bar in bars4:
+            ax4.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(n_params) * 0.02),
+                     f'{int(bar.get_height())}', ha='center', va='bottom', fontsize=9)
+
+        # (e) Inference time
         ax5 = fig.add_subplot(gs[1, 1])
-        bars5 = ax5.bar(methods, infer_ms, color='lightgreen', alpha=0.8)
-        ax5.set_ylabel('推理时间 (ms/样本)', fontsize=11)
-        ax5.text(0.5, -0.32, '(e) 推理效率 (ms/样本)', transform=ax5.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax5.tick_params(axis='x', rotation=45)
-        ax5.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars5, infer_ms):
-            height = bar.get_height()
-            ax5.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.3f}', ha='center', va='bottom', fontsize=9)
-        
-        # 6. Accuracy vs Complexity scatter
+        bars5 = ax5.bar(methods, infer_ms, color=colors[5], alpha=0.85, width=0.6)
+        ax5.set_ylabel('推理时间 (ms/样本)', fontsize=11, fontweight='bold')
+        format_ax(ax5, '(e) 推理效率 (ms/样本)')
+        ax5.set_ylim(0, max(infer_ms) * 1.15)
+        for bar in bars5:
+            ax5.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(infer_ms) * 0.02),
+                     f'{bar.get_height():.3f}', ha='center', va='bottom', fontsize=9)
+
+        # (f) Accuracy vs Complexity scatter
         ax6 = fig.add_subplot(gs[1, 2])
-        scatter = ax6.scatter(n_rules, accuracies, s=100, c=infer_ms, 
-                             cmap='viridis', alpha=0.7, edgecolors='black', linewidth=1)
-        ax6.set_xlabel('规则数', fontsize=11)
-        ax6.set_ylabel('准确率 (%)', fontsize=11)
-        ax6.text(0.5, -0.32, '(f) 准确率 vs 复杂度', transform=ax6.transAxes,
-                ha='center', fontsize=12, fontweight='bold')
-        ax6.grid(True, alpha=0.3)
-        # Add method labels
+        # 散点大小可以根据规则数稍微变化，增加白边使其更有质感
+        sizes = [max(60, r * 1.5) for r in n_rules]
+        scatter = ax6.scatter(n_rules, accuracies, s=sizes, c=infer_ms,
+                              cmap='viridis', alpha=0.8, edgecolors='white', linewidth=1.5)
+        ax6.set_ylabel('准确率 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax6, '(f) 准确率 vs 复杂度')
+
         for i, method in enumerate(methods):
-            ax6.annotate(method, (n_rules[i], accuracies[i]), 
-                        xytext=(5, 5), textcoords='offset points', fontsize=8)
-        # Add colorbar for inference time
+            # 针对 HBRB 单独加粗和变色突出显示
+            weight = 'bold' if method == 'HBRB' else 'normal'
+            color = 'darkred' if method == 'HBRB' else 'black'
+            ax6.annotate(method, (n_rules[i], accuracies[i]),
+                         xytext=(6, 6), textcoords='offset points',
+                         fontsize=9, weight=weight, color=color)
+
         cbar = plt.colorbar(scatter, ax=ax6)
-        cbar.set_label('推理时间 (ms)', fontsize=9)
-        
-        # Overall figure caption at the very bottom
-        fig.text(0.5, -0.02, 'HBRB 与各对比方法综合性能评估图',
-                ha='center', fontsize=14, fontweight='bold')
-        
+        cbar.set_label('推理时间 (ms)', fontsize=10)
+        cbar.outline.set_visible(False)  # 去除 colorbar 边框
+
+        # 将总标题移到顶部，避免与底部子图标签冲突
+        fig.suptitle('HBRB 与各对比方法综合性能评估图', fontsize=16, fontweight='bold', y=0.98)
+
         output_path = output_dir / "comparison_results.png"
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        # 使用 300 dpi 以满足绝大多数期刊/会议的投稿要求
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close(fig)
         print(f"Saved comprehensive comparison plot to: {output_path}")
+
     except ImportError as e:
         print(f"matplotlib not available, skipping comprehensive plot: {e}")
     except Exception as e:
