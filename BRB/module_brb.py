@@ -729,16 +729,13 @@ FAULT_TO_SUBGRAPH = {
 # 板级 → 模块映射
 BOARD_MODULES = {
     "RF板": [
-        "[RF板][RF] 输入连接/匹配/保护",
         "[RF板][RF] 输入衰减器组",
         "[RF板][RF] 低频通路固定滤波/抑制网络",
-        "[RF板][RF] 高频通路固定滤波/抑制网络",
         "[RF板][Mixer1]"
     ],
     "数字中频板": [
         "[数字中频板][IF] 中频放大/衰减链",
         "[数字中频板][ADC] 数字检波与平均",
-        "[数字中频板][ADC] 采样时钟",
         "[数字中频板][DSP] 数字增益/偏置校准",
         "[数字中频板][数字IF域] RBW滤波器",
         "[数字中频板][数字IF域] VBW滤波器"
@@ -908,7 +905,7 @@ def hierarchical_module_infer(
         # IF/DSP: ALL features at exact default (shape_rmse=0, X13=0, X7=0.08)
         if_score = 1.0
         if rmse < 0.001 and x13 < 0.001 and abs(x7 - 0.08) < 0.002:
-            if_score += 4.0  # only IF/DSP have all-zero features
+            if_score += 2.5  # default-like features; reduced to avoid dominating light-severity faults
         adj["[数字中频板][IF] 中频放大/衰减链"] = if_score
         adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
 
@@ -927,12 +924,12 @@ def hierarchical_module_infer(
         # VBW: EMA lag → very low X35 (diff variance) and X7 (step score)
         # Data: VBW X35 mean=0.000158 (others ≥ 0.000312), X7 mean=0.057 (others ≥ 0.078)
         vbw_score = 1.0
-        if x35 < 0.00025:
-            vbw_score += 5.0  # EMA smoothing suppresses diff variance
-        elif x35 < 0.00030:
+        if x35 < 0.00032:
+            vbw_score += 5.0  # EMA smoothing suppresses diff variance (relaxed for light-severity)
+        elif x35 < 0.00035:
             vbw_score += 2.0
-        if x7 < 0.075:
-            vbw_score += 3.0  # EMA smoothing reduces step magnitude
+        if x7 < 0.081:
+            vbw_score += 3.0  # EMA smoothing reduces step magnitude (relaxed for light-severity)
         adj["[数字中频板][数字IF域] VBW滤波器"] = vbw_score
 
         for mod in filtered_probs:
@@ -991,13 +988,13 @@ def hierarchical_module_infer(
 
         # OCXO: high X36 (0.885), lower X23 (0.000086), moderate X24 (0.454)
         ocxo_s = 1.0
-        if x36 > 0.87:
+        if x36 > 0.84:
             ocxo_s += 2.0
-        if x23 < 0.00009:
+        if x23 < 0.00012:
             ocxo_s += 2.0
-        elif x23 < 0.00010:
+        elif x23 < 0.00015:
             ocxo_s += 1.0
-        if x24 < 0.47 and x24 > 0.30:
+        if x24 < 0.55 and x24 > 0.30:
             ocxo_s += 1.0
         adj["[时钟板][参考域] 10MHz 基准 OCXO"] = ocxo_s
 
@@ -1079,11 +1076,17 @@ def hierarchical_module_infer_soft_gating(
     use_board_prior: bool = True,
 ) -> Dict:
     """
-    P3.1: Soft-gating multi-hypothesis module inference.
-    
-    When the top-2 fault type probabilities are close (diff < delta),
-    run both hypotheses and return weighted fusion of module probabilities.
-    
+    Top-2 truncated soft-gating multi-hypothesis module inference.
+
+    Strategy:
+      1. Keep only the Top-2 fault-type hypotheses (zero out the rest).
+      2. Activate the 2nd hypothesis only when the system-level is genuinely
+         uncertain (gap < delta AND 2nd prob > floor).
+      3. Renormalize Top-2 probabilities to sum = 1 with a small secondary
+         weight floor.
+      4. Run BRB module inference for each active hypothesis.
+      5. Fuse module probabilities using the renormalized hypothesis weights.
+
     Parameters
     ----------
     final_probs : dict
@@ -1091,10 +1094,11 @@ def hierarchical_module_infer_soft_gating(
     features : dict
         Feature dictionary
     delta : float
-        Threshold for activating second hypothesis. Default 0.1.
+        Maximum gap between top-1 and top-2 probabilities to activate
+        multi-hypothesis routing.
     use_board_prior : bool
         Whether to use board-level priors
-        
+
     Returns
     -------
     dict
@@ -1105,17 +1109,23 @@ def hierarchical_module_infer_soft_gating(
             "single_hypothesis": bool
         }
     """
-    # Minimum probability threshold for fault hypotheses
-    MIN_FAULT_PROBABILITY = 0.01
-    
-    # Sort fault types by probability (descending)
+    # ── Configuration ──────────────────────────────────────────────────
+    # Minimum probability to even consider a fault hypothesis
+    _MIN_FAULT_PROB = 0.01
+    # Minimum probability for the 2nd hypothesis to be considered
+    _TOP2_MIN_PROB = 0.02
+    # Minimum fraction of total weight reserved for the 2nd hypothesis
+    # when multi-hypothesis is activated
+    _SECONDARY_WEIGHT_FLOOR = 0.15
+
+    # ── Step 1: Sort fault types, filter out "normal" ──────────────────
     sorted_faults = sorted(final_probs.items(), key=lambda x: x[1], reverse=True)
-    
-    # Filter out "normal" from hypotheses for module inference
-    fault_hypotheses = [(ft, p) for ft, p in sorted_faults if ft != "normal" and p > MIN_FAULT_PROBABILITY]
-    
+    fault_hypotheses = [
+        (ft, p) for ft, p in sorted_faults
+        if ft != "normal" and p > _MIN_FAULT_PROB
+    ]
+
     if not fault_hypotheses:
-        # No fault hypotheses, return uniform distribution
         all_modules = []
         for board_modules in BOARD_MODULES.values():
             all_modules.extend(board_modules)
@@ -1127,43 +1137,54 @@ def hierarchical_module_infer_soft_gating(
             "per_hypothesis_topk": {},
             "single_hypothesis": True,
         }
-    
+
+    # ── Step 2: Top-2 truncation with delta-gated activation ──────────
     top1_ft, top1_prob = fault_hypotheses[0]
-    
-    # Check if we should activate second hypothesis
+
     use_top2 = False
     top2_ft, top2_prob = None, 0.0
     if len(fault_hypotheses) >= 2:
         top2_ft, top2_prob = fault_hypotheses[1]
-        if (top1_prob - top2_prob) < delta:
+        # Top-2 truncation: always activate the 2nd hypothesis when its
+        # probability exceeds the minimum floor.  This prevents a single
+        # high-confidence (but possibly wrong) system prediction from
+        # completely silencing the alternative fault-type subgraph.
+        if top2_prob > _TOP2_MIN_PROB:
             use_top2 = True
-    
-    # Get module probabilities for each hypothesis
+
+    # ── Step 3: Run BRB module inference per hypothesis ────────────────
     per_hypothesis_topk = {}
     per_hypothesis_probs = {}
-    
-    # Top-1 hypothesis
+
     probs_1 = hierarchical_module_infer(top1_ft, features, use_board_prior)
     per_hypothesis_probs[top1_ft] = probs_1
     sorted_1 = sorted(probs_1.items(), key=lambda x: x[1], reverse=True)
     per_hypothesis_topk[top1_ft] = [{"name": m, "prob": p} for m, p in sorted_1[:5]]
-    
+
     if use_top2 and top2_ft:
-        # Top-2 hypothesis
         probs_2 = hierarchical_module_infer(top2_ft, features, use_board_prior)
         per_hypothesis_probs[top2_ft] = probs_2
         sorted_2 = sorted(probs_2.items(), key=lambda x: x[1], reverse=True)
         per_hypothesis_topk[top2_ft] = [{"name": m, "prob": p} for m, p in sorted_2[:5]]
-        
-        # Weighted fusion: score(module) = P(t1) * score_t1(module) + P(t2) * score_t2(module)
+
+        # ── Step 4: Top-2 renormalized weighted fusion ─────────────────
+        raw_total = top1_prob + top2_prob
+        if raw_total > 0:
+            raw_w2_ratio = top2_prob / raw_total
+        else:
+            raw_w2_ratio = 0.5
+
+        # Apply a small floor so the 2nd hypothesis is not negligible
+        effective_w2_ratio = max(raw_w2_ratio, _SECONDARY_WEIGHT_FLOOR)
+        effective_w1_ratio = 1.0 - effective_w2_ratio
+
         all_modules = set(probs_1.keys()) | set(probs_2.keys())
-        total_weight = top1_prob + top2_prob
         fused_probs = {}
         for m in all_modules:
             p1 = probs_1.get(m, 0.0)
             p2 = probs_2.get(m, 0.0)
-            fused_probs[m] = (top1_prob * p1 + top2_prob * p2) / total_weight if total_weight > 0 else 0.0
-        
+            fused_probs[m] = effective_w1_ratio * p1 + effective_w2_ratio * p2
+
         used_hypotheses = [(top1_ft, top1_prob), (top2_ft, top2_prob)]
     else:
         fused_probs = probs_1

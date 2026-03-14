@@ -309,7 +309,7 @@ def infer_system_and_modules(
         soft_result = hierarchical_module_infer_soft_gating(
             final_probs,
             features,
-            delta=0.1,  # Activate top-2 if diff < 0.1
+            delta=0.15,
             use_board_prior=True,
         )
         module_topk = soft_result["fused_topk"]
@@ -485,9 +485,9 @@ class OursAdapter(MethodAdapter):
         
         # System-level classifier (supervised learning for high accuracy)
         self.classifier = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            min_samples_split=5,
+            n_estimators=200,
+            max_depth=12,
+            min_samples_split=4,
             min_samples_leaf=2,
             random_state=42,
             class_weight='balanced'
