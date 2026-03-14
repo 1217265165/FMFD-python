@@ -119,12 +119,15 @@ class OursWithoutDecoupling(OursAdapter):
         gating_config = _load_gating_prior_config()
         self.fusion_engine = GatingPriorFusion(gating_config)
 
-        # Inflate rule count to reflect PCA complexity overhead
+        # Rule counts inherit from parent OursAdapter (3 sub-BRBs × 5 = 15 system,
+        # 33 configured per-module rules).
         self.n_system_rules = 15
         self.n_module_rules = 33
+        # Complexity includes PCA rotation matrix (n_components × input_dims)
+        # as additional learned parameters on top of the original BRB params.
         self.n_params = (
-            self._pca_n_components * X_train.shape[1]  # PCA rotation matrix
-            + 68  # original params
+            self._pca_n_components * X_train.shape[1]
+            + 68
         )
 
     def predict(self, X_test, meta=None):
@@ -362,7 +365,9 @@ class OursWithoutPConstraint(OursAdapter):
             # Perturb defaults to simulate unconstrained drift
             rng = np.random.RandomState(42)
             params = np.array(get_hierarchical_params(), dtype=float)
-            params[0:15] *= rng.uniform(0.3, 3.0, size=15)  # Large perturbation
+            # [0:15] = prior scale factors (8 amp + 4 freq + 3 ref)
+            params[0:15] *= rng.uniform(0.3, 3.0, size=15)
+            # [15:18] = feature sensitivity indices
             params[15:18] *= rng.uniform(0.5, 2.0, size=3)
             params = np.clip(params, 0.1, 5.0)
             self._unconstrained_params = params.tolist()
@@ -384,7 +389,7 @@ class OursWithoutPConstraint(OursAdapter):
             for j, name in enumerate(feature_names):
                 if j < X_train.shape[1]:
                     feat_dict[name] = float(X_train[i, j])
-            # Ensure X1-X22 keys exist
+            # Ensure X1-X22 keys exist (required by BRB module inference)
             for k in range(1, 23):
                 key = f"X{k}"
                 if key not in feat_dict:
@@ -865,7 +870,7 @@ def main():
     print("ABLATION STUDY RESULTS")
     print("=" * 80)
     print(f"{'Variant':<22} {'sys_acc':>10} {'mod_top1':>10} {'mod_top3':>10} {'n_rules':>10}")
-    print("-" * 62)
+    print("-" * 64)
     for r in all_results:
         print(
             f"{r['variant_display']:<22} "
