@@ -847,26 +847,33 @@ def hierarchical_module_infer(
     feat_sens = hp[15] if fault_type == "amp_error" else hp[16] if fault_type == "freq_error" else hp[17]
 
     # Feature-based adjustment: use discriminative features to shift priors
-    # Thresholds calibrated from training data feature distributions per V2 module
+    # Thresholds data-driven from training feature statistics per V2 module:
+    #   Module      | X7    | X13   | X22   | X33   | X35      | X36   | X37   | X38      | X39
+    #   Power       | 0.184 | 0.436 | 0.022 | 1.028 | 0.003902 | 0.408 | 0.049 |          |
+    #   Filter(LPF) | 0.133 | 2.157 | 0.052 | 0.490 | 0.000334 | 0.873 | 0.037 |          |
+    #   ADC         | 0.164 | 0.177 | 0.044 | 0.727 | 0.001399 | 0.722 | 0.049 |          |
+    #   Mixer1      | 0.080 | 0.000 | 0.041 | 0.302 | 0.000312 | 0.812 | 0.029 |          |
+    #   IF/DSP      | 0.080 | 0.000 | 0.041 | 0.573 | 0.000312 | 0.812 | 0.029 |          |
+    #   数字检波器   | 0.080 | 1.065 | 0.057 | 0.357 | 0.000312 | 0.834 | 0.032 |          |
+    #   RBW         | 0.078 | 0.126 | 0.114 | 0.306 | 0.000322 | 0.943 | 0.063 |  (high)  | (normal)
+    #   VBW         | 0.057 | 0.120 | 0.052 | 0.419 | 0.000158 | 0.894 | 0.027 |  (low)   | (low)
     if fault_type == "amp_error":
-        # Key discriminating features (from data analysis):
-        # X13: Filter=1.68 >> ADC=0.66 >> Power=0.38, Mixer/IF/DSP=0
-        # X36: Power=0.40 << ADC=0.79 < Mixer=0.81 < Filter=0.86
-        # X7:  Power=0.17 > ADC=0.13 > Filter=0.11, Mixer/IF/DSP=0.08
-        # X35: Power=0.003 >> ADC=0.001, others=0.0003
-        # shape_rmse: IF/DSP=0, Filter=0.018, Power=0.033, Mixer=0.039, ADC=0.055
         x7 = features.get("X7", features.get("step_score", 0.08))
         x13 = features.get("X13", 0.0)
+        x22 = features.get("X22", 0.04)
+        x33 = features.get("X33", 0.57)
         x35 = features.get("X35", 0.0003)
         x36 = features.get("X36", 0.81)
+        x37 = features.get("X37", 0.029)
+        x38 = features.get("X38", 0.0)  # 2nd-order gradient variance
+        x39 = features.get("X39", 0.0)  # high-freq residual energy ratio
         rmse = features.get("shape_rmse", 0.0)
 
-        # Decision-tree-like scoring for each V2 module
         adj = {}
 
-        # Power: very low X36 (<0.6) AND high X35 (>0.002) AND high X7 (>0.12)
+        # Power: X36<0.61 (midpoint 0.408↔0.722), X35>0.002 (midpoint 0.004↔0.001), X7>0.12
         power_score = 1.0
-        if x36 < 0.65:
+        if x36 < 0.61:
             power_score += 4.0
         if x35 > 0.002:
             power_score += 3.0
@@ -874,9 +881,13 @@ def hierarchical_module_infer(
             power_score += 1.0
         adj["[电源板] 电源管理模块"] = power_score
 
-        # Filter: very high X13 (>0.5) AND high X36 (>0.83)
+        # Filter(LPF): X13>0.5 (midpoint 2.157↔0.436), X36>0.83
+        # When X13 is near zero (no LPF signature), penalize to free top-3
+        # slots for default-feature modules.
         filter_score = 1.0
-        if x13 > 0.8:
+        if x13 < 0.1:
+            filter_score *= 0.5  # penalize: no LPF signature present
+        elif x13 > 0.8:
             filter_score += 5.0
         elif x13 > 0.3:
             filter_score += 2.5
@@ -884,52 +895,75 @@ def hierarchical_module_infer(
             filter_score += 1.0
         adj["[RF板][RF] 低频通路固定滤波/抑制网络"] = filter_score
 
-        # ADC: moderate X7 (>0.09), moderate shape_rmse (>0.03), X13 moderate
+        # ADC: X7>0.09, X36 in [0.65, 0.80] (midpoint 0.722↔0.812), X35 in [0.0005, 0.002]
+        # When features are at default (no ADC signature), penalize to free
+        # top-3 slots for modules that cannot be distinguished by features.
         adc_score = 1.0
-        if x7 > 0.09 and x36 > 0.65:
-            adc_score += 2.0
-        if rmse > 0.04:
-            adc_score += 2.0
-        if x35 > 0.0005 and x35 < 0.002:
-            adc_score += 1.0
+        if rmse < 0.005 and abs(x7 - 0.08) < 0.005:
+            adc_score *= 0.3  # penalize default-feature ADC
+        else:
+            if x7 > 0.09 and x36 > 0.65:
+                adc_score += 2.0
+            if rmse > 0.04:
+                adc_score += 2.0
+            if x35 > 0.0005 and x35 < 0.002:
+                adc_score += 1.0
         adj["[数字中频板][ADC] 数字检波与平均"] = adc_score
 
-        # Mixer1: X7≈0.08, X13=0, X35≈0.0003, X36≈0.81 (all "default")
+        # Mixer1: X6 high (mean=0.006), features at default otherwise
+        x6 = features.get("X6", 0.001)
         mixer_score = 1.0
         if x7 < 0.085 and x13 < 0.1 and rmse > 0.0:
-            mixer_score += 3.0  # default-like features but nonzero rmse
-        if x36 > 0.80 and x36 < 0.83 and x35 < 0.0004:
+            mixer_score += 3.0
+        if x6 > 0.003 and x35 < 0.0004:
             mixer_score += 1.5
         adj["[RF板][Mixer1]"] = mixer_score
 
-        # IF/DSP: ALL features at exact default (shape_rmse=0, X13=0, X7=0.08)
+        # IF/DSP: these modules have all features at default when they are the
+        # fault source. HOWEVER, light-severity faults of OTHER modules also
+        # produce default features.  A large bonus here would crowd out the
+        # true module from Top-3.  Reduce the boost to avoid this.
         if_score = 1.0
         if rmse < 0.001 and x13 < 0.001 and abs(x7 - 0.08) < 0.002:
-            if_score += 2.5  # default-like features; reduced to avoid dominating light-severity faults
+            if_score += 0.5  # mild boost only; priors handle the rest
         adj["[数字中频板][IF] 中频放大/衰减链"] = if_score
         adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
 
-        # RBW: periodic sinc ripple → very high X22 (FFT energy) and X36 (periodicity)
-        # Data: RBW X22 mean=0.114 (others ≤ 0.057), X36 mean=0.943 (others ≤ 0.873)
-        x22 = features.get("X22", 0.04)
+        # RBW: X22>0.079 (midpoint 0.114↔0.045), X36>0.87 (midpoint 0.943↔0.812)
+        # X37>0.050 (midpoint 0.063↔0.036), X39 low (0.019, midpoint with default 0.063 → <0.041)
+        # Data: RBW X22 mean=0.114 (best discriminator ratio=2.86)
         rbw_score = 1.0
-        if x22 > 0.08:
-            rbw_score += 5.0  # dominant FFT peak from periodic ripple
-        elif x22 > 0.06:
+        if x22 > 0.079:
+            rbw_score += 5.0
+        elif x22 > 0.055:
             rbw_score += 2.0
-        if x36 > 0.91:
-            rbw_score += 3.0  # near-perfect periodicity from sinusoidal injection
+        if x36 > 0.87:
+            rbw_score += 2.0
+        if x37 > 0.050:
+            rbw_score += 2.0
+        if x39 < 0.041 and x39 > 0:
+            rbw_score += 1.0  # RBW has low hf_energy (sinc adds low-freq FFT energy)
         adj["[数字中频板][数字IF域] RBW滤波器"] = rbw_score
 
-        # VBW: EMA lag → very low X35 (diff variance) and X7 (step score)
-        # Data: VBW X35 mean=0.000158 (others ≥ 0.000312), X7 mean=0.057 (others ≥ 0.078)
+        # VBW: X35<0.000235 (midpoint 0.000158↔0.000312), X7<0.069 (midpoint 0.057↔0.080)
+        # X33<0.484 (midpoint 0.419↔0.549), X39<0.046 (midpoint 0.029↔0.063)
+        # X38<0.000448 (midpoint 0.000278↔0.000617) — EMA smoothing reduces 2nd-order grad var
+        # Data: VBW X35 mean=0.000158 std=0.000069
         vbw_score = 1.0
-        if x35 < 0.00032:
-            vbw_score += 5.0  # EMA smoothing suppresses diff variance (relaxed for light-severity)
-        elif x35 < 0.00035:
+        if x35 < 0.000235:
+            vbw_score += 5.0
+        elif x35 < 0.000312:
             vbw_score += 2.0
-        if x7 < 0.081:
-            vbw_score += 3.0  # EMA smoothing reduces step magnitude (relaxed for light-severity)
+        if x7 < 0.069:
+            vbw_score += 3.0
+        elif x7 < 0.078:
+            vbw_score += 1.0
+        if x33 < 0.484:
+            vbw_score += 1.5
+        if x39 < 0.046 and x39 > 0:
+            vbw_score += 1.5  # VBW EMA kills high-freq residual energy
+        if x38 < 0.000448 and x38 > 0:
+            vbw_score += 1.0  # VBW EMA reduces 2nd-order gradient variance
         adj["[数字中频板][数字IF域] VBW滤波器"] = vbw_score
 
         for mod in filtered_probs:
@@ -938,9 +972,9 @@ def hierarchical_module_infer(
     elif fault_type == "freq_error":
         # Discriminating features (from training data V2 analysis):
         # Mixer1: X13=0.97 (very high), X14=0.002 (very low), X24=0.012 (very low)
-        # 参考分配: X13=0.46, X14=0.007, X24=0.527 (highest), X35=0.00025
-        # LO1: X13=0.42, X14=0.007, X24=0.446, X36=0.900, X35=0.00015
-        # OCXO: X13=0.43, X14=0.007, X24=0.454, X36=0.885, X23=0.000086 (lowest)
+        # 参考分配: X24=0.527 (highest), X36=0.842, X35=0.00025
+        # LO1: X36=0.900 (high), X35=0.00015, X24=0.446
+        # OCXO: X36=0.885, X23=0.000086 (lowest), X24=0.454
         x13 = features.get("X13", 0.45)
         x14 = features.get("X14", 0.007)
         x7 = features.get("X7", 0.07)
@@ -963,27 +997,37 @@ def hierarchical_module_infer(
         adj["[RF板][Mixer1]"] = mixer_s
 
         # 参考分配: highest X24 (0.527), moderate X36 (0.842), higher X35 (0.00025)
+        # Use softer thresholds with gradient scoring for overlap zone
         ref_dist_s = 1.0
         if x24 > 0.50:
             ref_dist_s += 3.0
-        elif x24 > 0.47:
+        elif x24 > 0.40:
+            ref_dist_s += 1.0 + 2.0 * (x24 - 0.40) / 0.10  # linear ramp [0.40, 0.50]
+        elif x24 > 0.30:
+            ref_dist_s += 0.5  # partial credit for being in range
+        if x35 > 0.00020:
             ref_dist_s += 1.5
-        if x35 > 0.00022:
-            ref_dist_s += 1.5
+        elif x35 > 0.00012:
+            ref_dist_s += 0.5  # partial credit
         if x36 < 0.86:
             ref_dist_s += 1.0
         adj["[时钟板][参考分配]"] = ref_dist_s
 
         # LO1: high X36 (0.900), lowest X35 (0.00015), lower X24
+        # Use softer thresholds for overlap with 参考分配/OCXO
         lo1_s = 1.0
         if x36 > 0.88:
             lo1_s += 2.0
+        elif x36 > 0.84:
+            lo1_s += 1.0  # partial credit (was missing before)
         if x35 < 0.00016:
             lo1_s += 2.0
-        elif x35 < 0.00020:
-            lo1_s += 1.0
+        elif x35 < 0.00022:
+            lo1_s += 1.0  # softened from 0.00020
         if x24 < 0.46 and x24 > 0.30:
             lo1_s += 1.0
+        elif x24 > 0.46 and x24 < 0.50:
+            lo1_s += 0.5  # partial credit for borderline X24
         adj["[LO/时钟板][LO1] 合成链"] = lo1_s
 
         # OCXO: high X36 (0.885), lower X23 (0.000086), moderate X24 (0.454)
@@ -1058,6 +1102,13 @@ def hierarchical_module_infer(
         for mod in filtered_probs:
             filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
 
+    # Ignorance floor: ensure every candidate retains a minimum probability
+    # so that low-but-not-zero alternatives stay in Top-3 contention.
+    _IGNORANCE_FLOOR = 0.005
+    for mod in filtered_probs:
+        if filtered_probs[mod] < _IGNORANCE_FLOOR:
+            filtered_probs[mod] = _IGNORANCE_FLOOR
+
     # Normalize
     total = sum(filtered_probs.values())
     if total > 0:
@@ -1115,8 +1166,9 @@ def hierarchical_module_infer_soft_gating(
     # Minimum probability for the 2nd hypothesis to be considered
     _TOP2_MIN_PROB = 0.02
     # Minimum fraction of total weight reserved for the 2nd hypothesis
-    # when multi-hypothesis is activated
-    _SECONDARY_WEIGHT_FLOOR = 0.15
+    # when multi-hypothesis is activated (raised from 0.15 to prevent
+    # cascade errors when RF system-level prediction is slightly wrong)
+    _SECONDARY_WEIGHT_FLOOR = 0.25
 
     # ── Step 1: Sort fault types, filter out "normal" ──────────────────
     sorted_faults = sorted(final_probs.items(), key=lambda x: x[1], reverse=True)
@@ -1186,6 +1238,21 @@ def hierarchical_module_infer_soft_gating(
             fused_probs[m] = effective_w1_ratio * p1 + effective_w2_ratio * p2
 
         used_hypotheses = [(top1_ft, top1_prob), (top2_ft, top2_prob)]
+
+        # ── Step 5: Diversity guarantee ───────────────────────────────
+        # When multi-hypothesis is active, ensure the best module from
+        # the SECONDARY hypothesis has a minimum presence in the fused
+        # top-3.  Only apply when the primary hypothesis has more than
+        # 3 modules (otherwise all primary modules already fit in
+        # top-3 and adding a secondary module would displace one).
+        h1_module_count = sum(1 for p in probs_1.values() if p > 0)
+        if h1_module_count > 3:
+            top_h2_mod = max(probs_2.items(), key=lambda x: x[1])[0]
+            fused_sorted_vals = sorted(fused_probs.values(), reverse=True)
+            if len(fused_sorted_vals) >= 3:
+                third_val = fused_sorted_vals[2]
+                if fused_probs[top_h2_mod] < third_val:
+                    fused_probs[top_h2_mod] = third_val + 1e-9
     else:
         fused_probs = probs_1
         used_hypotheses = [(top1_ft, top1_prob)]

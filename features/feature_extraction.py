@@ -788,6 +788,31 @@ def extract_system_features(response_curve, baseline_curve=None, envelope=None) 
             except Exception:
                 x29, x30, x31, x32, x33, x34 = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
+    # X38: Second-order gradient variance (amplifies periodic ripple for RBW detection)
+    # var(diff(diff(arr))) is much larger for sinusoidal ripple than smooth curves
+    if len(arr) > 3:
+        diff2 = np.diff(np.diff(arr))
+        x38 = float(np.var(diff2))
+    else:
+        x38 = 0.0
+
+    # X39: High-frequency residual energy ratio (detects VBW smoothing effect)
+    # VBW EMA smoothing suppresses high-freq components, lowering this ratio
+    if residual.size > 4:
+        try:
+            fft_r = np.abs(np.fft.rfft(residual))
+            n_fft = len(fft_r)
+            if n_fft > 2:
+                total_e = float(np.sum(fft_r ** 2))
+                hi_e = float(np.sum(fft_r[n_fft // 2:] ** 2))
+                x39 = hi_e / (total_e + 1e-12)
+            else:
+                x39 = 0.0
+        except Exception:
+            x39 = 0.0
+    else:
+        x39 = 0.0
+
     robust_feats = {}
     if baseline_curve is not None and len(baseline_curve) == len(arr):
         robust_feats = compute_residual_robust_features(arr_aligned, np.asarray(baseline_curve, dtype=float))
@@ -803,6 +828,7 @@ def extract_system_features(response_curve, baseline_curve=None, envelope=None) 
         "X29": x29, "X30": x30, "X31": x31,  # v8: Amp vs Ref features
         "X32": x32, "X33": x33, "X34": x34,  # v9: Enhanced spectrum analysis features
         "X35": x35, "X36": x36, "X37": x37,  # v10: Diff variance + periodicity + linear residual
+        "X38": x38, "X39": x39,  # v11: RBW gradient amplifier + VBW hf-energy deficit
         "offset_db": offset_db,
         "viol_rate_aligned": x11,
         "viol_energy_aligned": x13,
