@@ -70,12 +70,29 @@ VARIANT_NAMES = {
     "wo_p_constraint": "w/o P-Constraint",
 }
 
-# Display names for stress-test variants
+# Display names for stress-test variants (unified stress environment)
 STRESS_VARIANT_NAMES = {
-    "ours_weak_rf": "Ours Full",
-    "wo_soft_gating_weak_rf": "w/o Soft-Gating",
-    "wo_p_constraint_stress": "w/o P-Constraint",
+    "ours_full_stress": "Ours Full (Stress)",
+    "wo_decoupling_stress": "w/o Decoupling (Stress)",
+    "wo_soft_gating_stress": "w/o Soft-Gating (Stress)",
+    "wo_p_constraint_stress": "w/o P-Constraint (Stress)",
 }
+
+# Stress environment configuration constants
+STRESS_SUBSAMPLE_RATIO = 0.20    # Use 20% of training data
+STRESS_MIN_SAMPLES = 5           # Minimum samples to avoid degenerate PCA/RF
+STRESS_NOISE_SCALE = 0.05        # 5% Gaussian noise (relative to per-column std)
+
+
+def _inject_gaussian_noise(X: np.ndarray, rng: np.random.RandomState) -> np.ndarray:
+    """Add per-column Gaussian noise scaled to STRESS_NOISE_SCALE × column std."""
+    X_noisy = X.copy()
+    n = X_noisy.shape[0]
+    for j in range(X_noisy.shape[1]):
+        col_std = np.std(X_noisy[:, j])
+        if col_std > 0:
+            X_noisy[:, j] += rng.normal(0, STRESS_NOISE_SCALE * col_std, size=n)
+    return X_noisy
 
 
 # ============================================================================
@@ -546,14 +563,37 @@ class OursWithoutSoftGatingWeakRF(OursWithoutSoftGating):
         )
 
 
-class OursWithoutPConstraintStress(OursWithoutPConstraint):
-    """Stress variant: w/o P-Constraint with extended CMA-ES iterations.
+class OursWithoutDecouplingStress(OursWithoutDecoupling):
+    """Stress variant: w/o Decoupling with deliberately weakened RF.
 
-    CMA-ES max_iter is increased 5× (40→200), parameter bounds widened
-    [0.01, 10.0] (vs [0.1, 5.0]), and initial sigma enlarged (0.5→1.5).
-    Without expert anti-drift penalty, the extended optimization drives
-    the 18 BRB parameters to memorize training noise, causing severe
-    overfitting on the small training set.
+    Combines PCA-based feature input (no knowledge-driven decoupling) with
+    a weak RF (n_estimators=10, max_depth=3).  Under the unified stress
+    environment (20% noisy training samples), PCA on corrupted data produces
+    unreliable principal components, causing classification collapse.
+    """
+
+    name = "wo_decoupling_stress"
+
+    def __init__(self, calibration_override=None):
+        from sklearn.ensemble import RandomForestClassifier
+        super().__init__(calibration_override=calibration_override)
+        self.classifier = RandomForestClassifier(
+            n_estimators=10,   # Deliberately weak (vs 200 in full model)
+            max_depth=3,       # Shallow trees (vs 12 in full model)
+            min_samples_split=4,
+            min_samples_leaf=2,
+            random_state=42,
+            class_weight='balanced',
+        )
+
+
+class OursWithoutPConstraintStress(OursWithoutPConstraint):
+    """Stress variant: w/o P-Constraint with weak RF and extended CMA-ES.
+
+    Combines a weak RF (n_estimators=10, max_depth=3) with unconstrained
+    CMA-ES: max_iter 5× (40→200), bounds widened to [0.01, 10.0], sigma
+    enlarged (0.5→1.5).  Under the unified stress environment (20% noisy
+    training data), the optimizer memorizes noise → severe overfitting.
     """
 
     name = "wo_p_constraint_stress"
@@ -564,6 +604,18 @@ class OursWithoutPConstraintStress(OursWithoutPConstraint):
     _CMA_SIGMA = 1.5         # Wider initial step size (vs 0.5)
     _CMA_BOUNDS_LO = 0.01    # Wider lower bound (vs 0.1)
     _CMA_BOUNDS_HI = 10.0    # Wider upper bound (vs 5.0)
+
+    def __init__(self, calibration_override=None):
+        from sklearn.ensemble import RandomForestClassifier
+        super().__init__(calibration_override=calibration_override)
+        self.classifier = RandomForestClassifier(
+            n_estimators=10,   # Deliberately weak (unified stress environment)
+            max_depth=3,       # Shallow trees
+            min_samples_split=4,
+            min_samples_leaf=2,
+            random_state=42,
+            class_weight='balanced',
+        )
 
 
 # ============================================================================
@@ -696,7 +748,7 @@ def plot_ablation_rules(results: List[Dict], output_path: Path):
 
         fig, ax = plt.subplots(figsize=(8, 5))
 
-        colors = ["#C44E52" if r["variant"] == "wo_decoupling" else "#4C72B0" for r in results]
+        colors = ["#C44E52" if "wo_decoupling" in r["variant"] else "#4C72B0" for r in results]
         bars = ax.bar(variants, n_rules, color=colors, alpha=0.85, width=0.5)
 
         ax.set_ylabel("规则数 (n_rules)", fontsize=12, fontweight="bold")
@@ -972,27 +1024,53 @@ def main():
     print(f"\nAll outputs saved to: {output_dir}")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # Stress Test: High-Contrast Ablation Under Adversarial Conditions
+    # Unified Stress Test: All 4 Variants Under Same Adversarial Environment
     # ══════════════════════════════════════════════════════════════════════════
     if args.stress:
         print("\n" + "=" * 80)
-        print("STRESS TEST: High-Contrast Ablation")
-        print("  - Ours Full: weak RF (n_estimators=10, max_depth=3) + soft gating")
-        print("  - w/o Soft-Gating: weak RF + hard argmax")
-        print("  - w/o P-Constraint: 5× CMA-ES iterations, wider bounds, no penalty")
+        print("UNIFIED STRESS TEST: All 4 Variants Under Same Adversarial Conditions")
+        print("  Global conditions applied to ALL variants:")
+        print("    1. Weak RF: n_estimators=10, max_depth=3")
+        print("    2. Training data: 20% random subsample with 5% Gaussian noise")
+        print("  Variants:")
+        print("    - Ours Full (Stress):         weak RF + soft gating + expert-constrained CMA-ES")
+        print("    - w/o Decoupling (Stress):    weak RF + PCA features (no knowledge-driven selection)")
+        print("    - w/o Soft-Gating (Stress):   weak RF + hard argmax (no multi-hypothesis fusion)")
+        print("    - w/o P-Constraint (Stress):  weak RF + 5× CMA-ES iters, no penalty, wide bounds")
         print("=" * 80)
 
+        # ── Build unified stress training data ────────────────────────────
+        # Subsample 20% of training data to simulate extreme low-data regime
+        rng = np.random.RandomState(args.seed)
+        n_train = len(X_train_sel)
+        n_stress = max(STRESS_MIN_SAMPLES, int(STRESS_SUBSAMPLE_RATIO * n_train))
+        stress_idx = rng.choice(n_train, size=n_stress, replace=False)
+
+        X_train_stress_sel = _inject_gaussian_noise(X_train_sel[stress_idx], rng)
+        X_train_stress_full = _inject_gaussian_noise(X_train_full[stress_idx], rng)
+        y_sys_train_stress = y_sys_train[stress_idx]
+        y_mod_train_stress = y_mod_train[stress_idx] if y_mod_train is not None else None
+
+        print(f"\n  Stress training data: {n_stress}/{n_train} samples "
+              f"({100*n_stress/n_train:.0f}%) + {STRESS_NOISE_SCALE*100:.0f}% Gaussian noise injected")
+
+        # ── Define all 4 stress variants ──────────────────────────────────
         stress_results = []
         stress_variants = [
-            ("ours_weak_rf", OursWeakRF, X_train_sel, X_test_sel, expected_features),
-            ("wo_soft_gating_weak_rf", OursWithoutSoftGatingWeakRF, X_train_sel, X_test_sel, expected_features),
-            ("wo_p_constraint_stress", OursWithoutPConstraintStress, X_train_sel, X_test_sel, expected_features),
+            ("ours_full_stress", OursWeakRF,
+             X_train_stress_sel, X_test_sel, expected_features),
+            ("wo_decoupling_stress", OursWithoutDecouplingStress,
+             X_train_stress_full, X_test_full, feature_names),
+            ("wo_soft_gating_stress", OursWithoutSoftGatingWeakRF,
+             X_train_stress_sel, X_test_sel, expected_features),
+            ("wo_p_constraint_stress", OursWithoutPConstraintStress,
+             X_train_stress_sel, X_test_sel, expected_features),
         ]
 
         for variant_name, adapter_cls, x_tr, x_te, feat_names in stress_variants:
             print(f"\n{'=' * 60}")
             print(f"Running stress variant: {STRESS_VARIANT_NAMES[variant_name]}")
-            print(f"  (class: {adapter_cls.__name__})")
+            print(f"  (class: {adapter_cls.__name__}, train_samples: {len(x_tr)})")
             print(f"{'=' * 60}")
 
             try:
@@ -1000,7 +1078,7 @@ def main():
                 meta_s = {"feature_names": feat_names}
 
                 start_fit = time.time()
-                adapter.fit(x_tr, y_sys_train, y_mod_train, meta_s)
+                adapter.fit(x_tr, y_sys_train_stress, y_mod_train_stress, meta_s)
                 fit_time = time.time() - start_fit
 
                 start_infer = time.time()
@@ -1051,9 +1129,9 @@ def main():
                     "infer_ms_per_sample": 0.0,
                 })
 
-        # ── Save ablation_table_stress.csv ────────────────────────────────
-        stress_csv_path = output_dir / "ablation_table_stress.csv"
-        with open(stress_csv_path, "w", newline="", encoding="utf-8") as f:
+        # ── Save ablation_table_final.csv ─────────────────────────────────
+        final_csv_path = output_dir / "ablation_table_final.csv"
+        with open(final_csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(
                 f,
                 fieldnames=[
@@ -1073,34 +1151,36 @@ def main():
                     "mod_top3_accuracy": f"{r['mod_top3_accuracy']:.4f}",
                     "n_rules": r["n_rules"],
                 })
-        print(f"\nSaved ablation_table_stress.csv to: {stress_csv_path}")
+        print(f"\nSaved ablation_table_final.csv to: {final_csv_path}")
 
         # ── Save stress JSON ──────────────────────────────────────────────
-        stress_json_path = output_dir / "ablation_stress_summary.json"
-        stress_json_path.write_text(
+        final_json_path = output_dir / "ablation_final_summary.json"
+        final_json_path.write_text(
             json.dumps(stress_results, ensure_ascii=False, indent=2), encoding="utf-8"
         )
 
-        # ── Generate stress plots ─────────────────────────────────────────
-        plot_ablation_accuracy(stress_results, output_dir / "ablation_accuracy_stress.png")
-        plot_ablation_rules(stress_results, output_dir / "ablation_rules_stress.png")
+        # ── Generate final plots ──────────────────────────────────────────
+        plot_ablation_accuracy(stress_results, output_dir / "ablation_accuracy_final.png")
+        plot_ablation_rules(stress_results, output_dir / "ablation_rules_final.png")
 
-        # ── Print stress summary ──────────────────────────────────────────
+        # ── Print final stress summary ────────────────────────────────────
         print("\n" + "=" * 80)
-        print("STRESS TEST ABLATION RESULTS")
+        print("UNIFIED STRESS TEST ABLATION RESULTS (ablation_table_final.csv)")
+        print("  Environment: weak RF + 20% subsample + 5% Gaussian noise")
         print("=" * 80)
-        print(f"{'Variant':<22} {'sys_acc':>10} {'mod_top1':>10} {'mod_top3':>10} {'n_rules':>10}")
-        print("-" * 64)
+        header = f"{'Variant':<30} {'sys_acc':>10} {'mod_top1':>10} {'mod_top3':>10} {'n_rules':>10}"
+        print(header)
+        print("-" * len(header))
         for r in stress_results:
             print(
-                f"{r['variant_display']:<22} "
+                f"{r['variant_display']:<30} "
                 f"{r['sys_accuracy']:>9.4f} "
                 f"{r['mod_top1_accuracy']:>9.4f} "
                 f"{r['mod_top3_accuracy']:>9.4f} "
                 f"{r['n_rules']:>10}"
             )
         print("=" * 80)
-        print(f"\nStress test outputs saved to: {output_dir}")
+        print(f"\nAll stress test outputs saved to: {output_dir}")
 
 
 if __name__ == "__main__":
