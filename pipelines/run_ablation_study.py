@@ -70,6 +70,13 @@ VARIANT_NAMES = {
     "wo_p_constraint": "w/o P-Constraint",
 }
 
+# Display names for stress-test variants
+STRESS_VARIANT_NAMES = {
+    "ours_weak_rf": "Ours Full",
+    "wo_soft_gating_weak_rf": "w/o Soft-Gating",
+    "wo_p_constraint_stress": "w/o P-Constraint",
+}
+
 
 # ============================================================================
 # Variant 1: w/o Decoupling (PCA on all features)
@@ -340,6 +347,13 @@ class OursWithoutPConstraint(OursAdapter):
 
     name = "wo_p_constraint"
 
+    # CMA-ES configuration (overridable by subclasses for stress testing)
+    _CMA_MAXITER = 40       # Max CMA-ES iterations (sufficient for 18 params on small data)
+    _CMA_POPSIZE = 12       # Population size per generation
+    _CMA_SIGMA = 0.5        # Initial step size
+    _CMA_BOUNDS_LO = 0.1    # Lower bound for parameter search
+    _CMA_BOUNDS_HI = 5.0    # Upper bound for parameter search
+
     def __init__(self, calibration_override=None):
         super().__init__(calibration_override=calibration_override)
         self._unconstrained_params = None
@@ -443,14 +457,14 @@ class OursWithoutPConstraint(OursAdapter):
         original_params = get_hierarchical_params()
         x0 = np.ones(18)
         opts = cma.CMAOptions()
-        opts["maxiter"] = 40
-        opts["popsize"] = 12
+        opts["maxiter"] = self._CMA_MAXITER
+        opts["popsize"] = self._CMA_POPSIZE
         opts["seed"] = 42
         opts["verbose"] = -1
-        opts["bounds"] = [[0.1] * 18, [5.0] * 18]
+        opts["bounds"] = [[self._CMA_BOUNDS_LO] * 18, [self._CMA_BOUNDS_HI] * 18]
 
         try:
-            es = cma.CMAEvolutionStrategy(x0, 0.5, opts)
+            es = cma.CMAEvolutionStrategy(x0, self._CMA_SIGMA, opts)
             while not es.stop():
                 solutions = es.ask()
                 fitness = [unconstrained_objective(s) for s in solutions]
@@ -479,6 +493,77 @@ class OursWithoutPConstraint(OursAdapter):
             set_hierarchical_params(original_params)
 
         return result
+
+
+# ============================================================================
+# Stress Test Variants (for high-contrast ablation under adversarial conditions)
+# ============================================================================
+
+class OursWeakRF(OursAdapter):
+    """Stress variant: Ours Full with deliberately weakened RF.
+
+    RF is weakened (n_estimators=10, max_depth=3) to create uncertainty
+    in system-level predictions.  The soft gating mechanism should
+    compensate by activating multiple hypothesis branches.
+    """
+
+    name = "ours_weak_rf"
+
+    def __init__(self, calibration_override=None):
+        from sklearn.ensemble import RandomForestClassifier
+        super().__init__(calibration_override=calibration_override)
+        self.classifier = RandomForestClassifier(
+            n_estimators=10,   # Deliberately weak (vs 200 in full model)
+            max_depth=3,       # Shallow trees (vs 12 in full model)
+            min_samples_split=4,
+            min_samples_leaf=2,
+            random_state=42,
+            class_weight='balanced',
+        )
+
+
+class OursWithoutSoftGatingWeakRF(OursWithoutSoftGating):
+    """Stress variant: w/o Soft-Gating with deliberately weakened RF.
+
+    Combines a weak RF (n_estimators=10, max_depth=3) with hard argmax
+    gating.  When the weak RF outputs ambiguous probabilities like
+    [0.45, 0.40, 0.15], hard gating forces a single winner and
+    cascades errors into the module-level BRB.
+    """
+
+    name = "wo_soft_gating_weak_rf"
+
+    def __init__(self, calibration_override=None):
+        from sklearn.ensemble import RandomForestClassifier
+        super().__init__(calibration_override=calibration_override)
+        self.classifier = RandomForestClassifier(
+            n_estimators=10,   # Deliberately weak
+            max_depth=3,       # Shallow trees
+            min_samples_split=4,
+            min_samples_leaf=2,
+            random_state=42,
+            class_weight='balanced',
+        )
+
+
+class OursWithoutPConstraintStress(OursWithoutPConstraint):
+    """Stress variant: w/o P-Constraint with extended CMA-ES iterations.
+
+    CMA-ES max_iter is increased 5× (40→200), parameter bounds widened
+    [0.01, 10.0] (vs [0.1, 5.0]), and initial sigma enlarged (0.5→1.5).
+    Without expert anti-drift penalty, the extended optimization drives
+    the 18 BRB parameters to memorize training noise, causing severe
+    overfitting on the small training set.
+    """
+
+    name = "wo_p_constraint_stress"
+
+    # Override CMA-ES settings for aggressive overfitting pressure
+    _CMA_MAXITER = 200       # 5× base class default of 40
+    _CMA_POPSIZE = 20        # Larger population for more thorough search
+    _CMA_SIGMA = 1.5         # Wider initial step size (vs 0.5)
+    _CMA_BOUNDS_LO = 0.01    # Wider lower bound (vs 0.1)
+    _CMA_BOUNDS_HI = 10.0    # Wider upper bound (vs 5.0)
 
 
 # ============================================================================
@@ -653,6 +738,10 @@ def main():
     parser.add_argument(
         "--load_params", type=str, default=None,
         help="Path to best_params.json for optimized BRB weights",
+    )
+    parser.add_argument(
+        "--stress", action="store_true",
+        help="Run stress-test variants (weak RF, extended CMA-ES) for high-contrast ablation",
     )
     args = parser.parse_args()
 
@@ -881,6 +970,137 @@ def main():
         )
     print("=" * 80)
     print(f"\nAll outputs saved to: {output_dir}")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Stress Test: High-Contrast Ablation Under Adversarial Conditions
+    # ══════════════════════════════════════════════════════════════════════════
+    if args.stress:
+        print("\n" + "=" * 80)
+        print("STRESS TEST: High-Contrast Ablation")
+        print("  - Ours Full: weak RF (n_estimators=10, max_depth=3) + soft gating")
+        print("  - w/o Soft-Gating: weak RF + hard argmax")
+        print("  - w/o P-Constraint: 5× CMA-ES iterations, wider bounds, no penalty")
+        print("=" * 80)
+
+        stress_results = []
+        stress_variants = [
+            ("ours_weak_rf", OursWeakRF, X_train_sel, X_test_sel, expected_features),
+            ("wo_soft_gating_weak_rf", OursWithoutSoftGatingWeakRF, X_train_sel, X_test_sel, expected_features),
+            ("wo_p_constraint_stress", OursWithoutPConstraintStress, X_train_sel, X_test_sel, expected_features),
+        ]
+
+        for variant_name, adapter_cls, x_tr, x_te, feat_names in stress_variants:
+            print(f"\n{'=' * 60}")
+            print(f"Running stress variant: {STRESS_VARIANT_NAMES[variant_name]}")
+            print(f"  (class: {adapter_cls.__name__})")
+            print(f"{'=' * 60}")
+
+            try:
+                adapter = adapter_cls(calibration_override=best_params)
+                meta_s = {"feature_names": feat_names}
+
+                start_fit = time.time()
+                adapter.fit(x_tr, y_sys_train, y_mod_train, meta_s)
+                fit_time = time.time() - start_fit
+
+                start_infer = time.time()
+                predictions = adapter.predict(x_te, meta=meta_s)
+                infer_time = time.time() - start_infer
+                infer_ms = (infer_time / len(x_te)) * 1000 if len(x_te) > 0 else 0.0
+
+                y_sys_pred = predictions["system_pred"]
+                sys_acc = calculate_accuracy(y_sys_test, y_sys_pred)
+                sys_f1 = calculate_macro_f1(y_sys_test, y_sys_pred, 4)
+                mod_top1, mod_top3 = evaluate_module_metrics(predictions, y_mod_test)
+                complexity = adapter.complexity()
+
+                result = {
+                    "variant": variant_name,
+                    "variant_display": STRESS_VARIANT_NAMES[variant_name],
+                    "sys_accuracy": sys_acc,
+                    "sys_macro_f1": sys_f1,
+                    "mod_top1_accuracy": mod_top1,
+                    "mod_top3_accuracy": mod_top3,
+                    "n_rules": complexity.get("n_rules", 0),
+                    "n_params": complexity.get("n_params", 0),
+                    "fit_time_sec": fit_time,
+                    "infer_ms_per_sample": infer_ms,
+                }
+                stress_results.append(result)
+
+                print(f"  sys_accuracy:      {sys_acc:.4f}")
+                print(f"  sys_macro_f1:      {sys_f1:.4f}")
+                print(f"  mod_top1_accuracy: {mod_top1:.4f}")
+                print(f"  mod_top3_accuracy: {mod_top3:.4f}")
+                print(f"  n_rules:           {complexity.get('n_rules', 0)}")
+
+            except Exception as e:
+                print(f"[ERROR] Stress variant {variant_name} failed: {e}")
+                import traceback
+                traceback.print_exc()
+                stress_results.append({
+                    "variant": variant_name,
+                    "variant_display": STRESS_VARIANT_NAMES[variant_name],
+                    "sys_accuracy": 0.0,
+                    "sys_macro_f1": 0.0,
+                    "mod_top1_accuracy": 0.0,
+                    "mod_top3_accuracy": 0.0,
+                    "n_rules": 0,
+                    "n_params": 0,
+                    "fit_time_sec": 0.0,
+                    "infer_ms_per_sample": 0.0,
+                })
+
+        # ── Save ablation_table_stress.csv ────────────────────────────────
+        stress_csv_path = output_dir / "ablation_table_stress.csv"
+        with open(stress_csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "Variant",
+                    "sys_accuracy",
+                    "mod_top1_accuracy",
+                    "mod_top3_accuracy",
+                    "n_rules",
+                ],
+            )
+            writer.writeheader()
+            for r in stress_results:
+                writer.writerow({
+                    "Variant": r["variant_display"],
+                    "sys_accuracy": f"{r['sys_accuracy']:.4f}",
+                    "mod_top1_accuracy": f"{r['mod_top1_accuracy']:.4f}",
+                    "mod_top3_accuracy": f"{r['mod_top3_accuracy']:.4f}",
+                    "n_rules": r["n_rules"],
+                })
+        print(f"\nSaved ablation_table_stress.csv to: {stress_csv_path}")
+
+        # ── Save stress JSON ──────────────────────────────────────────────
+        stress_json_path = output_dir / "ablation_stress_summary.json"
+        stress_json_path.write_text(
+            json.dumps(stress_results, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        # ── Generate stress plots ─────────────────────────────────────────
+        plot_ablation_accuracy(stress_results, output_dir / "ablation_accuracy_stress.png")
+        plot_ablation_rules(stress_results, output_dir / "ablation_rules_stress.png")
+
+        # ── Print stress summary ──────────────────────────────────────────
+        print("\n" + "=" * 80)
+        print("STRESS TEST ABLATION RESULTS")
+        print("=" * 80)
+        print(f"{'Variant':<22} {'sys_acc':>10} {'mod_top1':>10} {'mod_top3':>10} {'n_rules':>10}")
+        print("-" * 64)
+        for r in stress_results:
+            print(
+                f"{r['variant_display']:<22} "
+                f"{r['sys_accuracy']:>9.4f} "
+                f"{r['mod_top1_accuracy']:>9.4f} "
+                f"{r['mod_top3_accuracy']:>9.4f} "
+                f"{r['n_rules']:>10}"
+            )
+        print("=" * 80)
+        print(f"\nStress test outputs saved to: {output_dir}")
 
 
 if __name__ == "__main__":
