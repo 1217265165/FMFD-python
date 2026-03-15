@@ -431,16 +431,31 @@ python tools/brb_report.py --run_dir Output/runs/run_001/
 > **注意**: 对比实验仅用于论文验证，不是现场诊断主链路。
 
 ### 8.1 运行对比实验
+
+完整流程只需三步，按顺序执行即可（IDE 中右键运行亦可）：
+
 ```bash
-# 1. 生成仿真数据
+# 步骤 1: 生成基线（从 normal_response_data/ 计算 RRS 与包络）
+#   输出: Output/baseline_artifacts.npz, Output/baseline_meta.json
+python pipelines/run_baseline.py
+
+# 步骤 2: 生成仿真数据（基于基线注入故障，自动提取特征）
+#   输出: Output/sim_spectrum/features_brb.csv, labels.json, raw_curves/
 python pipelines/simulate/run_simulation_brb.py
 
-# 2. 运行对比
+# 步骤 3: 运行对比实验
+#   输入: Output/sim_spectrum/features_brb.csv + labels.json
+#   输出: Output/compare_methods/comparison_table.csv 等
 python pipelines/compare_methods.py
 
-# 3. 查看结果
+# 查看结果
 cat Output/compare_methods/comparison_table.csv
 ```
+
+> **常见问题**: 如果步骤 3 报错找不到 `features_brb.csv`，请确认步骤 1 和 2 已成功运行。
+> 步骤 2 会自动生成 `features_brb.csv`，无需额外运行 `generate_features.py`。
+> 
+> 也可以只运行部分方法：`python pipelines/compare_methods.py --methods ours,hcf`
 
 ### 8.2 数据集策略（Dataset-S / Dataset-M）
 - Dataset-S（系统级均衡仿真）：默认生成，适配 `compare_methods.py` 系统级公平对比。
@@ -638,26 +653,40 @@ pip install -r requirements.txt
 
 ## 快速开始
 
-### 1. 生成基线
-```bash
-python pipelines/run_babeline.py
-```
+### A. 现场诊断流程
 
-### 2. 运行检测
 ```bash
-# 将待检CSV放入to_detect/目录
+# 1. 生成基线
+python pipelines/run_baseline.py
+
+# 2. 运行检测（将待检CSV放入to_detect/目录）
 python pipelines/detect.py
-```
 
-### 3. 一键诊断（CLI）
-```bash
+# 3. 一键诊断（CLI，单样本）
 python brb_diagnosis_cli.py -i to_detect/sample.csv -o result.json
-```
 
-### 4. 查看结果
-```bash
+# 4. 查看结果
 cat Output/runs/run_001/tables/detection_results.csv
 ```
+
+### B. 对比实验流程（论文验证）
+
+```bash
+# 1. 生成基线
+python pipelines/run_baseline.py
+
+# 2. 生成仿真数据（自动提取特征）
+python pipelines/simulate/run_simulation_brb.py
+
+# 3. 运行对比实验
+python pipelines/compare_methods.py
+
+# 4. 查看结果
+cat Output/compare_methods/comparison_table.csv
+```
+
+> 只需按顺序运行这三个脚本即可，不需要额外运行其他文件。
+> 详见 [§8 对比实验入口](#8-对比实验入口)。
 
 ---
 

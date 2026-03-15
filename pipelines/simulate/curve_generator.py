@@ -88,7 +88,8 @@ class CurveGenerator:
             "mixer1": self.apply_linear_slope,
             "lo1_inject": self.apply_linear_slope,
             "if_amp_chain": self.apply_smooth_shift,
-            "rbw_filter": self.apply_band_insertion_loss,
+            "rbw_filter": self.apply_sinc_ripple,
+            "vbw_filter": self.apply_ema_lag,
             "adc_module": self.apply_quantization_noise,
             "adc_clock": self.apply_jitter_noise,
             "dsp_gain_cal": self.apply_global_shift,
@@ -763,6 +764,77 @@ class CurveGenerator:
             compressed_excess = np.tanh(excess / max(scale, 0.1)) * max_compression
             result[above_threshold] = compression_threshold + compressed_excess
         
+        return result
+
+    # =========================================================================
+    # 数字中频板新增退化函数 (RBW / VBW)
+    # =========================================================================
+
+    def apply_sinc_ripple(
+        self,
+        curve: np.ndarray,
+        severity: float = 0.5,
+        max_ripple_db: float = 3.0,
+    ) -> np.ndarray:
+        """
+        数字 RBW 滤波器退化：周期性 Sinc 旁瓣起伏。
+
+        通过叠加带高斯包络约束的正弦纹波模拟数字滤波器系数异常。
+        actual_ripple = max_ripple_db × severity。
+
+        Parameters
+        ----------
+        curve : np.ndarray
+            原始频响曲线
+        severity : float
+            退化严重度 (0-1)，直接作为缩放权重
+        max_ripple_db : float
+            基准最大起伏 (dB)
+        """
+        n = len(curve)
+        if n < 4:
+            return curve.copy()
+
+        actual_ripple = max_ripple_db * severity
+        ripple_periods = self.rng.uniform(3.0, 12.0)
+        phase = self.rng.uniform(0.0, 2 * np.pi)
+        x = np.linspace(0, 2 * np.pi * ripple_periods, n)
+        envelope = np.exp(-0.5 * (np.linspace(-2.0, 2.0, n) ** 2))
+        ripple = actual_ripple * np.sin(x + phase) * envelope
+
+        return curve + ripple
+
+    def apply_ema_lag(
+        self,
+        curve: np.ndarray,
+        severity: float = 0.5,
+        max_alpha: float = 0.85,
+    ) -> np.ndarray:
+        """
+        数字 VBW 滤波器退化：一阶 EMA 向右迟滞/拖尾。
+
+        VBW 平滑常数异常导致过渡带拖尾形变。
+        actual_alpha = max_alpha × severity。
+
+        Parameters
+        ----------
+        curve : np.ndarray
+            原始频响曲线
+        severity : float
+            退化严重度 (0-1)
+        max_alpha : float
+            基准最大 EMA 系数
+        """
+        n = len(curve)
+        if n < 2:
+            return curve.copy()
+
+        actual_alpha = max_alpha * severity
+        result = np.empty_like(curve)
+        result[0] = curve[0]
+        for i in range(1, n):
+            result[i] = actual_alpha * result[i - 1] + (1.0 - actual_alpha) * curve[i]
+
         return result
     
     # =========================================================================

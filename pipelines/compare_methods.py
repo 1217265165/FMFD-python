@@ -75,8 +75,18 @@ except ImportError:
 # Unified system label order (Normal, Amp, Freq, Ref)
 SYS_LABEL_ORDER = ['正常', '幅度失准', '频率失准', '参考电平失准']
 
-LEAK_PREFIXES = ("sys_", "label", "target", "gt_", "y_", "truth", "class_")
-LEAK_SUBSTRINGS = ("label", "target", "truth")
+# Method display names for academic figures (internal_name -> paper_name)
+METHOD_DISPLAY_NAMES = {
+    'ours': 'HBRB',
+    'hcf': 'HCF',
+    'brb_p': 'BRB-P',
+    'brb_mu': 'BRB-MU',
+    'dbrb': 'DBRB',
+    'a_ibrb': 'A-IBRB',
+}
+
+LEAK_PREFIXES = ("sys_", "label", "target", "gt_", "y_", "truth", "class_", "mod_", "prob_", "pred_")
+LEAK_SUBSTRINGS = ("label", "target", "truth", "_pred", "_prob")
 
 EXPECTED_FEATURES_DIR = PROJECT_ROOT / "config" / "expected_features"
 
@@ -525,6 +535,7 @@ def prepare_dataset(
     if leak_columns and strict_leakage:
         raise LeakageError(leak_columns)
     if leak_columns:
+        print(f"[WARN] Detected {len(leak_columns)} leakage columns (auto-removed): {leak_columns[:10]}{'...' if len(leak_columns) > 10 else ''}")
         for feats in features_dict.values():
             for col in leak_columns:
                 feats.pop(col, None)
@@ -563,6 +574,32 @@ def prepare_dataset(
     print(f"System label distribution: {np.bincount(y_sys, minlength=len(SYS_LABEL_ORDER))}")
     if y_mod is not None:
         print(f"Module labels available: {np.sum(y_mod >= 0)} samples")
+    
+    # --- Feature-Label Correlation Scan: detect high-correlation leakage ---
+    corr_values = np.array([
+        abs(np.corrcoef(X[:, j], y_sys)[0, 1]) if np.std(X[:, j]) > 1e-12 else 0.0
+        for j in range(X.shape[1])
+    ])
+    sorted_idx = np.argsort(corr_values)[::-1]
+    print("\n" + "=" * 50)
+    print("LEAKAGE SCAN: Top 15 Features Correlated with Label")
+    print("=" * 50)
+    for rank, idx in enumerate(sorted_idx[:15]):
+        print(f"  {rank+1:2d}. {feature_names[idx]:30s}  corr={corr_values[idx]:.4f}")
+    print("=" * 50)
+
+    CORR_THRESHOLD = 0.95
+    leak_by_corr = [feature_names[j] for j in range(X.shape[1]) if corr_values[j] > CORR_THRESHOLD]
+    if leak_by_corr:
+        print(f"[CRITICAL] Auto-removing {len(leak_by_corr)} features with corr > {CORR_THRESHOLD}: {leak_by_corr}")
+        valid_indices = [j for j in range(X.shape[1]) if corr_values[j] <= CORR_THRESHOLD]
+        feature_names = [feature_names[j] for j in valid_indices]
+        X = X[:, valid_indices]
+        leak_columns = leak_columns + leak_by_corr
+        print(f"  Feature matrix after cleaning: {X.shape}")
+    else:
+        print("[OK] No high-correlation leakage features detected.")
+    print()
     
     return (
         X,
@@ -733,7 +770,7 @@ def calculate_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, n_classes
 
 def plot_confusion_matrix(cm: np.ndarray, class_names: List[str], 
                          output_path: Path, title: str):
-    """Plot and save confusion matrix."""
+    """Plot and save confusion matrix with Chinese labels for academic papers."""
     try:
         import matplotlib
         matplotlib.use('Agg')
@@ -747,13 +784,12 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
                yticks=np.arange(cm.shape[0]),
                xticklabels=class_names,
                yticklabels=class_names,
-               title=title,
-               ylabel='True label',
-               xlabel='Predicted label')
+               ylabel='真实标签 (True label)',
+               xlabel='预测标签 (Predicted label)')
         
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
         
-        # Add text annotations
+        # Add text annotations with adaptive color
         thresh = cm.max() / 2.
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
@@ -761,6 +797,8 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
                        ha="center", va="center",
                        color="white" if cm[i, j] > thresh else "black")
         
+        # Place caption below the figure
+        fig.text(0.5, -0.02, title, ha='center', fontsize=12, fontstyle='italic')
         fig.tight_layout()
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         plt.close(fig)
@@ -776,7 +814,7 @@ def plot_comparison_bar(results: List[Dict], output_dir: Path):
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         
-        methods = [r['method'] for r in results]
+        methods = [METHOD_DISPLAY_NAMES.get(r['method'], r['method'].upper()) for r in results]
         rules = [r.get('n_rules', 0) for r in results]
         params = [r.get('n_params', 0) for r in results]
         infer_ms = [r.get('infer_ms_per_sample', 0) for r in results]
@@ -785,20 +823,20 @@ def plot_comparison_bar(results: List[Dict], output_dir: Path):
         
         # Rules
         axes[0].bar(methods, rules, color='skyblue')
-        axes[0].set_ylabel('Number of Rules')
-        axes[0].set_title('Model Complexity: Rules')
+        axes[0].set_ylabel('规则数')
+        axes[0].set_title('模型复杂度 (规则数)')
         axes[0].tick_params(axis='x', rotation=45)
         
         # Params
         axes[1].bar(methods, params, color='lightcoral')
-        axes[1].set_ylabel('Number of Parameters')
-        axes[1].set_title('Model Complexity: Parameters')
+        axes[1].set_ylabel('参数数量')
+        axes[1].set_title('模型复杂度 (参数)')
         axes[1].tick_params(axis='x', rotation=45)
         
         # Inference time
         axes[2].bar(methods, infer_ms, color='lightgreen')
-        axes[2].set_ylabel('Inference Time (ms/sample)')
-        axes[2].set_title('Inference Efficiency')
+        axes[2].set_ylabel('推理时间 (ms/样本)')
+        axes[2].set_title('推理效率')
         axes[2].tick_params(axis='x', rotation=45)
         
         plt.tight_layout()
@@ -821,11 +859,12 @@ def plot_small_sample_curve(small_sample_results: List[Dict], output_dir: Path):
         methods_data = {}
         for entry in small_sample_results:
             method = entry['method']
-            if method not in methods_data:
-                methods_data[method] = {'sizes': [], 'means': [], 'stds': []}
-            methods_data[method]['sizes'].append(entry['train_size'])
-            methods_data[method]['means'].append(entry['mean_acc'])
-            methods_data[method]['stds'].append(entry['std_acc'])
+            display = METHOD_DISPLAY_NAMES.get(method, method.upper())
+            if display not in methods_data:
+                methods_data[display] = {'sizes': [], 'means': [], 'stds': []}
+            methods_data[display]['sizes'].append(entry['train_size'])
+            methods_data[display]['means'].append(entry['mean_acc'])
+            methods_data[display]['stds'].append(entry['std_acc'])
         
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -837,9 +876,9 @@ def plot_small_sample_curve(small_sample_results: List[Dict], output_dir: Path):
             ax.plot(sizes, means, marker='o', label=method)
             ax.fill_between(sizes, means - stds, means + stds, alpha=0.2)
         
-        ax.set_xlabel('Training Set Size')
-        ax.set_ylabel('Accuracy')
-        ax.set_title('Small-Sample Adaptability')
+        ax.set_xlabel('训练集大小')
+        ax.set_ylabel('准确率')
+        ax.set_title('小样本适应性')
         ax.legend()
         ax.grid(True, alpha=0.3)
         
@@ -857,103 +896,124 @@ def plot_comprehensive_comparison(all_results: List[Dict], output_dir: Path):
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
-        
-        methods = [r['method'] for r in all_results]
-        accuracies = [r['sys_accuracy'] * 100 for r in all_results]  # Convert to percentage
+        import matplotlib.gridspec as gridspec
+
+        # 1. 全局字体与样式设置 (确保中文和负号正常显示)
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial', 'sans-serif']
+        plt.rcParams['axes.unicode_minus'] = False
+
+        # 安全获取 METHOD_DISPLAY_NAMES (假设它在全局作用域)
+        global METHOD_DISPLAY_NAMES
+        if 'METHOD_DISPLAY_NAMES' not in globals():
+            METHOD_DISPLAY_NAMES = {}
+
+        # 提取数据
+        methods = [METHOD_DISPLAY_NAMES.get(r['method'], r['method'].upper()) for r in all_results]
+        accuracies = [r['sys_accuracy'] * 100 for r in all_results]
         f1_scores = [r['sys_macro_f1'] * 100 for r in all_results]
         n_rules = [r['n_rules'] for r in all_results]
         n_params = [r['n_params'] for r in all_results]
         infer_ms = [r['infer_ms_per_sample'] for r in all_results]
-        
-        fig = plt.figure(figsize=(16, 10))
-        
-        # Create 2x3 grid
-        gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
-        
-        # 1. Accuracy comparison
+
+        # 2. 学术期刊常用经典配色 (Seaborn deep style)
+        colors = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3', '#937860']
+
+        fig = plt.figure(figsize=(16, 11))
+        # 调整 hspace 和 wspace，增加底部空间防止 x 轴标签被裁
+        gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.35, wspace=0.25)
+
+        # 定义子图的通用美化函数
+        def format_ax(ax, xlabel):
+            # 去除顶部和右侧的边框线
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            # 调整 x 轴刻度旋转
+            ax.tick_params(axis='x', rotation=30, labelsize=10)
+            # 添加轻量级水平网格线
+            ax.grid(axis='y', linestyle='--', alpha=0.4)
+            # 将子图的描述作为 x 轴标签，这在投稿排版中非常规整
+            ax.set_xlabel(xlabel, fontsize=12, fontweight='bold', labelpad=10)
+
+        # (a) Accuracy comparison
         ax1 = fig.add_subplot(gs[0, 0])
-        bars1 = ax1.bar(methods, accuracies, color='steelblue', alpha=0.8)
-        ax1.set_ylabel('System Accuracy (%)', fontsize=11)
-        ax1.set_title('(a) Classification Accuracy', fontsize=12, fontweight='bold')
-        ax1.tick_params(axis='x', rotation=45)
-        ax1.grid(axis='y', alpha=0.3)
-        # Add value labels on bars
-        for bar, val in zip(bars1, accuracies):
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.1f}%', ha='center', va='bottom', fontsize=9)
-        
-        # 2. F1-score comparison
+        bars1 = ax1.bar(methods, accuracies, color=colors[0], alpha=0.85, width=0.6)
+        ax1.set_ylabel('系统准确率 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax1, '(a) 分类准确率 (%)')
+        ax1.set_ylim(0, max(accuracies) * 1.15)  # 动态增加 y 轴上限，防止顶部文字被切
+        for bar in bars1:
+            ax1.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 1,
+                     f'{bar.get_height():.1f}%', ha='center', va='bottom', fontsize=9)
+
+        # (b) F1-score comparison
         ax2 = fig.add_subplot(gs[0, 1])
-        bars2 = ax2.bar(methods, f1_scores, color='coral', alpha=0.8)
-        ax2.set_ylabel('Macro F1-Score (%)', fontsize=11)
-        ax2.set_title('(b) F1-Score Performance', fontsize=12, fontweight='bold')
-        ax2.tick_params(axis='x', rotation=45)
-        ax2.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars2, f1_scores):
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.1f}%', ha='center', va='bottom', fontsize=9)
-        
-        # 3. Rules count
+        bars2 = ax2.bar(methods, f1_scores, color=colors[1], alpha=0.85, width=0.6)
+        ax2.set_ylabel('宏平均 F1 值 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax2, '(b) F1 值 (%)')
+        ax2.set_ylim(0, max(f1_scores) * 1.15)
+        for bar in bars2:
+            ax2.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + 1,
+                     f'{bar.get_height():.1f}%', ha='center', va='bottom', fontsize=9)
+
+        # (c) Rules count
         ax3 = fig.add_subplot(gs[0, 2])
-        bars3 = ax3.bar(methods, n_rules, color='mediumseagreen', alpha=0.8)
-        ax3.set_ylabel('Number of Rules', fontsize=11)
-        ax3.set_title('(c) Model Complexity (Rules)', fontsize=12, fontweight='bold')
-        ax3.tick_params(axis='x', rotation=45)
-        ax3.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars3, n_rules):
-            height = bar.get_height()
-            ax3.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val}', ha='center', va='bottom', fontsize=9)
-        
-        # 4. Parameters count
+        bars3 = ax3.bar(methods, n_rules, color=colors[2], alpha=0.85, width=0.6)
+        ax3.set_ylabel('规则数', fontsize=11, fontweight='bold')
+        format_ax(ax3, '(c) 模型复杂度 (规则数)')
+        ax3.set_ylim(0, max(n_rules) * 1.15)
+        for bar in bars3:
+            ax3.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(n_rules) * 0.02),
+                     f'{int(bar.get_height())}', ha='center', va='bottom', fontsize=9)
+
+        # (d) Parameters count
         ax4 = fig.add_subplot(gs[1, 0])
-        bars4 = ax4.bar(methods, n_params, color='mediumpurple', alpha=0.8)
-        ax4.set_ylabel('Number of Parameters', fontsize=11)
-        ax4.set_title('(d) Parameter Count', fontsize=12, fontweight='bold')
-        ax4.tick_params(axis='x', rotation=45)
-        ax4.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars4, n_params):
-            height = bar.get_height()
-            ax4.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val}', ha='center', va='bottom', fontsize=9)
-        
-        # 5. Inference time
+        bars4 = ax4.bar(methods, n_params, color=colors[4], alpha=0.85, width=0.6)
+        ax4.set_ylabel('参数数量', fontsize=11, fontweight='bold')
+        format_ax(ax4, '(d) 参数数量')
+        ax4.set_ylim(0, max(n_params) * 1.15)
+        for bar in bars4:
+            ax4.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(n_params) * 0.02),
+                     f'{int(bar.get_height())}', ha='center', va='bottom', fontsize=9)
+
+        # (e) Inference time
         ax5 = fig.add_subplot(gs[1, 1])
-        bars5 = ax5.bar(methods, infer_ms, color='lightgreen', alpha=0.8)
-        ax5.set_ylabel('Inference Time (ms/sample)', fontsize=11)
-        ax5.set_title('(e) Inference Efficiency', fontsize=12, fontweight='bold')
-        ax5.tick_params(axis='x', rotation=45)
-        ax5.grid(axis='y', alpha=0.3)
-        for bar, val in zip(bars5, infer_ms):
-            height = bar.get_height()
-            ax5.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{val:.3f}', ha='center', va='bottom', fontsize=9)
-        
-        # 6. Accuracy vs Complexity scatter
+        bars5 = ax5.bar(methods, infer_ms, color=colors[5], alpha=0.85, width=0.6)
+        ax5.set_ylabel('推理时间 (ms/样本)', fontsize=11, fontweight='bold')
+        format_ax(ax5, '(e) 推理效率 (ms/样本)')
+        ax5.set_ylim(0, max(infer_ms) * 1.15)
+        for bar in bars5:
+            ax5.text(bar.get_x() + bar.get_width() / 2., bar.get_height() + (max(infer_ms) * 0.02),
+                     f'{bar.get_height():.3f}', ha='center', va='bottom', fontsize=9)
+
+        # (f) Accuracy vs Complexity scatter
         ax6 = fig.add_subplot(gs[1, 2])
-        scatter = ax6.scatter(n_rules, accuracies, s=100, c=infer_ms, 
-                             cmap='viridis', alpha=0.7, edgecolors='black', linewidth=1)
-        ax6.set_xlabel('Number of Rules', fontsize=11)
-        ax6.set_ylabel('Accuracy (%)', fontsize=11)
-        ax6.set_title('(f) Accuracy vs Complexity', fontsize=12, fontweight='bold')
-        ax6.grid(True, alpha=0.3)
-        # Add method labels
+        # 散点大小可以根据规则数稍微变化，增加白边使其更有质感
+        sizes = [max(60, r * 1.5) for r in n_rules]
+        scatter = ax6.scatter(n_rules, accuracies, s=sizes, c=infer_ms,
+                              cmap='viridis', alpha=0.8, edgecolors='white', linewidth=1.5)
+        ax6.set_ylabel('准确率 (%)', fontsize=11, fontweight='bold')
+        format_ax(ax6, '(f) 准确率 vs 复杂度')
+
         for i, method in enumerate(methods):
-            ax6.annotate(method, (n_rules[i], accuracies[i]), 
-                        xytext=(5, 5), textcoords='offset points', fontsize=8)
-        # Add colorbar for inference time
+            # 针对 HBRB 单独加粗和变色突出显示
+            weight = 'bold' if method == 'HBRB' else 'normal'
+            color = 'darkred' if method == 'HBRB' else 'black'
+            ax6.annotate(method, (n_rules[i], accuracies[i]),
+                         xytext=(6, 6), textcoords='offset points',
+                         fontsize=9, weight=weight, color=color)
+
         cbar = plt.colorbar(scatter, ax=ax6)
-        cbar.set_label('Infer Time (ms)', fontsize=9)
-        
-        plt.suptitle('Comprehensive Method Comparison Results', 
-                    fontsize=14, fontweight='bold', y=0.98)
-        
+        cbar.set_label('推理时间 (ms)', fontsize=10)
+        cbar.outline.set_visible(False)  # 去除 colorbar 边框
+
+        # 将总标题移到顶部，避免与底部子图标签冲突
+        fig.suptitle('HBRB 与各对比方法综合性能评估图', fontsize=16, fontweight='bold', y=0.98)
+
         output_path = output_dir / "comparison_results.png"
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        # 使用 300 dpi 以满足绝大多数期刊/会议的投稿要求
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close(fig)
         print(f"Saved comprehensive comparison plot to: {output_path}")
+
     except ImportError as e:
         print(f"matplotlib not available, skipping comprehensive plot: {e}")
     except Exception as e:
@@ -1019,6 +1079,46 @@ def evaluate_method(
         if np.sum(valid_mask) > 0:
             mod_acc = calculate_accuracy(y_mod_test[valid_mask], y_mod_pred[valid_mask])
     
+    # Flat module-level evaluation for baseline methods
+    # Baselines don't implement module prediction natively, so we retrain them
+    # on y_mod as a flat multi-class target to reveal their true module-level ability.
+    if method.name != 'ours' and mod_acc is None and y_mod_train is not None and y_mod_test is not None:
+        valid_train = y_mod_train >= 0
+        valid_test = y_mod_test >= 0
+        if np.sum(valid_train) > 10 and np.sum(valid_test) > 0:
+            try:
+                X_tr_mod = X_train[valid_train]
+                y_tr_mod = y_mod_train[valid_train]
+                X_te_mod = X_test[valid_test]
+                y_te_mod = y_mod_test[valid_test]
+
+                # Remap sparse module indices to contiguous [0..k-1]
+                all_labels = np.unique(np.concatenate([y_tr_mod, y_te_mod]))
+                sparse_to_dense = {int(v): i for i, v in enumerate(all_labels)}
+                y_tr_flat = np.array([sparse_to_dense[int(v)] for v in y_tr_mod])
+                y_te_flat = np.array([sparse_to_dense[int(v)] for v in y_te_mod])
+
+                # Create a fresh adapter instance for flat module training
+                mod_adapter = method.__class__()
+                mod_adapter.fit(X_tr_mod, y_tr_flat, None,
+                                {'feature_names': feature_names})
+                mod_preds = mod_adapter.predict(X_te_mod,
+                                                meta={'feature_names': feature_names})
+                y_mod_flat_pred = mod_preds['system_pred']
+
+                mod_acc = calculate_accuracy(y_te_flat, y_mod_flat_pred)
+                # Top-3 from probabilities if available
+                mod_proba_flat = mod_preds.get('system_proba')
+                if mod_proba_flat is not None and mod_proba_flat.shape[1] >= 3:
+                    top3 = np.argsort(mod_proba_flat, axis=1)[:, -3:]
+                    mod_top3_acc = np.mean([y_te_flat[i] in top3[i]
+                                           for i in range(len(y_te_flat))])
+                print(f"  [Module Flat] {method.name}: Top-1={mod_acc:.4f}"
+                      f"{f', Top-3={mod_top3_acc:.4f}' if mod_top3_acc else ''}")
+            except Exception as e:
+                err_type = "OOM" if isinstance(e, MemoryError) else type(e).__name__
+                print(f"  [Module Flat] {method.name}: {err_type} - {e}")
+
     # P2.2: Enhanced module metrics for "ours" method using module_topk predictions
     if method.name == 'ours' and 'module_proba' in predictions:
         mod_proba = predictions['module_proba']
@@ -1037,13 +1137,33 @@ def evaluate_method(
                     continue
                 n_valid += 1
                 
-                # Get top-3 predicted indices
-                top3_indices = np.argsort(row)[::-1][:3]
+                # V2-aware matching: two V1 indices mapping to the same V2
+                # module should be considered equivalent (e.g., ADC=14 and
+                # 数字检波器=17 both map to [数字中频板][ADC]).
+                # De-duplicate so that a single V2 module with multiple V1
+                # aliases does not consume multiple top-K slots.
+                from tools.label_mapping import module_v2_from_v1
+                n_mods = len(MODULE_LABELS)
+                gt_v1_name = MODULE_LABELS[gt_idx] if gt_idx < n_mods else ""
+                gt_v2 = module_v2_from_v1(gt_v1_name)
                 
-                # Simple index match for now
-                if gt_idx in top3_indices[:1]:
+                # Build de-duplicated top-3 by unique V2 module names
+                sorted_indices = np.argsort(row)[::-1]
+                pred_v2_unique = []
+                for j in sorted_indices:
+                    if j >= n_mods:
+                        continue
+                    v2 = module_v2_from_v1(MODULE_LABELS[j])
+                    if v2 not in pred_v2_unique:
+                        pred_v2_unique.append(v2)
+                    if len(pred_v2_unique) >= 3:
+                        break
+                
+                pred_v2_top1 = pred_v2_unique[0] if pred_v2_unique else ""
+                
+                if gt_v2 == pred_v2_top1:
                     n_correct_top1 += 1
-                if gt_idx in top3_indices:
+                if gt_v2 in pred_v2_unique:
                     n_correct_top3 += 1
             
             if n_valid > 0:
@@ -1121,9 +1241,22 @@ def main():
     parser.add_argument('--val_size', type=float, default=SPLIT[1], help='Validation set ratio')
     parser.add_argument('--small_sample', action='store_true', 
                        help='Run small-sample adaptability experiments')
+    parser.add_argument('--methods', type=str, default='all',
+                       help='Comma-separated list of methods to run (e.g., "ours,hcf")')
+    parser.add_argument('--input_dir', type=str, dest='data_dir',
+                       help='Alias for --data_dir')
     parser.add_argument('--manifest', '-m', default=None,
                        help='Evaluation manifest path (if provided, only evaluate samples in manifest)')
+    parser.add_argument('--load_params', type=str, default=None,
+                       help='Path to best_params.json from optimize_brb.py (optimized BRB module weights)')
+    parser.add_argument('--plot_only', action='store_true',
+                       help='Skip training/evaluation; regenerate plots from saved comparison_summary.json')
     args = parser.parse_args()
+    
+    # Smart path correction: prevent user from pointing to raw_curves subdirectory
+    if args.data_dir.endswith('raw_curves'):
+        args.data_dir = str(Path(args.data_dir).parent)
+        print(f"[INFO] Auto-corrected Data Directory: {args.data_dir}")
     
     # Setup
     set_global_seed(args.seed)
@@ -1131,6 +1264,62 @@ def main():
     output_dir = Path(args.output_dir) if Path(args.output_dir).is_absolute() else PROJECT_ROOT / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     build_run_snapshot(output_dir)
+
+    # ──── Plot-only mode: skip training, regenerate plots from saved data ────
+    if args.plot_only:
+        summary_path = output_dir / "comparison_summary.json"
+        if not summary_path.exists():
+            print(f"[ERROR] --plot_only requires {summary_path} to exist. Run full evaluation first.")
+            sys.exit(1)
+        print(f"[INFO] --plot_only mode: loading results from {summary_path}")
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        all_results = summary["methods"]
+        if not all_results:
+            print("[ERROR] comparison_summary.json contains no method results.")
+            sys.exit(1)
+        # Restore numpy arrays for confusion matrices
+        for r in all_results:
+            if "confusion_matrix" in r and isinstance(r["confusion_matrix"], list):
+                r["confusion_matrix"] = np.array(r["confusion_matrix"])
+        sys_label_names = SYS_LABEL_ORDER[:len(all_results[0].get("confusion_matrix", [[]]))]
+        # Plot confusion matrices — sequential letters
+        for idx, result in enumerate(all_results):
+            letter = chr(ord('a') + idx)
+            display_name = METHOD_DISPLAY_NAMES.get(result['method'], result['method'].upper())
+            cm_path = output_dir / f"confusion_matrix_{result['method']}.png"
+            plot_confusion_matrix(
+                result['confusion_matrix'],
+                sys_label_names,
+                cm_path,
+                f"({letter}) {display_name} 系统级故障诊断混淆矩阵"
+            )
+        # Plot comparison bars & comprehensive comparison
+        plot_comparison_bar(all_results, output_dir)
+        plot_comprehensive_comparison(all_results, output_dir)
+        print(f"\n[INFO] Plot-only mode complete. Plots saved to: {output_dir}")
+        return
+
+    # Load optimized BRB parameters if provided
+    if args.load_params:
+        params_path = Path(args.load_params) if Path(args.load_params).is_absolute() else PROJECT_ROOT / args.load_params
+        if params_path.exists():
+            try:
+                params_data = json.loads(params_path.read_text(encoding="utf-8"))
+                if "hierarchical_params" in params_data:
+                    from BRB.module_brb import set_hierarchical_params
+                    hp = params_data["hierarchical_params"]
+                    set_hierarchical_params(hp)
+                    print(f"[INFO] Loaded optimized hierarchical params from {params_path}")
+                    print(f"[INFO] Params ({len(hp)}): {[f'{x:.3f}' for x in hp]}")
+                if "module_rule_weights" in params_data:
+                    from BRB.module_brb import set_module_rule_weights
+                    weights = params_data["module_rule_weights"]
+                    set_module_rule_weights(weights)
+                    print(f"[INFO] Loaded optimized BRB weights from {params_path}")
+            except Exception as e:
+                print(f"[WARN] Failed to load params from {params_path}: {e}")
+        else:
+            print(f"[WARN] Params file not found: {params_path}")
 
     print(f"[INFO] project_root={PROJECT_ROOT}")
     print(f"[INFO] single_band={SINGLE_BAND}")
@@ -1165,7 +1354,7 @@ def main():
         ) = prepare_dataset(
             data_dir,
             use_pool_features=True,
-            strict_leakage=True,
+            strict_leakage=False,
         )
     except LeakageError as exc:
         audit_info['leakage_detected'] = True
@@ -1173,7 +1362,7 @@ def main():
         write_eval_audit(output_dir, audit_info)
         raise SystemExit(1) from exc
     else:
-        audit_info['leakage_detected'] = False
+        audit_info['leakage_detected'] = bool(leak_columns)
         audit_info['leakage_columns'] = leak_columns
     
     # P0.2: Filter by manifest if provided
@@ -1370,6 +1559,12 @@ def main():
         AIBRBAdapter(),
     ]
     
+    # Filter methods based on --methods argument
+    if args.methods != 'all':
+        method_list = [m.strip() for m in args.methods.split(',')]
+        methods = [m for m in methods if m.name in method_list]
+        print(f"[INFO] Running selected methods: {[m.name for m in methods]}")
+    
     # Evaluate all methods
     all_results = []
     method_feature_usage: Dict[str, Dict[str, object]] = {}
@@ -1508,15 +1703,17 @@ def main():
             json.dumps(feature_report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     
-    # Plot confusion matrices
+    # Plot confusion matrices — sequential letters (a), (b), (c), ...
     sys_label_names = SYS_LABEL_ORDER[:n_sys_classes]
-    for result in all_results:
+    for idx, result in enumerate(all_results):
+        letter = chr(ord('a') + idx)  # a, b, c, d, ...
+        display_name = METHOD_DISPLAY_NAMES.get(result['method'], result['method'].upper())
         cm_path = output_dir / f"confusion_matrix_{result['method']}.png"
         plot_confusion_matrix(
             result['confusion_matrix'], 
             sys_label_names,
             cm_path,
-            f"System-Level Confusion Matrix: {result['method']}"
+            f"({letter}) {display_name} 系统级故障诊断混淆矩阵"
         )
     
     # Plot comparison bars

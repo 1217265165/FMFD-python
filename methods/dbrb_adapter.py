@@ -103,7 +103,8 @@ class DBRBAdapter(MethodAdapter):
     def predict(self, X_test: np.ndarray, meta: Optional[Dict] = None) -> Dict:
         """Predict using layered DBRB."""
         n_test = len(X_test)
-        n_classes = 4
+        # Derive n_classes from trained model instead of hardcoding
+        n_classes = len(self.layer3_model['means']) if self.layer3_model else 4
         
         if self.layer1_model is None:
             sys_pred = np.random.randint(0, n_classes, n_test)

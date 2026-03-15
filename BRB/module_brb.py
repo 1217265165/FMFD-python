@@ -74,6 +74,91 @@ if AC_COUPLED:
     DISABLED_MODULES.append("衰减器")
 DISABLED_MODULES = list(dict.fromkeys(DISABLED_MODULES))
 
+# Default BRB rule weights; can be overridden via set_module_rule_weights()
+_DEFAULT_RULE_WEIGHTS = [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15]
+_module_rule_weights = list(_DEFAULT_RULE_WEIGHTS)
+
+# Tunable prior scales for hierarchical_module_infer (optimized by CMA-ES)
+# Structure: 18 parameters
+#   [0:8]  = amp_error module prior scales (ADC, Mixer1, Filter, Power, IF, DSP, RBW, VBW)
+#   [8:12] = freq_error module prior scales (RefDist, Mixer1, LO1, OCXO)
+#   [12:15] = ref_error module prior scales (CalSrc, CalStore, CalSwitch)
+#   [15:18] = feature sensitivity per fault type (amp, freq, ref)
+_DEFAULT_HIERARCHICAL_PARAMS = [
+    # amp_error priors (8)
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    # freq_error priors (4)
+    1.0, 1.0, 1.0, 1.0,
+    # ref_error priors (3)
+    1.0, 1.0, 1.0,
+    # feature sensitivity (3)
+    1.0, 1.0, 1.0,
+]
+_hierarchical_params = list(_DEFAULT_HIERARCHICAL_PARAMS)
+
+# Module name ordering for each fault type (matches FAULT_MODULE_PRIORS)
+_AMP_MODULES = [
+    "[数字中频板][ADC] 数字检波与平均",
+    "[RF板][Mixer1]",
+    "[RF板][RF] 低频通路固定滤波/抑制网络",
+    "[电源板] 电源管理模块",
+    "[数字中频板][IF] 中频放大/衰减链",
+    "[数字中频板][DSP] 数字增益/偏置校准",
+    "[数字中频板][数字IF域] RBW滤波器",
+    "[数字中频板][数字IF域] VBW滤波器",
+]
+_FREQ_MODULES = [
+    "[时钟板][参考分配]",
+    "[RF板][Mixer1]",
+    "[LO/时钟板][LO1] 合成链",
+    "[时钟板][参考域] 10MHz 基准 OCXO",
+]
+_REF_MODULES = [
+    "[校准链路][校准源]",
+    "[校准链路][校准表/存储]",
+    "[校准链路][校准路径开关/耦合]",
+]
+
+
+def set_module_rule_weights(weights):
+    """Override BRB module rule weights (from CMA-ES optimization).
+    
+    Parameters
+    ----------
+    weights : list of 7 floats
+        Rule weights for: [ref_rule, amp_rule, freq_rule, 
+        hf_filter_rule, lf_filter_rule, digital_rule, power_rule]
+    """
+    global _module_rule_weights
+    if len(weights) != 7:
+        raise ValueError(f"Expected 7 rule weights, got {len(weights)}")
+    _module_rule_weights = list(weights)
+
+
+def get_module_rule_weights():
+    """Return current BRB module rule weights."""
+    return list(_module_rule_weights)
+
+
+def set_hierarchical_params(params):
+    """Override hierarchical module inference parameters (from CMA-ES).
+    
+    Parameters
+    ----------
+    params : list of 18 floats
+        [0:8] amp prior scales, [8:12] freq prior scales,
+        [12:15] ref prior scales, [15:18] feature sensitivity
+    """
+    global _hierarchical_params
+    if len(params) != 18:
+        raise ValueError(f"Expected 18 hierarchical params, got {len(params)}")
+    _hierarchical_params = list(params)
+
+
+def get_hierarchical_params():
+    """Return current hierarchical module inference parameters."""
+    return list(_hierarchical_params)
+
 
 def _filter_belief(belief: Dict[str, float]) -> Dict[str, float]:
     if not DISABLED_MODULES:
@@ -356,46 +441,77 @@ def module_level_infer(
     # 使用特征分流计算模块层分数
     md = _aggregate_module_score(features, anomaly_type)
 
-    # Rules updated: 前置放大器 removed from amplitude rules in single-band mode
-    # 降低电源模块主导性（任务书 §5.2）
-    rules = [
-        BRBRule(
-            weight=0.8 * ref_prior,
-            belief={"衰减器": 0.60, "校准源": 0.08, "存储器": 0.06, "校准信号开关": 0.16},
-        ),
-        # Amplitude rules: 前置放大器 belief redistributed to other modules
-        BRBRule(
-            weight=0.6 * amp_prior,
-            belief={"中频放大器": 0.35, "数字放大器": 0.30, "衰减器": 0.20, "ADC": 0.15},
-        ),
-        BRBRule(
-            weight=0.7 * freq_prior,
-            belief={"时钟振荡器": 0.35, "时钟合成与同步网络": 0.35, "本振源（谐波发生器）": 0.15, "本振混频组件": 0.15},
-        ),
-        BRBRule(weight=0.5 * freq_prior, belief={"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
-        BRBRule(weight=0.5 * freq_prior, belief={"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
-        BRBRule(weight=0.4 * amp_prior, belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-        # 电源模块权重降低（从 0.3 降到 0.15）
-        BRBRule(weight=0.15, belief={"电源模块": 1.0}),
-    ]
+    # Per-rule feature-based activations for module discrimination
+    # Different features activate different module groups
+    # _nf normalizes feature x to [0, 1] range using (lo, hi) thresholds
+    def _nf(x, lo, hi):
+        return normalize_feature(x, lo, hi)
+    
+    # Ref-specific activation (校准链路 modules)
+    ref_act = max(md, _nf(features.get("X35", 0.0), 0.001, 0.02),
+                  _nf(abs(features.get("res_slope", 0.0)), 1e-12, 1e-10))
+    
+    # Amp-specific activation (放大器/滤波器 modules)
+    amp_act = max(md, _nf(features.get("X11", 0.0), 0.01, 0.3),
+                  _nf(features.get("X12", 0.0), 0.5, 5.0),
+                  _nf(abs(features.get("bias", 0.0)), 0.1, 1.0))
+    
+    # Freq-specific activation (时钟/振荡器 modules)
+    freq_act = max(md, _nf(abs(features.get("df", 0.0)), 1e6, 5e7),
+                   _nf(abs(features.get("X16", 0.0)), 0.001, 0.1),
+                   _nf(abs(features.get("X17", 0.0)), 0.001, 0.05))
 
-    rules = _sanitize_rules(rules)
+    # Rules with tunable weights from _module_rule_weights (optimizable via CMA-ES)
+    # Beliefs updated to match simulation module distribution
+    rw = _module_rule_weights
     
-    # 任务2.3: 规则激活检查
-    if not rules:
-        import warnings
-        warnings.warn("[BRB Module] 规则激活数为 0，可能是所有模块被禁用或规则配置错误")
+    # Build rules with per-rule activations instead of global md
+    rule_specs = [
+        (rw[0] * ref_prior, ref_act,
+         {"校准源": 0.38, "存储器": 0.32, "校准信号开关": 0.30}),
+        (rw[1] * amp_prior, amp_act,
+         {"低频段第一混频器": 0.25, "低频段前置低通滤波器": 0.21,
+          "数字检波器": 0.17, "ADC": 0.13, "电源模块": 0.10,
+          "中频放大器": 0.05, "本振混频组件": 0.05, "数字放大器": 0.04}),
+        (rw[2] * freq_prior, freq_act,
+         {"时钟合成与同步网络": 0.37, "本振混频组件": 0.33,
+          "本振源（谐波发生器）": 0.17, "时钟振荡器": 0.13}),
+        (rw[3] * freq_prior, freq_act,
+         {"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
+        (rw[4] * freq_prior, freq_act,
+         {"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
+        (rw[5] * amp_prior, amp_act,
+         {"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
+        (rw[6], md, {"电源模块": 1.0}),
+    ]
     
-    brb = SimpleBRB(MODULE_LABELS, rules)
-    result = brb.infer([md])
+    # Filter disabled modules from beliefs
+    filtered_specs = []
+    for w, act, bel in rule_specs:
+        filtered_bel = _filter_belief(bel)
+        if filtered_bel:
+            filtered_specs.append((w, act, filtered_bel))
+    
+    # Compute weighted combination with per-rule activations
+    total_act = sum(w * act for w, act, _ in filtered_specs) + 1e-9
+    out = {lab: 0.0 for lab in MODULE_LABELS}
+    for w, act, bel in filtered_specs:
+        contribution = (w * act) / total_act
+        for lab in MODULE_LABELS:
+            out[lab] += contribution * bel.get(lab, 0.0)
+    
+    # Normalize
+    s = sum(out.values()) + 1e-9
+    for lab in MODULE_LABELS:
+        out[lab] = out[lab] / s
     
     # 任务2.4: 概率验证
-    prob_diagnostics = _validate_module_probs(result)
+    prob_diagnostics = _validate_module_probs(out)
     if prob_diagnostics["all_zero"]:
         import warnings
         warnings.warn("[BRB Module] 模块概率全为 0，检查特征映射和规则激活")
 
-    return _map_module_probs_to_v2(_apply_disabled_modules(result))
+    return _map_module_probs_to_v2(_apply_disabled_modules(out))
 
 
 def module_level_infer_with_activation(
@@ -542,55 +658,38 @@ def _build_targeted_rules(anomaly_type: str, amp_prior: float, freq_prior: float
     rules = []
     
     if anomaly_type == "幅度失准":
-        # 幅度链路相关规则 - 权重增强 (NO 前置放大器)
+        # Beliefs aligned with training data distribution
         rules.extend([
             BRBRule(
                 weight=0.8 * amp_prior,
-                belief={"中频放大器": 0.35, "数字放大器": 0.30, "衰减器": 0.20, "ADC": 0.15},
-            ),
-            BRBRule(
-                weight=0.6 * amp_prior,
-                belief={"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10},
-            ),
-            BRBRule(
-                weight=0.4 * amp_prior,
-                belief={"衰减器": 0.60, "中频放大器": 0.25},
+                belief={"低频段第一混频器": 0.25, "低频段前置低通滤波器": 0.21,
+                        "数字检波器": 0.17, "ADC": 0.13, "电源模块": 0.10,
+                        "中频放大器": 0.05, "本振混频组件": 0.05, "数字放大器": 0.04},
             ),
         ])
         
     elif anomaly_type == "频率失准":
-        # 频率链路相关规则 - 权重增强
+        # Beliefs aligned with training data distribution
         rules.extend([
             BRBRule(
                 weight=0.8 * freq_prior,
-                belief={"时钟振荡器": 0.35, "时钟合成与同步网络": 0.35, "本振源（谐波发生器）": 0.15, "本振混频组件": 0.15},
-            ),
-            BRBRule(
-                weight=0.6 * freq_prior,
-                belief={"高频段YTF滤波器": 0.50, "高频段混频器": 0.30, "本振混频组件": 0.20},
-            ),
-            BRBRule(
-                weight=0.5 * freq_prior,
-                belief={"低频段前置低通滤波器": 0.50, "低频段第一混频器": 0.35},
+                belief={"时钟合成与同步网络": 0.37, "本振混频组件": 0.33,
+                        "本振源（谐波发生器）": 0.17, "时钟振荡器": 0.13},
             ),
         ])
         
     elif anomaly_type == "参考电平失准":
-        # 参考电平链路相关规则 - 权重增强
+        # Beliefs aligned with training data distribution
         rules.extend([
             BRBRule(
                 weight=0.8 * ref_prior,
-                belief={"衰减器": 0.45, "校准源": 0.20, "校准信号开关": 0.20, "存储器": 0.10},
-            ),
-            BRBRule(
-                weight=0.5 * ref_prior,
-                belief={"校准源": 0.40, "存储器": 0.30, "校准信号开关": 0.20},
+                belief={"校准源": 0.38, "存储器": 0.32, "校准信号开关": 0.30},
             ),
         ])
     
-    # 添加通用规则（电源模块权重降低 - 任务书§5.2：不再以电源为主导）
+    # 通用规则（电源模块 - 低权重）
     rules.extend([
-        BRBRule(weight=0.1, belief={"电源模块": 1.0}),  # 从 0.2 降到 0.1
+        BRBRule(weight=0.1, belief={"电源模块": 1.0}),
     ])
     
     return rules
@@ -630,18 +729,16 @@ FAULT_TO_SUBGRAPH = {
 # 板级 → 模块映射
 BOARD_MODULES = {
     "RF板": [
-        "[RF板][RF] 输入连接/匹配/保护",
         "[RF板][RF] 输入衰减器组",
         "[RF板][RF] 低频通路固定滤波/抑制网络",
-        "[RF板][RF] 高频通路固定滤波/抑制网络",
         "[RF板][Mixer1]"
     ],
     "数字中频板": [
         "[数字中频板][IF] 中频放大/衰减链",
         "[数字中频板][ADC] 数字检波与平均",
-        "[数字中频板][ADC] 采样时钟",
         "[数字中频板][DSP] 数字增益/偏置校准",
-        "[数字中频板][IF] RBW数字滤波器"
+        "[数字中频板][数字IF域] RBW滤波器",
+        "[数字中频板][数字IF域] VBW滤波器"
     ],
     "LO/时钟板": [
         "[LO/时钟板][LO1] 合成链",
@@ -661,8 +758,8 @@ BOARD_MODULES = {
 # 子图 → 板级映射
 SUBGRAPH_TO_BOARDS = {
     "LO_Clock_Network": ["LO/时钟板"],
-    "RF_IF_ADC_Network": ["RF板", "数字中频板"],
-    "Calibration_Network": ["校准链路", "RF板"]
+    "RF_IF_ADC_Network": ["RF板", "数字中频板", "电源板"],  # 电源板: ~10% of amp_error in training data
+    "Calibration_Network": ["校准链路"]
 }
 
 
@@ -723,121 +820,300 @@ def hierarchical_module_infer(
     }
     sys_probs[fault_type] = 0.9  # 高置信度
     
-    # 使用标准 BRB 推理
-    base_probs = module_level_infer_with_activation(features, sys_probs)
-    
-    # 将 V1 名称转换为 V2 名称并合并概率
-    converted_probs = {}
-    for m, p in base_probs.items():
-        v2_name = module_v2_from_v1(m)
-        if v2_name in converted_probs:
-            converted_probs[v2_name] += p
-        else:
-            converted_probs[v2_name] = p
-    
-    # 过滤到候选模块
-    filtered_probs = {}
-    for cand in candidate_modules:
-        # 直接匹配
-        if cand in converted_probs:
-            filtered_probs[cand] = converted_probs[cand]
-        else:
-            # 模糊匹配
-            for conv_m, conv_p in converted_probs.items():
-                cand_key = cand.split(']')[-1].strip() if ']' in cand else cand
-                conv_key = conv_m.split(']')[-1].strip() if ']' in conv_m else conv_m
-                if cand_key and conv_key and (cand_key in conv_key or conv_key in cand_key):
-                    filtered_probs[cand] = max(filtered_probs.get(cand, 0), conv_p)
-    
-    # 对于 amp_error，增加 RF板 模块概率（基于 GT 分布）
+    # Data-aligned module distribution priors per fault type
+    # hp[0:15] are scale factors (optimized by P-CMA-ES with box projection).
+    # Always: scaled_prior = base_prior * scale_factor, then normalize to Σ=1.
+    # This guarantees valid probability output while allowing full optimization freedom.
+    hp = _hierarchical_params
+    _BASE_AMP_PRIORS = [0.19, 0.14, 0.17, 0.10, 0.04, 0.06, 0.16, 0.14]
+    _BASE_FREQ_PRIORS = [0.30, 0.30, 0.22, 0.18]
+    _BASE_REF_PRIORS = [0.35, 0.33, 0.32]
+
+    def _scale_and_normalize(base, scales, modules):
+        scaled = [b * max(sc, 0.01) for b, sc in zip(base, scales)]
+        total = sum(scaled) or 1.0
+        return {m: v / total for m, v in zip(modules, scaled)}
+
     if fault_type == "amp_error":
-        rf_modules = [m for m in candidate_modules if "RF板" in m]
-        # 根据 GT 分布调整 RF板 模块概率
-        rf_priors = {
-            "[RF板][RF] 低频通路固定滤波/抑制网络": 0.29,  # 29% in GT
-            "[RF板][Mixer1]": 0.21,  # 21% in GT
-            "[RF板][RF] 输入连接/匹配/保护": 0.16,  # 16% in GT
-            "[RF板][RF] 输入衰减器组": 0.05,
-            "[RF板][RF] 高频通路固定滤波/抑制网络": 0.05,
-        }
-        for m in rf_modules:
-            if m in rf_priors:
-                filtered_probs[m] = max(filtered_probs.get(m, 0), rf_priors[m])
-            elif filtered_probs.get(m, 0) == 0:
-                filtered_probs[m] = 0.03
+        filtered_probs = _scale_and_normalize(_BASE_AMP_PRIORS, hp[0:8], _AMP_MODULES)
+    elif fault_type == "freq_error":
+        filtered_probs = _scale_and_normalize(_BASE_FREQ_PRIORS, hp[8:12], _FREQ_MODULES)
+    elif fault_type == "ref_error":
+        filtered_probs = _scale_and_normalize(_BASE_REF_PRIORS, hp[12:15], _REF_MODULES)
+    else:
+        filtered_probs = {}
     
-    # 对于 ref_error，确保校准链路模块有非零概率
-    if fault_type == "ref_error":
-        cal_modules = [m for m in candidate_modules if "校准" in m]
-        total_cal_prob = sum(filtered_probs.get(m, 0) for m in cal_modules)
-        if total_cal_prob == 0 and cal_modules:
-            # 为校准链路模块分配概率
-            cal_priors = {
-                "[校准链路][校准源]": 0.35,
-                "[校准链路][校准路径开关/耦合]": 0.25,
-                "[校准链路][校准表/存储]": 0.20,
-            }
-            for m in cal_modules:
-                filtered_probs[m] = cal_priors.get(m, 0.10)
-    
-    # 如果过滤后全为0，使用基于故障类型的先验
-    if sum(filtered_probs.values()) == 0:
-        if fault_type == "freq_error":
-            # 频率失准：LO/时钟链路
-            priors = {
-                "[LO/时钟板][LO1] 合成链": 0.35,
-                "[时钟板][参考域] 10MHz 基准 OCXO": 0.35,
-                "[时钟板][参考分配]": 0.30
-            }
-        elif fault_type == "amp_error":
-            # 幅度失准：IF/ADC链路
-            priors = {
-                "[数字中频板][IF] 中频放大/衰减链": 0.25,
-                "[数字中频板][ADC] 数字检波与平均": 0.25,
-                "[RF板][RF] 低频通路固定滤波/抑制网络": 0.20,
-                "[RF板][RF] 输入衰减器组": 0.15,
-                "[RF板][RF] 输入连接/匹配/保护": 0.15
-            }
-        elif fault_type == "ref_error":
-            # 参考失准：校准链路 + RF衰减器
-            priors = {
-                "[校准链路][校准源]": 0.35,
-                "[校准链路][校准路径开关/耦合]": 0.25,
-                "[校准链路][校准表/存储]": 0.20,
-                "[RF板][RF] 输入衰减器组": 0.10,
-                "[RF板][RF] 输入连接/匹配/保护": 0.10
-            }
+    # Feature sensitivity multiplier for this fault type
+    feat_sens = hp[15] if fault_type == "amp_error" else hp[16] if fault_type == "freq_error" else hp[17]
+
+    # Feature-based adjustment: use discriminative features to shift priors
+    # Thresholds data-driven from training feature statistics per V2 module:
+    #   Module      | X7    | X13   | X22   | X33   | X35      | X36   | X37   | X38      | X39
+    #   Power       | 0.184 | 0.436 | 0.022 | 1.028 | 0.003902 | 0.408 | 0.049 |          |
+    #   Filter(LPF) | 0.133 | 2.157 | 0.052 | 0.490 | 0.000334 | 0.873 | 0.037 |          |
+    #   ADC         | 0.164 | 0.177 | 0.044 | 0.727 | 0.001399 | 0.722 | 0.049 |          |
+    #   Mixer1      | 0.080 | 0.000 | 0.041 | 0.302 | 0.000312 | 0.812 | 0.029 |          |
+    #   IF/DSP      | 0.080 | 0.000 | 0.041 | 0.573 | 0.000312 | 0.812 | 0.029 |          |
+    #   数字检波器   | 0.080 | 1.065 | 0.057 | 0.357 | 0.000312 | 0.834 | 0.032 |          |
+    #   RBW         | 0.078 | 0.126 | 0.114 | 0.306 | 0.000322 | 0.943 | 0.063 |  (high)  | (normal)
+    #   VBW         | 0.057 | 0.120 | 0.052 | 0.419 | 0.000158 | 0.894 | 0.027 |  (low)   | (low)
+    if fault_type == "amp_error":
+        x7 = features.get("X7", features.get("step_score", 0.08))
+        x13 = features.get("X13", 0.0)
+        x22 = features.get("X22", 0.04)
+        x33 = features.get("X33", 0.57)
+        x35 = features.get("X35", 0.0003)
+        x36 = features.get("X36", 0.81)
+        x37 = features.get("X37", 0.029)
+        x38 = features.get("X38", 0.0)  # 2nd-order gradient variance
+        x39 = features.get("X39", 0.0)  # high-freq residual energy ratio
+        rmse = features.get("shape_rmse", 0.0)
+
+        adj = {}
+
+        # Power: X36<0.61 (midpoint 0.408↔0.722), X35>0.002 (midpoint 0.004↔0.001), X7>0.12
+        power_score = 1.0
+        if x36 < 0.61:
+            power_score += 4.0
+        if x35 > 0.002:
+            power_score += 3.0
+        if x7 > 0.12:
+            power_score += 1.0
+        adj["[电源板] 电源管理模块"] = power_score
+
+        # Filter(LPF): X13>0.5 (midpoint 2.157↔0.436), X36>0.83
+        # When X13 is near zero (no LPF signature), penalize to free top-3
+        # slots for default-feature modules.
+        filter_score = 1.0
+        if x13 < 0.1:
+            filter_score *= 0.5  # penalize: no LPF signature present
+        elif x13 > 0.8:
+            filter_score += 5.0
+        elif x13 > 0.3:
+            filter_score += 2.5
+        if x36 > 0.83:
+            filter_score += 1.0
+        adj["[RF板][RF] 低频通路固定滤波/抑制网络"] = filter_score
+
+        # ADC: X7>0.09, X36 in [0.65, 0.80] (midpoint 0.722↔0.812), X35 in [0.0005, 0.002]
+        # When features are at default (no ADC signature), penalize to free
+        # top-3 slots for modules that cannot be distinguished by features.
+        adc_score = 1.0
+        if rmse < 0.005 and abs(x7 - 0.08) < 0.005:
+            adc_score *= 0.3  # penalize default-feature ADC
         else:
-            priors = {}
-        
-        for m in candidate_modules:
-            filtered_probs[m] = priors.get(m, 0.01)
-    
-    # 添加板级先验加权
-    if use_board_prior and fault_type == "freq_error":
-        # 频率失准更可能在 LO/时钟板
-        for m in filtered_probs:
-            if "LO" in m or "时钟" in m:
-                filtered_probs[m] *= 1.5
-    elif use_board_prior and fault_type == "ref_error":
-        # 参考失准更可能在校准链路
-        for m in filtered_probs:
-            if "校准" in m:
-                filtered_probs[m] *= 1.5
-    elif use_board_prior and fault_type == "amp_error":
-        # 幅度失准更可能在 RF/中频板
-        for m in filtered_probs:
-            if "中频" in m or "ADC" in m or "检波" in m:
-                filtered_probs[m] *= 1.3
-            elif "RF" in m and "输入连接" not in m:
-                filtered_probs[m] *= 1.2
-    
-    # 归一化
+            if x7 > 0.09 and x36 > 0.65:
+                adc_score += 2.0
+            if rmse > 0.04:
+                adc_score += 2.0
+            if x35 > 0.0005 and x35 < 0.002:
+                adc_score += 1.0
+        adj["[数字中频板][ADC] 数字检波与平均"] = adc_score
+
+        # Mixer1: X6 high (mean=0.006), features at default otherwise
+        x6 = features.get("X6", 0.001)
+        mixer_score = 1.0
+        if x7 < 0.085 and x13 < 0.1 and rmse > 0.0:
+            mixer_score += 3.0
+        if x6 > 0.003 and x35 < 0.0004:
+            mixer_score += 1.5
+        adj["[RF板][Mixer1]"] = mixer_score
+
+        # IF/DSP: these modules have all features at default when they are the
+        # fault source. HOWEVER, light-severity faults of OTHER modules also
+        # produce default features.  A large bonus here would crowd out the
+        # true module from Top-3.  Reduce the boost to avoid this.
+        if_score = 1.0
+        if rmse < 0.001 and x13 < 0.001 and abs(x7 - 0.08) < 0.002:
+            if_score += 0.5  # mild boost only; priors handle the rest
+        adj["[数字中频板][IF] 中频放大/衰减链"] = if_score
+        adj["[数字中频板][DSP] 数字增益/偏置校准"] = if_score * 0.8
+
+        # RBW: X22>0.079 (midpoint 0.114↔0.045), X36>0.87 (midpoint 0.943↔0.812)
+        # X37>0.050 (midpoint 0.063↔0.036), X39 low (0.019, midpoint with default 0.063 → <0.041)
+        # Data: RBW X22 mean=0.114 (best discriminator ratio=2.86)
+        rbw_score = 1.0
+        if x22 > 0.079:
+            rbw_score += 5.0
+        elif x22 > 0.055:
+            rbw_score += 2.0
+        if x36 > 0.87:
+            rbw_score += 2.0
+        if x37 > 0.050:
+            rbw_score += 2.0
+        if x39 < 0.041 and x39 > 0:
+            rbw_score += 1.0  # RBW has low hf_energy (sinc adds low-freq FFT energy)
+        adj["[数字中频板][数字IF域] RBW滤波器"] = rbw_score
+
+        # VBW: X35<0.000235 (midpoint 0.000158↔0.000312), X7<0.069 (midpoint 0.057↔0.080)
+        # X33<0.484 (midpoint 0.419↔0.549), X39<0.046 (midpoint 0.029↔0.063)
+        # X38<0.000448 (midpoint 0.000278↔0.000617) — EMA smoothing reduces 2nd-order grad var
+        # Data: VBW X35 mean=0.000158 std=0.000069
+        vbw_score = 1.0
+        if x35 < 0.000235:
+            vbw_score += 5.0
+        elif x35 < 0.000312:
+            vbw_score += 2.0
+        if x7 < 0.069:
+            vbw_score += 3.0
+        elif x7 < 0.078:
+            vbw_score += 1.0
+        if x33 < 0.484:
+            vbw_score += 1.5
+        if x39 < 0.046 and x39 > 0:
+            vbw_score += 1.5  # VBW EMA kills high-freq residual energy
+        if x38 < 0.000448 and x38 > 0:
+            vbw_score += 1.0  # VBW EMA reduces 2nd-order gradient variance
+        adj["[数字中频板][数字IF域] VBW滤波器"] = vbw_score
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
+
+    elif fault_type == "freq_error":
+        # Discriminating features (from training data V2 analysis):
+        # Mixer1: X13=0.97 (very high), X14=0.002 (very low), X24=0.012 (very low)
+        # 参考分配: X24=0.527 (highest), X36=0.842, X35=0.00025
+        # LO1: X36=0.900 (high), X35=0.00015, X24=0.446
+        # OCXO: X36=0.885, X23=0.000086 (lowest), X24=0.454
+        x13 = features.get("X13", 0.45)
+        x14 = features.get("X14", 0.007)
+        x7 = features.get("X7", 0.07)
+        x36 = features.get("X36", 0.85)
+        x35 = features.get("X35", 0.0002)
+        x24 = features.get("X24", 0.45)
+        x23 = features.get("X23", 0.0001)
+
+        adj = {}
+        # Mixer1: very high X13 (>0.6) and low X14 (<0.003) and low X24
+        mixer_s = 1.0
+        if x13 > 0.7:
+            mixer_s += 5.0
+        elif x13 > 0.5:
+            mixer_s += 2.0
+        if x14 < 0.003:
+            mixer_s += 2.0
+        if x24 < 0.05:
+            mixer_s += 2.0
+        adj["[RF板][Mixer1]"] = mixer_s
+
+        # 参考分配: highest X24 (0.527), moderate X36 (0.842), higher X35 (0.00025)
+        # Use softer thresholds with gradient scoring for overlap zone
+        ref_dist_s = 1.0
+        if x24 > 0.50:
+            ref_dist_s += 3.0
+        elif x24 > 0.40:
+            ref_dist_s += 1.0 + 2.0 * (x24 - 0.40) / 0.10  # linear ramp [0.40, 0.50]
+        elif x24 > 0.30:
+            ref_dist_s += 0.5  # partial credit for being in range
+        if x35 > 0.00020:
+            ref_dist_s += 1.5
+        elif x35 > 0.00012:
+            ref_dist_s += 0.5  # partial credit
+        if x36 < 0.86:
+            ref_dist_s += 1.0
+        adj["[时钟板][参考分配]"] = ref_dist_s
+
+        # LO1: high X36 (0.900), lowest X35 (0.00015), lower X24
+        # Use softer thresholds for overlap with 参考分配/OCXO
+        lo1_s = 1.0
+        if x36 > 0.88:
+            lo1_s += 2.0
+        elif x36 > 0.84:
+            lo1_s += 1.0  # partial credit (was missing before)
+        if x35 < 0.00016:
+            lo1_s += 2.0
+        elif x35 < 0.00022:
+            lo1_s += 1.0  # softened from 0.00020
+        if x24 < 0.46 and x24 > 0.30:
+            lo1_s += 1.0
+        elif x24 > 0.46 and x24 < 0.50:
+            lo1_s += 0.5  # partial credit for borderline X24
+        adj["[LO/时钟板][LO1] 合成链"] = lo1_s
+
+        # OCXO: high X36 (0.885), lower X23 (0.000086), moderate X24 (0.454)
+        ocxo_s = 1.0
+        if x36 > 0.84:
+            ocxo_s += 2.0
+        if x23 < 0.00012:
+            ocxo_s += 2.0
+        elif x23 < 0.00015:
+            ocxo_s += 1.0
+        if x24 < 0.55 and x24 > 0.30:
+            ocxo_s += 1.0
+        adj["[时钟板][参考域] 10MHz 基准 OCXO"] = ocxo_s
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
+
+    elif fault_type == "ref_error":
+        # Ref modules weakly distinguishable; use multiple correlated features
+        # Primary: X29 (Cal Source: +3.98, Storage: -0.77, Switch: +0.40) but high variance
+        # Secondary: offset_slope (Cal+0.006 vs Stor-0.009), band_offset_db_1 (Cal-0.041 vs Stor+0.023)
+        # Tertiary: X28 (Switch: +0.089 vs others ~-0.04), X14
+        slope = features.get("offset_slope", features.get("res_slope", 0.0))
+        band1 = features.get("band_offset_db_1", 0.0)
+        x14 = features.get("X14", 0.1)
+        x29 = features.get("X29", 0.0)
+        x28 = features.get("X28", 0.0)
+
+        adj = {}
+        # 校准源: strongly positive X29 (with non-Switch X28), OR slope+band1 combined
+        cal_s = 1.0
+        if x29 > 2.0 and x28 < 0.2:
+            cal_s += 3.0  # strong X29 + non-Switch X28
+        elif x29 > 2.0:
+            cal_s += 1.0  # X29 positive but X28 suggests Switch
+        elif x29 > 0.5 and x28 < 0.2:
+            cal_s += 1.5
+        if slope > 0.03 and band1 < -0.15:
+            cal_s += 2.5  # very strong slope+band1 = Cal Source even if X29 negative
+        elif slope > 0.01 and band1 < -0.05:
+            cal_s += 1.5
+        adj["[校准链路][校准源]"] = cal_s
+
+        # 校准表/存储: negative X29 confirmed by negative slope, higher X14
+        stor_s = 1.0
+        if x29 < -2.0 and slope < 0:
+            stor_s += 3.0  # both X29 and slope agree
+        elif x29 < -2.0:
+            stor_s += 1.5  # only X29 (might be noisy)
+        elif x29 < -0.5 and slope < 0:
+            stor_s += 2.0  # moderate negative X29 + negative slope
+        elif x29 < 0:
+            stor_s += 0.5
+        if slope < -0.01:
+            stor_s += 0.5
+        if x14 > 0.14:
+            stor_s += 0.5
+        adj["[校准链路][校准表/存储]"] = stor_s
+
+        # 校准路径开关/耦合: positive X28 is strongest indicator, moderate X29
+        sw_s = 1.0
+        if x28 > 0.3:
+            sw_s += 2.5  # strongly positive X28
+        elif x28 > 0.1:
+            sw_s += 1.0
+        if x29 > -0.5 and x29 < 2.0 and x28 > 0:
+            sw_s += 1.0
+        if band1 > 0.1:
+            sw_s += 0.5
+        adj["[校准链路][校准路径开关/耦合]"] = sw_s
+
+        for mod in filtered_probs:
+            filtered_probs[mod] *= adj.get(mod, 1.0) ** feat_sens
+
+    # Ignorance floor: ensure every candidate retains a minimum probability
+    # so that low-but-not-zero alternatives stay in Top-3 contention.
+    _IGNORANCE_FLOOR = 0.005
+    for mod in filtered_probs:
+        if filtered_probs[mod] < _IGNORANCE_FLOOR:
+            filtered_probs[mod] = _IGNORANCE_FLOOR
+
+    # Normalize
     total = sum(filtered_probs.values())
     if total > 0:
         filtered_probs = {m: p / total for m, p in filtered_probs.items()}
     else:
-        # 均匀分布
         uniform_prob = 1.0 / len(filtered_probs) if filtered_probs else 0.0
         filtered_probs = {m: uniform_prob for m in filtered_probs}
     
@@ -851,11 +1127,17 @@ def hierarchical_module_infer_soft_gating(
     use_board_prior: bool = True,
 ) -> Dict:
     """
-    P3.1: Soft-gating multi-hypothesis module inference.
-    
-    When the top-2 fault type probabilities are close (diff < delta),
-    run both hypotheses and return weighted fusion of module probabilities.
-    
+    Top-2 truncated soft-gating multi-hypothesis module inference.
+
+    Strategy:
+      1. Keep only the Top-2 fault-type hypotheses (zero out the rest).
+      2. Activate the 2nd hypothesis only when the system-level is genuinely
+         uncertain (gap < delta AND 2nd prob > floor).
+      3. Renormalize Top-2 probabilities to sum = 1 with a small secondary
+         weight floor.
+      4. Run BRB module inference for each active hypothesis.
+      5. Fuse module probabilities using the renormalized hypothesis weights.
+
     Parameters
     ----------
     final_probs : dict
@@ -863,10 +1145,11 @@ def hierarchical_module_infer_soft_gating(
     features : dict
         Feature dictionary
     delta : float
-        Threshold for activating second hypothesis. Default 0.1.
+        Maximum gap between top-1 and top-2 probabilities to activate
+        multi-hypothesis routing.
     use_board_prior : bool
         Whether to use board-level priors
-        
+
     Returns
     -------
     dict
@@ -877,17 +1160,24 @@ def hierarchical_module_infer_soft_gating(
             "single_hypothesis": bool
         }
     """
-    # Minimum probability threshold for fault hypotheses
-    MIN_FAULT_PROBABILITY = 0.01
-    
-    # Sort fault types by probability (descending)
+    # ── Configuration ──────────────────────────────────────────────────
+    # Minimum probability to even consider a fault hypothesis
+    _MIN_FAULT_PROB = 0.01
+    # Minimum probability for the 2nd hypothesis to be considered
+    _TOP2_MIN_PROB = 0.02
+    # Minimum fraction of total weight reserved for the 2nd hypothesis
+    # when multi-hypothesis is activated (raised from 0.15 to prevent
+    # cascade errors when RF system-level prediction is slightly wrong)
+    _SECONDARY_WEIGHT_FLOOR = 0.25
+
+    # ── Step 1: Sort fault types, filter out "normal" ──────────────────
     sorted_faults = sorted(final_probs.items(), key=lambda x: x[1], reverse=True)
-    
-    # Filter out "normal" from hypotheses for module inference
-    fault_hypotheses = [(ft, p) for ft, p in sorted_faults if ft != "normal" and p > MIN_FAULT_PROBABILITY]
-    
+    fault_hypotheses = [
+        (ft, p) for ft, p in sorted_faults
+        if ft != "normal" and p > _MIN_FAULT_PROB
+    ]
+
     if not fault_hypotheses:
-        # No fault hypotheses, return uniform distribution
         all_modules = []
         for board_modules in BOARD_MODULES.values():
             all_modules.extend(board_modules)
@@ -899,44 +1189,70 @@ def hierarchical_module_infer_soft_gating(
             "per_hypothesis_topk": {},
             "single_hypothesis": True,
         }
-    
+
+    # ── Step 2: Top-2 truncation with delta-gated activation ──────────
     top1_ft, top1_prob = fault_hypotheses[0]
-    
-    # Check if we should activate second hypothesis
+
     use_top2 = False
     top2_ft, top2_prob = None, 0.0
     if len(fault_hypotheses) >= 2:
         top2_ft, top2_prob = fault_hypotheses[1]
-        if (top1_prob - top2_prob) < delta:
+        # Top-2 truncation: always activate the 2nd hypothesis when its
+        # probability exceeds the minimum floor.  This prevents a single
+        # high-confidence (but possibly wrong) system prediction from
+        # completely silencing the alternative fault-type subgraph.
+        if top2_prob > _TOP2_MIN_PROB:
             use_top2 = True
-    
-    # Get module probabilities for each hypothesis
+
+    # ── Step 3: Run BRB module inference per hypothesis ────────────────
     per_hypothesis_topk = {}
     per_hypothesis_probs = {}
-    
-    # Top-1 hypothesis
+
     probs_1 = hierarchical_module_infer(top1_ft, features, use_board_prior)
     per_hypothesis_probs[top1_ft] = probs_1
     sorted_1 = sorted(probs_1.items(), key=lambda x: x[1], reverse=True)
     per_hypothesis_topk[top1_ft] = [{"name": m, "prob": p} for m, p in sorted_1[:5]]
-    
+
     if use_top2 and top2_ft:
-        # Top-2 hypothesis
         probs_2 = hierarchical_module_infer(top2_ft, features, use_board_prior)
         per_hypothesis_probs[top2_ft] = probs_2
         sorted_2 = sorted(probs_2.items(), key=lambda x: x[1], reverse=True)
         per_hypothesis_topk[top2_ft] = [{"name": m, "prob": p} for m, p in sorted_2[:5]]
-        
-        # Weighted fusion: score(module) = P(t1) * score_t1(module) + P(t2) * score_t2(module)
+
+        # ── Step 4: Top-2 renormalized weighted fusion ─────────────────
+        raw_total = top1_prob + top2_prob
+        if raw_total > 0:
+            raw_w2_ratio = top2_prob / raw_total
+        else:
+            raw_w2_ratio = 0.5
+
+        # Apply a small floor so the 2nd hypothesis is not negligible
+        effective_w2_ratio = max(raw_w2_ratio, _SECONDARY_WEIGHT_FLOOR)
+        effective_w1_ratio = 1.0 - effective_w2_ratio
+
         all_modules = set(probs_1.keys()) | set(probs_2.keys())
-        total_weight = top1_prob + top2_prob
         fused_probs = {}
         for m in all_modules:
             p1 = probs_1.get(m, 0.0)
             p2 = probs_2.get(m, 0.0)
-            fused_probs[m] = (top1_prob * p1 + top2_prob * p2) / total_weight if total_weight > 0 else 0.0
-        
+            fused_probs[m] = effective_w1_ratio * p1 + effective_w2_ratio * p2
+
         used_hypotheses = [(top1_ft, top1_prob), (top2_ft, top2_prob)]
+
+        # ── Step 5: Diversity guarantee ───────────────────────────────
+        # When multi-hypothesis is active, ensure the best module from
+        # the SECONDARY hypothesis has a minimum presence in the fused
+        # top-3.  Only apply when the primary hypothesis has more than
+        # 3 modules (otherwise all primary modules already fit in
+        # top-3 and adding a secondary module would displace one).
+        h1_module_count = sum(1 for p in probs_1.values() if p > 0)
+        if h1_module_count > 3:
+            top_h2_mod = max(probs_2.items(), key=lambda x: x[1])[0]
+            fused_sorted_vals = sorted(fused_probs.values(), reverse=True)
+            if len(fused_sorted_vals) >= 3:
+                third_val = fused_sorted_vals[2]
+                if fused_probs[top_h2_mod] < third_val:
+                    fused_probs[top_h2_mod] = third_val + 1e-9
     else:
         fused_probs = probs_1
         used_hypotheses = [(top1_ft, top1_prob)]

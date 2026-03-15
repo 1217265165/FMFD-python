@@ -20,7 +20,8 @@
       "name_cn": "数字中频板",
       "modules": [
         "[数字中频板][IF域] 中频放大/衰减链",
-        "[数字中频板][IF域] RBW数字滤波器",
+        "[数字中频板][数字IF域] RBW滤波器",
+        "[数字中频板][数字IF域] VBW滤波器",
         "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
         "[数字中频板][采样域] ADC采样时钟",
         "[数字中频板][DSP域] 数字增益/偏置校准",
@@ -64,7 +65,8 @@
     "lo1_inject": "[RF板][LO注入] LO1注入网络/耦合器",
     
     "if_amp_chain": "[数字中频板][IF域] 中频放大/衰减链",
-    "rbw_filter": "[数字中频板][IF域] RBW数字滤波器",
+    "rbw_filter": "[数字中频板][数字IF域] RBW滤波器",
+    "vbw_filter": "[数字中频板][数字IF域] VBW滤波器",
     "adc_module": "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
     "adc_clock": "[数字中频板][采样域] ADC采样时钟",
     "dsp_gain_cal": "[数字中频板][DSP域] 数字增益/偏置校准",
@@ -89,7 +91,8 @@
       "primary": [
         "ac_coupling", "input_connector", "step_attenuator", 
         "lpf_low_band", "lpf_high_band", "mixer1",
-        "if_amp_chain", "dsp_gain_cal", "dsp_detector"
+        "if_amp_chain", "dsp_gain_cal", "dsp_detector",
+        "rbw_filter", "vbw_filter"
       ],
       "secondary": [
         "adc_module", "power_management"
@@ -194,10 +197,10 @@
     "校准信号开关": "[校准链路][校准路径开关/耦合] 校准信号切换开关",
     "中频放大器": "[数字中频板][IF域] 中频放大/衰减链",
     "ADC": "[数字中频板][采样域] ADC（含Vref、INL/DNL、粘连位）",
-    "数字RBW": "[数字中频板][IF域] RBW数字滤波器",
+    "数字RBW": "[数字中频板][数字IF域] RBW滤波器",
+    "VBW滤波器": "[数字中频板][数字IF域] VBW滤波器",
     "数字放大器": "[数字中频板][DSP域] 数字增益/偏置校准",
     "数字检波器": "[数字中频板][DSP域] 数字检波与平均",
-    "VBW滤波器": "[数字中频板][DSP域] 中频窗函数与加权",
     "电源模块": "[电源板] 电源管理模块"
   }
 }

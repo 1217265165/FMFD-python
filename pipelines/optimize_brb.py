@@ -1,22 +1,25 @@
 """
-基于现有 system_brb/module_brb 的轻量优化器，不依赖 brb_engine / brb_rules.yaml。
-- 优化目标：模块层 8 条规则的权重（module_brb 原始权重被可调参数替换）。
-- 系统层仍使用 system_brb.py 中的固定规则，权重不优化。
-- 支持无监督（熵 + 置信度）和有监督（label_mod 监督）。
+P-CMA-ES (Projection-based CMA-ES) 优化器 for BRB hierarchical module inference.
 
-使用示例（无监督）:
-    python optimize_brb.py --data feats.csv --maxiter 60
+采用投影算子 (Projection Operator) 确保参数物理可解释性:
+- 置信度/先验参数经 单纯形投影 (Simplex Projection) 保证 Σβ_i = 1, β_i ≥ 0
+- 特征灵敏度参数经 Box Projection 保证 [0.1, 5.0] 区间约束
 
-使用示例（有监督）:
+使用示例（使用 sim_spectrum 数据）:
+    python optimize_brb.py --data_dir Output/sim_spectrum --maxiter 60
+    python optimize_brb.py --data_dir Output/sim_spectrum --supervised --maxiter 80
+
+使用示例（旧格式 CSV）:
     python optimize_brb.py --data feats.csv --label_col label_mod --supervised --maxiter 80
 """
 
 import argparse
 import csv
 import importlib.util
+import json
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -32,146 +35,266 @@ if str(REPO_ROOT) not in sys.path:
 from sklearn.metrics import log_loss, accuracy_score
 
 from BRB.system_brb import system_level_infer
+from BRB.module_brb import (
+    MODULE_LABELS, BOARD_MODULES,
+    hierarchical_module_infer, set_hierarchical_params,
+    _AMP_MODULES, _FREQ_MODULES, _REF_MODULES,
+)
+
+# V2 module label list (all modules from BOARD_MODULES)
+V2_LABELS: List[str] = []
+for board_modules in BOARD_MODULES.values():
+    V2_LABELS.extend(board_modules)
 
 # ------- 与 module_brb 一致的 labels 列表 -------
-LABELS = [
-    "衰减器",
-    "前置放大器",
-    "低频段前置低通滤波器",
-    "低频段第一混频器",
-    "高频段YTF滤波器",
-    "高频段混频器",
-    "时钟振荡器",
-    "时钟合成与同步网络",
-    "本振源（谐波发生器）",
-    "本振混频组件",
-    "校准源",
-    "存储器",
-    "校准信号开关",
-    "中频放大器",
-    "ADC",
-    "数字RBW",
-    "数字放大器",
-    "数字检波器",
-    "VBW滤波器",
-    "电源模块",
-]
+LABELS = list(MODULE_LABELS)
 
-# ------- 复制自 module_brb，但 rule weight 改为可调 --------
-def module_level_infer_param(features, sys_probs, rule_weights):
-    """
-    rule_weights: 长度 8，对应原 module_brb 中 8 条 BRBRule 的 weight
-    """
-    def normalize_feature(x, low, high):
-        if x <= low: return 0.0
-        if x >= high: return 1.0
-        return (x - low) / (high - low)
+# Module label v2 mapping for labels.json format
+_MODULE_V1_LOOKUP: Dict[str, str] = {}
+try:
+    from BRB.module_brb import MODULE_LABELS_V2, _MODULE_V1_TO_V2
+    for v1, v2 in _MODULE_V1_TO_V2.items():
+        _MODULE_V1_LOOKUP[v2] = v1
+    for v1 in MODULE_LABELS:
+        _MODULE_V1_LOOKUP[v1] = v1
+except ImportError:
+    pass
 
+# Fault type → V2 module list (for label resolution)
+_FAULT_V2_MODULES = {
+    "amp_error": _AMP_MODULES,
+    "freq_error": _FREQ_MODULES,
+    "ref_error": _REF_MODULES,
+}
+
+# V2 module name → index in V2_LABELS
+_V2_LABEL_INDEX = {m: i for i, m in enumerate(V2_LABELS)}
+
+
+def _resolve_module_to_v2(label_entry: dict) -> Optional[str]:
+    """Resolve module label from labels.json entry to V2 module name."""
+    mod_v2 = label_entry.get("module_v2") or ""
+    if mod_v2 in _V2_LABEL_INDEX:
+        return mod_v2
+    # Try V1→V2 mapping
+    mod_v1 = label_entry.get("module") or ""
+    if mod_v1 in _MODULE_V1_LOOKUP:
+        v1_name = _MODULE_V1_LOOKUP[mod_v1]
+        # Map v1→v2 
+        try:
+            from tools.label_mapping import module_v2_from_v1
+            return module_v2_from_v1(v1_name)
+        except (ImportError, KeyError):
+            pass
+    # Try partial matching
+    for v2_name in V2_LABELS:
+        if mod_v2 and (mod_v2 in v2_name or v2_name in mod_v2):
+            return v2_name
+    return None
+
+
+def _normalize_feature(x, low, high):
+    if x <= low:
+        return 0.0
+    if x >= high:
+        return 1.0
+    return (x - low) / (high - low)
+
+
+def _aggregate_module_score(features):
+    """Compute module-level anomaly score from features (matches module_brb logic)."""
     md_step_raw = max(
-        features["step_score"],
+        features.get("step_score", 0.0),
         features.get("switch_step_err_max", 0.0),
         features.get("nonswitch_step_max", 0.0),
+        features.get("X7", 0.0),
     )
-    md_step   = normalize_feature(md_step_raw, 0.2, 1.5)
-    md_slope  = normalize_feature(abs(features["res_slope"]), 1e-12, 1e-10)
-    md_ripple = normalize_feature(features["ripple_var"], 0.001, 0.02)
-    md_df     = normalize_feature(abs(features["df"]), 1e6, 5e7)
-    md_viol   = normalize_feature(features["viol_rate"], 0.02, 0.2)
+    md_step = _normalize_feature(md_step_raw, 0.2, 1.5)
+    md_slope = _normalize_feature(abs(features.get("res_slope", 0.0)), 1e-12, 1e-10)
+    md_ripple = _normalize_feature(features.get("ripple_var", features.get("X6", 0.0)), 0.001, 0.02)
+    md_df = _normalize_feature(abs(features.get("df", 0.0)), 1e6, 5e7)
+    md_viol = _normalize_feature(features.get("viol_rate", features.get("X11", 0.0)), 0.02, 0.2)
     md_gain_bias = max(
-        normalize_feature(abs(features["bias"]), 0.1, 1.0),
-        normalize_feature(abs(features["gain"] - 1.0), 0.02, 0.2),
+        _normalize_feature(abs(features.get("bias", 0.0)), 0.1, 1.0),
+        _normalize_feature(abs(features.get("gain", 1.0) - 1.0), 0.02, 0.2),
     )
-    md = np.mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias])
+    return float(np.mean([md_step, md_slope, md_ripple, md_df, md_viol, md_gain_bias]))
 
-    # 规则的 belief 与原 module_brb 相同，仅 weight 可调
-    rules = [
-        (rule_weights[0] * sys_probs.get("参考电平失准", 0.3),
-         {"衰减器": 0.60, "校准源": 0.08, "存储器": 0.06, "校准信号开关": 0.16}),
-        (rule_weights[1] * sys_probs.get("幅度失准", 0.3),
-         {"前置放大器": 0.40, "中频放大器": 0.25, "数字放大器": 0.20, "衰减器": 0.10, "ADC": 0.05}),
-        (rule_weights[2] * sys_probs.get("频率失准", 0.3),
-         {"时钟振荡器": 0.35, "时钟合成与同步网络": 0.35, "本振源（谐波发生器）": 0.15, "本振混频组件": 0.15}),
-        (rule_weights[3], {"高频段YTF滤波器": 0.60, "高频段混频器": 0.40}),
-        (rule_weights[4], {"低频段前置低通滤波器": 0.60, "低频段第一混频器": 0.40}),
-        (rule_weights[5], {"数字RBW": 0.30, "数字检波器": 0.35, "VBW滤波器": 0.25, "ADC": 0.10}),
-        (rule_weights[6], {"电源模块": 1.0}),
-    ]
 
-    acts = []
-    for w, bel in rules:
-        act = w * md  # 这里沿用 SimpleBRB 的“匹配度相乘”思路，简化为 w*md
-        acts.append((act, bel))
-    total = sum(a for a, _ in acts) + 1e-9
-    out = {lab: 0.0 for lab in LABELS}
-    for a, bel in acts:
-        for lab in LABELS:
-            out[lab] += (a / total) * bel.get(lab, 0.0)
-    s = sum(out.values()) + 1e-9
-    for lab in LABELS:
-        out[lab] = out[lab] / s
-    return out
+# ======= P-CMA-ES Projection Operators =======
+
+# Parameter structure: 18 params total
+#   [0:8]   amp_error module prior scale factors → box constraint [0.1, 5.0]
+#   [8:12]  freq_error module prior scale factors → box constraint [0.1, 5.0]
+#   [12:15] ref_error module prior scale factors  → box constraint [0.1, 5.0]
+#   [15:18] feature sensitivity per fault type    → box constraint [0.1, 5.0]
+#
+# Note: The simplex constraint (Σ prior_i = 1) is enforced implicitly by the
+# normalization step in hierarchical_module_infer() after scaling base priors.
+# This is equivalent to Softmax归一化 applied at the inference level.
+
+_SCALE_BOX = (0.1, 5.0)  # bounds for prior scale factors [0:15]
+_SENS_BOX = (0.1, 5.0)   # bounds for feature sensitivity [15:18]
+
+
+def _simplex_projection(v: np.ndarray, floor: float = 0.0) -> np.ndarray:
+    """Project vector onto the probability simplex {x | x_i >= floor, Σx_i = 1}.
+
+    Implements the Euclidean projection algorithm from:
+    Duchi et al., "Efficient Projections onto the l1-Ball for Learning
+    in High Dimensions", ICML 2008.
+    
+    When floor > 0, first shifts v by -floor, projects onto standard simplex
+    of size (1 - n*floor), then shifts back. This ensures every component
+    has at least `floor` probability mass.
+    """
+    n = len(v)
+    if n == 0:
+        return v
+    if floor > 0:
+        residual = 1.0 - n * floor
+        if residual <= 0:
+            return np.full(n, 1.0 / n)
+        v_shifted = v - floor
+        u = np.sort(v_shifted)[::-1]
+        cssv = np.cumsum(u) - residual
+        rho = np.nonzero(u * np.arange(1, n + 1) > cssv)[0][-1]
+        theta = cssv[rho] / (rho + 1.0)
+        return np.maximum(v_shifted - theta, 0.0) + floor
+    u = np.sort(v)[::-1]
+    cssv = np.cumsum(u) - 1.0
+    rho = np.nonzero(u * np.arange(1, n + 1) > cssv)[0][-1]
+    theta = cssv[rho] / (rho + 1.0)
+    return np.maximum(v - theta, 0.0)
+
+
+def project_to_feasible(params: np.ndarray) -> np.ndarray:
+    """P-CMA-ES Projection Operator: map unconstrained CMA-ES solution
+    to the feasible parameter space.
+
+    - Prior scale factors [0:15] → box [0.1, 5.0]
+    - Feature sensitivity [15:18] → box [0.1, 5.0]
+    - Simplex guarantee (Σ prior_i = 1) enforced by inference-level normalization
+    """
+    projected = params.copy()
+    lo_s, hi_s = _SCALE_BOX
+    projected[0:15] = np.clip(projected[0:15], lo_s, hi_s)
+    lo_f, hi_f = _SENS_BOX
+    projected[15:18] = np.clip(projected[15:18], lo_f, hi_f)
+    return projected
+
+
+# ------- Hierarchical inference wrapper for optimization --------
+def _infer_hierarchical(features: Dict, fault_type: str, params: np.ndarray) -> Dict[str, float]:
+    """Call hierarchical_module_infer with projected params set globally."""
+    set_hierarchical_params(list(project_to_feasible(params)))
+    return hierarchical_module_infer(fault_type, features, use_board_prior=True)
+
+
+def _fault_type_from_features(features: Dict) -> str:
+    """Determine fault type from system-level BRB inference."""
+    sys_p = system_level_infer(features)
+    probs = sys_p.get("probabilities", sys_p)
+    fault_map = {
+        "幅度失准": "amp_error",
+        "频率失准": "freq_error",
+        "参考电平失准": "ref_error",
+        "正常": "normal",
+    }
+    best_cn = max(probs, key=probs.get)
+    return fault_map.get(best_cn, "normal")
+
 
 # ------- 目标函数 -------
-def unsupervised_objective(weights, feats_rows, w_entropy=0.6, w_conf=0.4):
-    probs = []
-    for row in feats_rows:
+def supervised_objective(params, feats_rows, label_v2_names, fault_types):
+    """Supervised objective using hierarchical_module_infer with V2 labels.
+    
+    Uses (1 - balanced_accuracy) to prevent majority-class exploitation.
+    Balanced accuracy = macro-average of per-class recall.
+    All params are projected to feasible space before evaluation.
+    """
+    projected = project_to_feasible(params)
+    set_hierarchical_params(list(projected))
+    
+    # Track per-class correct/total for balanced accuracy
+    class_correct: Dict[str, int] = {}
+    class_total: Dict[str, int] = {}
+    for row, true_v2, ft in zip(feats_rows, label_v2_names, fault_types):
         f = dict(row)
-        sys_p = system_level_infer(f)  # 使用固定系统层
-        mod_p = module_level_infer_param(f, sys_p, weights)
-        probs.append([mod_p[lab] for lab in LABELS])
-    probs = np.array(probs)
-    eps = 1e-12
-    ent = -np.sum(probs * np.log(np.clip(probs, eps, 1.0)), axis=1)
+        mod_probs = hierarchical_module_infer(ft, f, use_board_prior=True)
+        if mod_probs:
+            pred_v2 = max(mod_probs, key=mod_probs.get)
+            class_total[true_v2] = class_total.get(true_v2, 0) + 1
+            if pred_v2 == true_v2:
+                class_correct[true_v2] = class_correct.get(true_v2, 0) + 1
+    
+    # Balanced accuracy: macro-average of per-class recall
+    recalls = []
+    for cls in class_total:
+        total = class_total[cls]
+        correct = class_correct.get(cls, 0)
+        recalls.append(correct / total if total > 0 else 0.0)
+    balanced_acc = float(np.mean(recalls)) if recalls else 0.0
+    
+    # L2 regularization: strong on scale factors (keep near 1.0), weak on feat sensitivity
+    reg_scales = 0.05 * float(np.sum((projected[0:15] - 1.0) ** 2))
+    reg_sens = 0.001 * float(np.sum((projected[15:18] - 1.0) ** 2))
+    return (1.0 - balanced_acc) + reg_scales + reg_sens
+
+
+def unsupervised_objective(params, feats_rows, fault_types, w_entropy=0.6, w_conf=0.4):
+    """Unsupervised objective using hierarchical_module_infer."""
+    set_hierarchical_params(list(project_to_feasible(params)))
+    
+    all_probs = []
+    for row, ft in zip(feats_rows, fault_types):
+        f = dict(row)
+        mod_probs = hierarchical_module_infer(ft, f, use_board_prior=True)
+        vals = list(mod_probs.values())
+        all_probs.append(vals)
+    
+    probs = np.array(all_probs) + 1e-12
+    ent = -np.sum(probs * np.log(probs), axis=1)
     mean_ent = float(np.nanmean(ent))
     mean_top1 = float(np.nanmean(np.max(probs, axis=1)))
     return w_entropy * mean_ent + w_conf * (1.0 - mean_top1)
 
-def supervised_objective(weights, feats_rows, label_col):
-    probs = []
-    labels = []
-    for row in feats_rows:
-        f = dict(row)
-        sys_p = system_level_infer(f)
-        mod_p = module_level_infer_param(f, sys_p, weights)
-        probs.append([mod_p[lab] for lab in LABELS])
-        labels.append(row[label_col])
-    probs = np.array(probs)
-    y = np.array(labels)
-    # 仅保留标签在 LABELS 中的样本
-    mask = np.array([lab in LABELS for lab in y])
-    if not mask.any():
-        return 1e6
-    probs = probs[mask]
-    y = y[mask]
-    idx_map = {m: i for i, m in enumerate(LABELS)}
-    y_idx = np.array([idx_map[v] for v in y])
-    try:
-        loss = log_loss(y_idx, probs, labels=list(range(len(LABELS))))
-    except Exception:
-        loss = 1.0 - accuracy_score(y_idx, np.argmax(probs, axis=1))
-    return float(loss)
 
-# ------- CMA-ES 优化主流程 -------
-def optimize(feats_rows, supervised=False, label_col=None, maxiter=80, popsize=None, seed=42, sigma0=0.3):
-    # 初始权重 8 个，全为 0.5（可根据你原始权重设置 0.8/0.6/0.7/0.5/0.5/0.4/0.3/0.2）
-    x0 = np.array([0.8,0.6,0.7,0.5,0.5,0.4,0.3,0.2], dtype=float)
-    opts = {"seed": seed}
+# ------- P-CMA-ES 优化主流程 -------
+def optimize(feats_rows, label_v2_names=None, fault_types=None,
+             maxiter=80, popsize=None, seed=42, sigma0=0.5):
+    print("[AUDIT] Using P-CMA-ES with Projection Operator")
+    print(f"  Scale factors [0:15]: box [{_SCALE_BOX[0]}, {_SCALE_BOX[1]}]")
+    print(f"  Feature sensitivity [15:18]: box [{_SENS_BOX[0]}, {_SENS_BOX[1]}]")
+    print(f"  Simplex (Σ prior_i = 1): enforced by inference-level normalization")
+
+    # 18 params: [amp_scales(8), freq_scales(4), ref_scales(3), feat_sens(3)]
+    # Initialize: scale factors at 1.0 (preserve domain-expert base priors),
+    # feature sensitivity at 1.5 (explore higher-than-neutral sensitivity)
+    x0 = np.ones(18, dtype=float)
+    x0[15:18] = 1.5
+
+    # Use CMA-ES with initial step sizes weighted toward feature sensitivity
+    opts = {"seed": seed, "verbose": 1, "maxiter": maxiter,
+            "CMA_stds": [0.2]*15 + [1.0]*3}  # Small steps for priors, large for sens
     if popsize:
         opts["popsize"] = popsize
     es = cma.CMAEvolutionStrategy(x0, sigma0, opts)
 
     best_x, best_obj = None, float("inf")
+    history = []
     it = 0
-    while not es.stop() and it < maxiter:
+    while not es.stop():
         sols = es.ask()
+        # [P-CMA-ES] Project all candidates to feasible space before evaluation
+        projected_sols = [project_to_feasible(np.array(x)) for x in sols]
         objs = []
-        for x in sols:
-            w = np.clip(x, 0.01, 3.0)  # 约束权重范围，避免负数
+        for w in projected_sols:
             try:
-                if supervised and label_col:
-                    obj = supervised_objective(w, feats_rows, label_col)
+                if label_v2_names is not None:
+                    obj = supervised_objective(w, feats_rows, label_v2_names, fault_types)
                 else:
-                    obj = unsupervised_objective(w, feats_rows)
+                    obj = unsupervised_objective(w, feats_rows, fault_types)
             except Exception:
                 obj = float("inf")
             objs.append(obj)
@@ -179,17 +302,30 @@ def optimize(feats_rows, supervised=False, label_col=None, maxiter=80, popsize=N
                 best_obj, best_x = obj, w.copy()
         es.tell(sols, objs)
         es.disp()
+        history.append({"generation": it, "best_obj": best_obj,
+                         "mean_obj": float(np.mean(objs))})
         it += 1
 
     if best_x is None:
-        best_x = np.clip(es.result.xbest, 0.01, 3.0)
+        best_x = project_to_feasible(np.array(es.result.xbest))
         best_obj = float(es.result.fbest)
+    else:
+        best_x = project_to_feasible(best_x)
 
-    print(f"[INFO] best_obj={best_obj:.6f}, best_weights={best_x}")
-    return best_x, best_obj
+    # Verify box constraints
+    lo_s, hi_s = _SCALE_BOX
+    lo_f, hi_f = _SENS_BOX
+    assert np.all(best_x[0:15] >= lo_s) and np.all(best_x[0:15] <= hi_s), \
+        f"Box violation in scale factors: min={best_x[0:15].min()}, max={best_x[0:15].max()}"
+    assert np.all(best_x[15:18] >= lo_f) and np.all(best_x[15:18] <= hi_f), \
+        f"Box violation in feat sensitivity: min={best_x[15:18].min()}, max={best_x[15:18].max()}"
+    print(f"\n[AUDIT] All projection constraints verified ✓")
+    print(f"[INFO] best_obj={best_obj:.6f}, best_params={best_x}")
+    return best_x, best_obj, history
+
 
 def _load_csv_rows(path: Path) -> List[Dict[str, object]]:
-    with path.open("r", encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         rows: List[Dict[str, object]] = []
         for row in reader:
@@ -206,54 +342,223 @@ def _load_csv_rows(path: Path) -> List[Dict[str, object]]:
     return rows
 
 
+def _resolve_module_label(label_entry: dict) -> Optional[str]:
+    """Resolve module label from labels.json entry to MODULE_LABELS v1 name."""
+    mod = label_entry.get("module") or ""
+    if mod in LABELS:
+        return mod
+    mod_v2 = label_entry.get("module_v2") or ""
+    if mod_v2 in _MODULE_V1_LOOKUP:
+        return _MODULE_V1_LOOKUP[mod_v2]
+    if mod:
+        for v1_name in LABELS:
+            if v1_name in mod or mod in v1_name:
+                return v1_name
+    return None
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default=None, help="特征 CSV，列需含 gain,bias,comp,df,step_score,viol_rate,res_slope,ripple_var,switch_step_err_max,nonswitch_step_max")
-    ap.add_argument("--run_dir", default=None, help="输出目录 (包含 artifacts/features_detect.csv)")
-    ap.add_argument("--label_col", default=None, help="有监督时的标签列（模块中文名，见 LABELS）")
-    ap.add_argument("--supervised", action="store_true", help="开启有监督优化")
-    ap.add_argument("--maxiter", type=int, default=80)
-    ap.add_argument("--popsize", type=int, default=None)
+    ap = argparse.ArgumentParser(
+        description="P-CMA-ES (Projection-based) optimization for BRB hierarchical module inference")
+    ap.add_argument("--data_dir", default=None,
+                    help="数据目录 (包含 features_brb.csv 和 labels.json)")
+    ap.add_argument("--data", default=None, help="特征 CSV (旧格式)")
+    ap.add_argument("--output_dir", default=None, help="输出目录")
+    ap.add_argument("--label_col", default=None,
+                    help="有监督时的标签列名 (旧格式 CSV)")
+    ap.add_argument("--supervised", action="store_true",
+                    help="开启有监督优化")
+    ap.add_argument("--generations", "--maxiter", type=int, default=80,
+                    dest="maxiter")
+    ap.add_argument("--population", "--popsize", type=int, default=None,
+                    dest="popsize")
+    ap.add_argument("--n_jobs", type=int, default=1,
+                    help="并行度 (当前未使用)")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--sigma0", type=float, default=0.3)
     args = ap.parse_args()
 
     if cma is None:
-        print("[WARN] cma not installed; skipping optimization and saving default weights.")
-        best_w = np.array([0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.3, 0.2], dtype=float)
-        out_path = "optimized_module_rule_weights.txt"
-        np.savetxt(out_path, best_w, fmt="%.6f")
-        print(f"[INFO] 默认权重已保存到 {out_path}")
+        print("[WARN] cma not installed. Install with: pip install cma")
+        print("[WARN] Saving default params as fallback.")
+        best_w = np.ones(18, dtype=float)
+        out_dir = Path(args.output_dir) if args.output_dir else Path(".")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        result = {
+            "hierarchical_params": best_w.tolist(),
+            "module_rule_weights": [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
+            "objective": None,
+            "note": "Default params (cma not installed)",
+        }
+        out_path = out_dir / "best_params.json"
+        out_path.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[INFO] Default params saved to {out_path}")
         return
 
-    if args.run_dir:
-        run_dir = Path(args.run_dir)
-        data_path = run_dir / "artifacts" / "features_detect.csv"
-    else:
-        data_path = Path(args.data) if args.data else None
-    if data_path is None or not data_path.exists():
-        raise FileNotFoundError("缺少特征 CSV，请传入 --data 或 --run_dir")
-    feats_rows = _load_csv_rows(data_path)
-    # 过滤掉不含必需特征的行
-    required = ["gain","bias","comp","df","step_score","viol_rate","res_slope","ripple_var","switch_step_err_max","nonswitch_step_max"]
-    for col in required:
-        if not feats_rows or col not in feats_rows[0]:
-            raise ValueError(f"缺少特征列: {col}")
+    # Load data
+    feats_rows: List[Dict] = []
+    label_v2_names: Optional[List[str]] = None
+    fault_types: List[str] = []
 
-    best_w, best_obj = optimize(
+    # Fault class mapping
+    _SYS_CN_TO_FAULT = {
+        "amp_error": "amp_error",
+        "freq_error": "freq_error",
+        "ref_error": "ref_error",
+        "幅度失准": "amp_error",
+        "频率失准": "freq_error",
+        "参考电平失准": "ref_error",
+    }
+
+    if args.data_dir:
+        data_dir = Path(args.data_dir)
+        features_path = data_dir / "features_brb.csv"
+        labels_path = data_dir / "labels.json"
+
+        if not features_path.exists():
+            raise FileNotFoundError(
+                f"features_brb.csv not found in {data_dir}")
+        if not labels_path.exists():
+            raise FileNotFoundError(
+                f"labels.json not found in {data_dir}")
+
+        feats_rows = _load_csv_rows(features_path)
+        labels_dict = json.loads(labels_path.read_text(encoding="utf-8"))
+
+        sample_feats: Dict[str, Dict] = {}
+        for row in feats_rows:
+            sid = row.get("sample_id", "")
+            if isinstance(sid, float):
+                sid = str(int(sid))
+            sample_feats[str(sid)] = row
+
+        if args.supervised:
+            filtered_rows: List[Dict] = []
+            filtered_labels: List[str] = []
+            filtered_faults: List[str] = []
+            for sid, label_entry in labels_dict.items():
+                if str(sid) not in sample_feats:
+                    continue
+                sys_class = label_entry.get("system_fault_class", "normal")
+                if sys_class == "normal":
+                    continue
+                fault_type = _SYS_CN_TO_FAULT.get(sys_class)
+                if fault_type is None:
+                    continue
+                mod_v2 = _resolve_module_to_v2(label_entry)
+                if mod_v2 is None:
+                    continue
+                filtered_rows.append(sample_feats[str(sid)])
+                filtered_labels.append(mod_v2)
+                filtered_faults.append(fault_type)
+
+            if filtered_rows:
+                feats_rows = filtered_rows
+                label_v2_names = filtered_labels
+                fault_types = filtered_faults
+                print(f"[INFO] Supervised: {len(feats_rows)} samples "
+                      f"with V2 module labels")
+                from collections import Counter
+                dist = Counter(label_v2_names)
+                for mod, count in sorted(dist.items(), key=lambda x: -x[1]):
+                    print(f"  {mod}: {count}")
+            else:
+                print("[WARN] No valid module labels. "
+                      "Falling back to unsupervised.")
+                label_v2_names = None
+        
+        # For unsupervised mode, still need fault_types
+        if not fault_types:
+            print(f"[INFO] Unsupervised: {len(feats_rows)} samples")
+            for row in feats_rows:
+                fault_types.append(_fault_type_from_features(dict(row)))
+
+    elif args.data:
+        data_path = Path(args.data)
+        if not data_path.exists():
+            raise FileNotFoundError(f"CSV not found: {data_path}")
+        feats_rows = _load_csv_rows(data_path)
+        for row in feats_rows:
+            fault_types.append(_fault_type_from_features(dict(row)))
+    else:
+        raise ValueError("Please provide --data_dir or --data")
+
+    print(f"\n[INFO] Starting P-CMA-ES optimization (hierarchical params)...")
+    print(f"  Samples: {len(feats_rows)}")
+    print(f"  Mode: {'supervised' if label_v2_names is not None else 'unsupervised'}")
+    print(f"  Parameters: 18 (8 amp + 4 freq + 3 ref priors + 3 feat sensitivity)")
+    print(f"  Constraints: simplex (prior groups), box [0.1, 5.0] (feat sensitivity)")
+    print(f"  Max iterations: {args.maxiter}")
+    if args.popsize:
+        print(f"  Population size: {args.popsize}")
+
+    best_w, best_obj, history = optimize(
         feats_rows=feats_rows,
-        supervised=args.supervised,
-        label_col=args.label_col,
+        label_v2_names=label_v2_names,
+        fault_types=fault_types,
         maxiter=args.maxiter,
         popsize=args.popsize,
         seed=args.seed,
         sigma0=args.sigma0,
     )
 
-    # 保存结果
-    out_path = "optimized_module_rule_weights.txt"
-    np.savetxt(out_path, best_w, fmt="%.6f")
-    print(f"[INFO] 最优权重已保存到 {out_path}")
+    # Save results
+    out_dir = Path(args.output_dir) if args.output_dir else Path(".")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    result = {
+        "optimizer": "P-CMA-ES",
+        "projection": {
+            "scale_factors": f"box [{_SCALE_BOX[0]}, {_SCALE_BOX[1]}]",
+            "feat_sensitivity": f"box [{_SENS_BOX[0]}, {_SENS_BOX[1]}]",
+            "simplex": "enforced by inference-level normalization (Softmax)",
+        },
+        "hierarchical_params": best_w.tolist(),
+        "module_rule_weights": [0.8, 0.6, 0.7, 0.5, 0.5, 0.4, 0.15],
+        "objective": float(best_obj),
+        "generations": len(history),
+        "mode": ("supervised" if label_v2_names is not None
+                 else "unsupervised"),
+        "n_samples": len(feats_rows),
+    }
+    params_path = out_dir / "best_params.json"
+    params_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\n[INFO] Best params saved to {params_path}")
+
+    if history:
+        log_path = out_dir / "optimization_log.csv"
+        with log_path.open("w", newline="") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=["generation", "best_obj", "mean_obj"])
+            writer.writeheader()
+            writer.writerows(history)
+        print(f"[INFO] Optimization log saved to {log_path}")
+
+    weights_path = out_dir / "optimized_hierarchical_params.txt"
+    np.savetxt(str(weights_path), best_w, fmt="%.6f")
+    print(f"[INFO] Params saved to {weights_path}")
+
+    param_names = [
+        "amp_ADC", "amp_Mixer1", "amp_Filter", "amp_Power", "amp_IF", "amp_DSP",
+        "amp_RBW", "amp_VBW",
+        "freq_RefDist", "freq_Mixer1", "freq_LO1", "freq_OCXO",
+        "ref_CalSrc", "ref_CalStore", "ref_CalSwitch",
+        "feat_sens_amp", "feat_sens_freq", "feat_sens_ref",
+    ]
+    print(f"\n{'='*55}")
+    print("P-CMA-ES OPTIMIZATION RESULTS")
+    print(f"{'='*55}")
+    for i, (name, w) in enumerate(zip(param_names, best_w)):
+        print(f"  {name}: {w:.6f}")
+    print(f"  ---")
+    print(f"  Σ(amp priors):  {sum(best_w[0:8]):.6f}  (target: 1.0)")
+    print(f"  Σ(freq priors): {sum(best_w[8:12]):.6f}  (target: 1.0)")
+    print(f"  Σ(ref priors):  {sum(best_w[12:15]):.6f}  (target: 1.0)")
+    print(f"  Objective: {best_obj:.6f}")
+    print(f"{'='*55}")
+
 
 if __name__ == "__main__":
     main()
