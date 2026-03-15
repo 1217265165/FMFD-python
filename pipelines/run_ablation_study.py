@@ -702,7 +702,7 @@ def main():
         split_path = output_dir.parent / "comparison_results" / "split_indices.json"
     if not split_path.exists():
         # Try COMPARE_DIR
-        split_path = COMPARE_DIR / "split_indices.json"
+        split_path = PROJECT_ROOT / COMPARE_DIR / "split_indices.json"
 
     if split_path.exists():
         split_payload = json.loads(split_path.read_text(encoding="utf-8"))
